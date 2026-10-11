@@ -88,6 +88,11 @@ void AGoHomePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		SharedLockerWidget->RemoveFromParent();
 		SharedLockerWidget = nullptr;
 	}
+	if (SupplyScreen)
+	{
+		SupplyScreen->RemoveFromParent();
+		SupplyScreen = nullptr;
+	}
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -112,6 +117,10 @@ void AGoHomePlayerController::SetPawn(APawn* InPawn)
 	if (IsLocalController() && SharedLockerWidget)
 	{
 		CloseSharedLocker(true);
+	}
+	if (IsLocalController() && SupplyScreen)
+	{
+		CloseSupplyScreen(true);
 	}
 }
 
@@ -461,6 +470,83 @@ void AGoHomePlayerController::Client_SharedLockerResult_Implementation(const FSh
 {
 	SharedLockerResultEvent.Broadcast(Result);
 }
+
+// --- 보급 화면(로비 메인 분기·상점·팀 보관함) ---
+
+void AGoHomePlayerController::Client_OpenSupplyScreen_Implementation(ESupplyEntry Entry)
+{
+	OpenSupplyScreen(Entry);
+}
+
+void AGoHomePlayerController::OpenSupplyScreen(ESupplyEntry Entry)
+{
+	if (!IsLocalController() || SupplyScreen || PauseMenu || SharedLockerWidget)
+	{
+		return;
+	}
+
+	UClass* WidgetClass = SupplyScreenClass.LoadSynchronous();
+	if (!WidgetClass)
+	{
+		return;
+	}
+
+	// 화면이 NativeConstruct에서 진입 경로를 묻는다(GetSupplyEntry) — 생성 전에 정해 둔다.
+	SupplyEntry = Entry;
+	SupplyScreen = CreateWidget<UUserWidget>(this, WidgetClass);
+	if (!SupplyScreen)
+	{
+		return;
+	}
+	SupplyScreen->AddToViewport(SupplyScreenZOrder);
+
+	// 보관함과 같은 Modal 규칙: UIOnly + 커서. 커서가 켜져 있으면 인게임 시스템 메뉴는 열리지 않는다(CanOpenPauseMenu).
+	FlushPressedKeys();
+	FInputModeUIOnly InputMode;
+	InputMode.SetWidgetToFocus(SupplyScreen->TakeWidget());
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	SetInputMode(InputMode);
+	bShowMouseCursor = true;
+}
+
+void AGoHomePlayerController::CloseSupplyScreen(bool bRestoreInput)
+{
+	if (!SupplyScreen)
+	{
+		return;
+	}
+
+	SupplyScreen->RemoveFromParent();
+	SupplyScreen = nullptr;
+
+	if (bRestoreInput)
+	{
+		FlushPressedKeys();
+		SetInputMode(FInputModeGameOnly());
+		bShowMouseCursor = false;
+	}
+}
+
+void AGoHomePlayerController::RequestCloseSupplyScreen()
+{
+	CloseSupplyScreen(true);
+}
+
+#if !UE_BUILD_SHIPPING
+// 오브젝트 배선 전 화면 확인용: GoHome.Supply.Open [lobby|expedition]
+static FAutoConsoleCommandWithWorldAndArgs GSupplyOpenCommand(
+	TEXT("GoHome.Supply.Open"),
+	TEXT("보급 화면을 연다. 인자: lobby(기본, 메인 분기) | expedition(탐사 아이템 박스 보관함)."),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+	{
+		AGoHomePlayerController* PC = World ? Cast<AGoHomePlayerController>(World->GetFirstPlayerController()) : nullptr;
+		if (PC)
+		{
+			const bool bExpedition = Args.Num() > 0 && Args[0].Equals(TEXT("expedition"), ESearchCase::IgnoreCase);
+			PC->OpenSupplyScreen(bExpedition ? ESupplyEntry::ExpeditionLocker : ESupplyEntry::LobbyHub);
+		}
+	}));
+#endif
 
 // 상점 열기
 void AGoHomePlayerController::Client_OpenShop_Implementation()

@@ -223,6 +223,11 @@ decisions:
       나가기는 "USessionSubsystem::DestroySession → OnDestroyComplete(성공)" 뒤에만 OpenLevel(TitleMapPath)/QuitGame. 정리할 세션이 없으면(IP 직접 접속·세션 없이 연 PIE) 바로 이동, 실패·타임아웃은 OnLeaveFailed로 팝업 안 재시도.
       호스트/참가자 구분은 NetMode(Client=참가자)로만 — 정리 API는 같고 문구만 다르다(리슨 호스트가 레벨을 떠나면 참가자는 연결 끊김으로 기본 맵 복귀).
       반려: SetGamePaused(협동 세션 전체가 멈춤). 반려: WBP_TitleSettingsPanel 인스턴스를 그대로 임베드(타이틀 드로어 배경·슬라이드 연출이 딸려 옴) — 대신 UTitleSettingsPanel 클래스를 부모로 한 별도 WBP. 클래스는 백엔드 없이도 동작(GetBackend 미사용)함을 확인.
+  - name: 보급 화면 (UI/Supply) — 위젯 트리까지 C++
+    detail: |
+      로비 보급 오브젝트 → 메인 분기(TEAM READY) → 보급 상점 / 조회 전용 팀 보관함, 탐사 아이템 박스 → 꺼내기·넣기 보관함을 한 Modal(USupplyScreenWidget)이 페이지 교체로 처리한다. 생성·입력 모드·제거는 AGoHomePlayerController(ISupplyScreenBackend), 진입 경로는 ESupplyEntry.
+      위 "BP 서브클래스가 레이아웃·Widget Animation" 관례의 예외: 페이지(USupplyPageBase 파생)가 위젯 트리·스타일·모션을 C++로 직접 만들고 WBP가 없다(PC의 SupplyScreenClass 기본값이 C++ 클래스). 이유: 시안(PRESSURE INDEX HTML)의 cubic-bezier 곡선·CSS 수치·line-height/기준선을 그대로 재현하려면 UMG 커브 키·디자이너 배치로는 근사밖에 안 된다(사용자 결정 2026-10-12 "시안을 완벽하게 구현할 수 있는 방식").
+      텍스트는 대체 글꼴(Noto Sans KR·Archivo Black — 시안의 맑은 고딕·Arial Black은 배포 불가)을 SupplyUI::Typeset으로 시안 글꼴의 줄 상자·기준선에 맞추고, HarfBuzz FullShaping으로 GPOS 커닝을 켠다. 포커스·선택은 논리 상태로 직접 그리고 Slate 포커스는 호스트가 항상 쥔다(선택 면과 조작 커서 분리 규칙).
   - name: HUD 위젯 소유
     detail: |
       상시 HUD 위젯은 BP PlayerController(또는 그 AHUD) 소유 — Pawn/Character 소유 금지. 폰 스코프 데이터(HP·산소·인벤토리)도 위젯은 뷰라 GetOwningPlayerPawn으로 읽고 OnPossessedPawnChanged에 재바인딩. 폰 소유 불가 이유: 사망 시 부활 없이 관전이 수 분 지속되며 그동안도 목표/타이머 HUD가 필요(폰 소유면 관전 내내 검은 화면), 폰은 로비마다 재생성되는 소모품. per-pawn 패널은 "폰 없음/사망" 상태를 명시.

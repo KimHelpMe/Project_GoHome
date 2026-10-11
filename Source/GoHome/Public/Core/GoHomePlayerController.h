@@ -7,6 +7,7 @@
 #include "Core/HudNoticeTypes.h"
 #include "Core/PauseMenuBackend.h"
 #include "Core/SharedLockerBackend.h"
+#include "Core/SupplyScreenBackend.h"
 #include "Data/FSettlementResult.h"
 #include "Shop/ItemShopTypes.h"
 #include "GoHomePlayerController.generated.h"
@@ -19,7 +20,7 @@ class UUserWidget;
  *
  */
 UCLASS()
-class GOHOME_API AGoHomePlayerController : public APlayerController, public IPauseMenuBackend, public ISharedLockerBackend
+class GOHOME_API AGoHomePlayerController : public APlayerController, public IPauseMenuBackend, public ISharedLockerBackend, public ISupplyScreenBackend
 {
 	GENERATED_BODY()
 
@@ -32,6 +33,20 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "UI|Shared Locker")
 	bool IsSharedLockerOpen() const { return SharedLockerWidget != nullptr; }
+
+	// ISupplyScreenBackend
+	virtual ESupplyEntry GetSupplyEntry() const override { return SupplyEntry; }
+	virtual void RequestCloseSupplyScreen() override;
+
+	UFUNCTION(BlueprintPure, Category = "UI|Supply")
+	bool IsSupplyScreenOpen() const { return SupplyScreen != nullptr; }
+
+	// 보급 화면(분기·상점·보관함) Modal을 연다. 로컬 컨트롤러 전용 — 서버 오브젝트는 Client_OpenSupplyScreen.
+	UFUNCTION(BlueprintCallable, Category = "UI|Supply")
+	void OpenSupplyScreen(ESupplyEntry Entry);
+
+	UFUNCTION(Client, Reliable)
+	void Client_OpenSupplyScreen(ESupplyEntry Entry);
 
 	// 서버(ASharedLockerActor::OnInteract) → 상호작용한 플레이어 화면에 보관함 UI를 연다.
 	UFUNCTION(Client, Reliable)
@@ -165,6 +180,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "UI|Shared Locker")
 	int32 SharedLockerZOrder = 50;
 
+	// 보급 화면 Modal 클래스. 기본값은 C++ USupplyScreenWidget(트리를 C++이 만든다) — WBP 없이도 열린다.
+	UPROPERTY(EditDefaultsOnly, Category = "UI|Supply")
+	TSoftClassPtr<UUserWidget> SupplyScreenClass = TSoftClassPtr<UUserWidget>(FSoftClassPath(TEXT("/Script/GoHome.SupplyScreenWidget")));
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI|Supply")
+	int32 SupplyScreenZOrder = 50;
+
 private:
 	// 로컬 컨트롤러에서 현재 월드의 GameState 로 탐사 레벨 여부를 판정해 Ready/Teardown 을 엣지에서 1회씩 쏜다.
 	void RefreshExplorationHUD();
@@ -216,6 +238,14 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UUserWidget> PauseMenu;
+
+	// --- 보급 화면 ---
+	void CloseSupplyScreen(bool bRestoreInput);
+
+	UPROPERTY(Transient)
+	TObjectPtr<UUserWidget> SupplyScreen;
+
+	ESupplyEntry SupplyEntry = ESupplyEntry::LobbyHub;
 
 	// --- 공유 보관함 UI ---
 	void OpenSharedLocker();
