@@ -68,6 +68,15 @@ public:
 			ClampMin = "0.0", ClampMax = "1.0"))
 	float MinValuePercent = 0.4f;
 
+	// 파손형 아이템 사운드 전용.
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item",
+		meta = (ToolTip = "파손될 때마다 재생할 사운드(마지막 파손 포함). 비워두면 소리 없음"))
+	TObjectPtr<USoundBase> BreakSound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item",
+		meta = (ToolTip = "파손 사운드에 적용할 Sound Attenuation 애셋(들리는 거리)"))
+	TObjectPtr<USoundAttenuation> BreakSoundAttenuation;
 
 	// 소음 유발형 전용(bMakeNoise일 때만 의미 있음).
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item",
