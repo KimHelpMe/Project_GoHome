@@ -46,6 +46,7 @@
 | 존 선택 | Modal | 존 셀렉트 모니터 또는 PlayerController | 상호작용 트리거 / 확정·취소 | Zone DataAsset |
 | 타이틀 (`UTitleScreenWidget` 부모 WBP) | Fullscreen | `ATitlePlayerController`(C++, `TitleScreenClass`) | 로컬 BeginPlay 생성 / 로비·세션 트래블 시 파괴 | `ITitleBackend`(컨트롤러가 구현 — 검색 스냅샷·세이브 요약·Host/Join 결과) |
 | 잠수정 보관함 (`USharedLockerWidget` 부모 `WBP_SharedLocker`, 행 `WBP_SharedLockerRow`) | Modal | `AGoHomePlayerController`(C++, `SharedLockerWidgetClass`) | `ASharedLockerActor` 상호작용 → `Client_OpenSharedLocker`(UIOnly·커서 on) / 닫기·Escape·폰 변경·월드 교체·정산 시작 시 파괴 | `AGoHomeGameState::SharedLockerItems`(복제, `OnSharedLockerChanged`) + 카탈로그 표시명/아이콘. 꺼내기/넣기는 `ISharedLockerBackend` 요청, 결과 문구는 `OnSharedLockerResult` |
+| 우측 알림 피드 (`UHudNoticeFeedWidget` 부모 `WBP_HudNoticeFeed`, 행 `WBP_HudNoticeRow`) | HUD | `AGoHomePlayerController`(C++, `HudNoticeFeedClass`) | 진행도 HUD 와 같이 로비·탐사 GameState 마다 (재)생성 / 월드 교체·EndPlay 시 파괴. 사망·폰 없음이면 비우고 숨김 | `UHudNoticeSubsystem::OnNoticePushed`(LocalPlayer) ← 서버 `Client_PushHudNotice`. 본인 알림만 |
 | 인게임 시스템 메뉴 (`UPauseMenuWidget` 부모 `WBP_PauseMenu`) | Modal | `AGoHomePlayerController`(C++, `PauseMenuClass`) | 로비·탐사에서 Escape/게임패드 Start로 생성(UIOnly, 로컬 입력만 — 세션은 멈추지 않음) / 닫힘 연출 끝·나가기 성공·월드 교체 시 파괴 | `IPauseMenuBackend`(컨트롤러가 구현 — 역할(호스트/참가자)·복귀·나가기 요청·실패 이벤트). 설정 화면은 타이틀과 같은 `UTitleSettingsPanel` 클래스(레이아웃만 `WBP_PauseSettingsPanel`) |
 
 PIE 주의: 에디터의 Stop 단축키가 Esc라 PIE 창에서 Esc를 누르면 메뉴보다 먼저 PIE가 종료된다(엔진에 끄는 옵션 없음, `DebuggerCommands.cpp`). 메뉴 키 흐름은 Standalone(`-game`)으로 확인하거나 에디터 단축키 Stop을 바꿔서 본다.

@@ -237,6 +237,11 @@ decisions:
       좌상단=정보(진행도 패널 + 그 아래 보이스 목록, 간격 16), 상단 중앙=나침반만, 하단 중앙=내 상태(O₂ 링 · 인벤토리 핫바(아래 LOAD) · HP 링). 보이스 목록이 아래로 길어져도 바이탈과 안 겹치게 하려는 배치.
       핫바는 `UInventoryHotbarWidget`/`UInventorySlotWidget`(UI/HUD, BP 로직 제거) — 캐릭터 BP의 기존 `InitInventory(InInventory)` 호출을 그대로 받는다. 슬롯 크기는 핫바가 런타임 SizeBox로 강제(슬롯 UserWidget desired가 100에 고정되던 원인 미상 문제 회피).
       O₂는 `UOxygenRingWidget`(HP 링 아트 MI_HP_Ring 재사용, 소유 폰 UOxygenComponent에 자가 바인딩)으로 바꿔 WB_HP_OxygenUI에 넣었다 — 기존 막대 WBP_OxygenStatus_V3 에셋은 남겨 둠. 산소 강화 레벨에 따라 링 전체 색이 바뀐다(청록→초록→파랑→보라, 경고색 우선) — 레벨은 복제 안 하고 복제된 MaxOxygenBonus를 DA_OxygenUpgrade 레벨별 누적 보너스와 대조해 역산. 기각: 등급별 구간 분할(예리도식) — 사용자 결정.
+  - name: 우측 알림 피드 (본인 알림)
+    detail: |
+      유물 획득·파손(들고 있을 때)·소음 단계 상승·납품을 화면 우측에 띄운다. 본인 알림만 — 서버가 판정 지점(AItemActorBase::ServerGrantToPawn/TryApplyBreakFromImpact/GrowNoiseRadius, UInventoryComponent::ServerDeliverAllItems, ACoopCarryObjectBase::ServerDeliver)에서 문구까지 담은 FHudNotice 를 만들어 UHudNoticeSubsystem::SendToPawnOwner → AGoHomePlayerController::Client_PushHudNotice 로 그 폰의 플레이어에게만 보낸다. 클라는 LocalPlayer 서브시스템(UHudNoticeSubsystem::OnNoticePushed)만 거쳐 UHudNoticeFeedWidget 이 받는다 — Item/Interaction 은 UI 를 include 하지 않는다.
+      반려: 클라 OnRep(HoldingPawn/BreakCount/CurrentNoiseRadius) 로컬 감지 — 늦은 접속·관련성 재진입 때 OnRep 이 다시 돌아 오알림이 나고, 리슨 호스트는 OnRep 이 안 돌아 경로가 둘로 갈린다.
+      같은 Key(아이템별 소음)는 새 줄 대신 기존 줄 갱신. 피드는 진행도 HUD 와 같은 시점(RefreshProgressHUD, HudNoticeFeedClass)에 (재)생성. 사망은 폰이 남으므로 UHealthComponent::IsDead(복제)까지 보고 숨긴다.
   - name: 정산 진행도 레일 데이터
     detail: |
       정산표/엔딩의 자금 관문 레일은 전 노드 위치·목표가 필요하나 FExpeditionProgress는 다음 관문 하나만 싣는다.
@@ -302,6 +307,7 @@ known_gaps:
 | `IDeathNotifier::OnDeath` | Player (`DeathNotifier.h`, `UHealthComponent`가 구현) | Interaction(`UInventoryComponent`가 `BeginPlay`에서 `FindComponentByInterface<IDeathNotifier>()`로 구독 → `ServerDropAllItems` 구현됨), Core(`AExplorationGameMode`가 `RestartPlayer`→`TrackPawnDeath`에서 폰별 구독 → 전원 사망 시 `HandleFail`, 구현됨). 구체 타입을 몰라도 사망 시점을 구독하게 하는 게 목적 |
 | `AGoHomeGameState::Fail(EFailReason)` | Core (`GoHomeGameState.h`) | 서버 전용 얇은 포워더 — `HasAuthority` 가드 후 `GetAuthGameMode<AExplorationGameMode>()->HandleFail(Reason)`. 콜러는 AI 도킹문 위협만 남음(미구현) — 타임오버는 `AExplorationGameMode`가 `TimeLimitTimer`로 `HandleFail`을 직접 부른다 |
 | 공유 보관함 | Shop (`UItemShopSubsystem`) → Core 미러 | 저장은 `UGoHomeSaveSubsystem`(`SharedLockerItems`), 표시는 `AGoHomeGameState::SharedLockerItems`/`OnSharedLockerChanged`, 요청은 `ISharedLockerBackend`(Core) → `AGoHomePlayerController` 서버 RPC, 상호작용 진입은 `ASharedLockerActor`(Interaction). 상세 Shop 절 |
+| HUD 알림(`FHudNotice`) | Core (`HudNoticeTypes.h`, `UHudNoticeSubsystem`) | Item·Interaction(서버 판정 지점에서 `UHudNoticeSubsystem::SendToPawnOwner`) → `AGoHomePlayerController::Client_PushHudNotice` → `UHudNoticeFeedWidget`(UI). 상세 UI 절 "우측 알림 피드" |
 | 정산/납품 값 흐름 | Interaction → Core → Save | Interaction(딜리버리 존 진입 시 `AddDeliveredValue` 호출), Core(`AGoHomeGameState::AddDeliveredValue` → `SaveSubsystem::AccumulateDeliveredValue` 포워드, 구현됨), Save(스키마·로직 O) |
 
 ## 공유 헤더 규칙

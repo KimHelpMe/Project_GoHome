@@ -3,6 +3,9 @@
 
 #include "Core/GoHomePlayerController.h"
 
+#include "Core/HudNoticeSubsystem.h"
+#include "Engine/LocalPlayer.h"
+
 #include "Core/LobbyGameState.h"
 #include "Core/ExplorationGameState.h"
 
@@ -63,6 +66,11 @@ void AGoHomePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	{
 		ProgressHUD->RemoveFromParent();
 		ProgressHUD = nullptr;
+	}
+	if (HudNoticeFeed)
+	{
+		HudNoticeFeed->RemoveFromParent();
+		HudNoticeFeed = nullptr;
 	}
 	if (UGoHomeGameUserSettings* Settings = UGoHomeGameUserSettings::Get())
 	{
@@ -194,6 +202,29 @@ void AGoHomePlayerController::RefreshProgressHUD()
 	if (ProgressHUD)
 	{
 		ProgressHUD->AddToViewport(ProgressHUDZOrder);
+	}
+
+	// 알림 피드도 같은 월드 수명 — 진행도 HUD 와 함께 다시 만든다
+	if (HudNoticeFeed)
+	{
+		HudNoticeFeed->RemoveFromParent();
+		HudNoticeFeed = nullptr;
+	}
+	if (HudNoticeFeedClass)
+	{
+		HudNoticeFeed = CreateWidget<UUserWidget>(this, HudNoticeFeedClass);
+		if (HudNoticeFeed)
+		{
+			HudNoticeFeed->AddToViewport(HudNoticeFeedZOrder);
+		}
+	}
+}
+
+void AGoHomePlayerController::Client_PushHudNotice_Implementation(const FHudNotice& Notice)
+{
+	if (UHudNoticeSubsystem* Notices = ULocalPlayer::GetSubsystem<UHudNoticeSubsystem>(GetLocalPlayer()))
+	{
+		Notices->Push(Notice);
 	}
 }
 

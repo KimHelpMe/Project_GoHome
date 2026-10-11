@@ -5,6 +5,7 @@
 #include "Player/GoHomeCharacter.h"
 #include "Interaction/CoopCarryDataAsset.h"
 #include "Core/GoHomeGameState.h"
+#include "Core/HudNoticeSubsystem.h"
 #include "Engine/World.h"
 #include "Engine/OverlapResult.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -372,6 +373,15 @@ void ACoopCarryObjectBase::ServerDeliver()
 	{
 		GameState->AddDeliveredValue(FMath::RoundToInt(CarryData->Value));
 	}
+
+	// 함께 옮긴 두 사람 각자에게(본인 알림)
+	FHudNotice Notice;
+	Notice.Severity = EHudNoticeSeverity::Good;
+	Notice.Badge = FText::FromString(TEXT("✓"));
+	Notice.Title = FText::Format(NSLOCTEXT("ItemNotice", "CoopDelivered", "{0} 납품"), CarryData->DisplayName);
+	Notice.Subtitle = FText::Format(NSLOCTEXT("ItemNotice", "DeliveredSum", "+{0}"), FText::AsNumber(FMath::RoundToInt(CarryData->Value)));
+	UHudNoticeSubsystem::SendToPawnOwner(CarrierA, Notice);
+	UHudNoticeSubsystem::SendToPawnOwner(CarrierB, Notice);
 
 	ReleaseCarriers();
 	Destroy();

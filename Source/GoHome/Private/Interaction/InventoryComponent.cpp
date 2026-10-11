@@ -8,6 +8,8 @@
 #include "Player/GoHomeCharacter.h"
 #include "Interaction/CoopCarryObjectBase.h"
 #include "Core/GoHomeGameState.h"
+#include "Core/HudNoticeSubsystem.h"
+#include "Item/ItemDataAsset.h"
 
 UInventoryComponent::UInventoryComponent()
 {
@@ -135,16 +137,39 @@ void UInventoryComponent::ServerDeliverAllItems()
 	AGoHomeGameState* GameState = GetWorld()->GetGameState<AGoHomeGameState>();
 	if (!GameState) return;
 
+	int32 DeliveredCount = 0;
+	int32 DeliveredSum = 0;
+	UTexture2D* FirstIcon = nullptr;
+
 	for (FInventorySlot& Slot : Slots)
 	{
 		AItemActorBase* Item = Slot.Item;
 		// 보관함 상품은 팀 장비라 납품되면 안 된다(IsDeliverable을 재정의하지 않은 장비가 있어도 안전하게).
 		if (!Item || !Item->IsDeliverable() || Item->IsSharedLockerItem()) continue;
 
-		GameState->AddDeliveredValue(FMath::RoundToInt(Item->GetCurrentValue()));
+		const int32 Value = FMath::RoundToInt(Item->GetCurrentValue());
+		GameState->AddDeliveredValue(Value);
+		++DeliveredCount;
+		DeliveredSum += Value;
+		if (!FirstIcon && Item->ItemData)
+		{
+			FirstIcon = Item->ItemData->Icon;
+		}
 		// 슬롯 비우기 + NotifyDropped() (소음 타이머 정지).
 		RemoveItem(Item);
 		Item->Destroy();
+	}
+
+	// 납품 1회 = 알림 1줄(아이템별 아님, 합산). 납품한 본인에게만.
+	if (DeliveredCount > 0)
+	{
+		FHudNotice Notice;
+		Notice.Severity = EHudNoticeSeverity::Good;
+		Notice.Icon = FirstIcon;
+		Notice.Badge = FText::FromString(TEXT("✓"));
+		Notice.Title = FText::Format(NSLOCTEXT("ItemNotice", "Delivered", "유물 {0}개 납품"), FText::AsNumber(DeliveredCount));
+		Notice.Subtitle = FText::Format(NSLOCTEXT("ItemNotice", "DeliveredSum", "+{0}"), FText::AsNumber(DeliveredSum));
+		UHudNoticeSubsystem::SendToPawnOwner(Cast<APawn>(GetOwner()), Notice);
 	}
 
 }

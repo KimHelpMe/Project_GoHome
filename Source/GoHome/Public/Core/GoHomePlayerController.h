@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "Core/HudNoticeTypes.h"
 #include "Core/PauseMenuBackend.h"
 #include "Core/SharedLockerBackend.h"
 #include "Data/FSettlementResult.h"
@@ -116,6 +117,10 @@ public:
 	UFUNCTION(Client, Reliable)
 	void Client_SharedLockerResult(const FSharedLockerResult& Result);
 
+	// 서버(UHudNoticeSubsystem::SendToPawnOwner) → 이 플레이어 화면 우측 알림 피드에 한 줄.
+	UFUNCTION(Client, Reliable)
+	void Client_PushHudNotice(const FHudNotice& Notice);
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -146,6 +151,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	int32 ProgressHUDZOrder = 0;
 
+	// 우측 알림 피드(UHudNoticeFeedWidget 부모 WBP). 진행도 HUD 와 같은 시점(로비·탐사 GameState 마다)에 (재)생성한다.
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUserWidget> HudNoticeFeedClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	int32 HudNoticeFeedZOrder = 1;
+
 	// 잠수정 공유 보관함 Modal(USharedLockerWidget 부모 WBP). 비어 있으면 보관함 상호작용 시 아무 것도 안 열린다.
 	UPROPERTY(EditDefaultsOnly, Category = "UI|Shared Locker")
 	TSubclassOf<UUserWidget> SharedLockerWidgetClass;
@@ -168,6 +180,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UUserWidget> ProgressHUD;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UUserWidget> HudNoticeFeed;
 
 	// ProgressHUD 가 생성될 때의 GameState — 다르면(새 월드) 다시 만든다
 	TWeakObjectPtr<AGameStateBase> ProgressHUDGameState;

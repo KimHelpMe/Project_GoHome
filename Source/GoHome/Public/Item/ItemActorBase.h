@@ -181,6 +181,14 @@ private:
 
 	void GrowNoiseRadius();
 
+	// 우측 알림 피드(본인만) — 납품 정산 대상(장비·보관함 상품 제외)을 들고 있을 때만 보낸다. 서버 전용.
+	bool IsNoticeTarget() const { return IsDeliverable() && !IsSharedLockerItem(); }
+	void SendHolderNotice(const struct FHudNotice& Notice) const;
+
+	// 소음 단계: 1 = 기본, 2 = Large(LargeNoiseRadius 이상), 마지막 = MaxNoiseRadius 도달. 단계 수는 반경 설정에 따라 2~3
+	int32 GetNoiseStage(float Radius) const;
+	int32 GetNoiseStageCount() const;
+
 	UFUNCTION()
 	void OnRep_CurrentNoiseRadius();
 

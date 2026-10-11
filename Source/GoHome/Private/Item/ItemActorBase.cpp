@@ -10,6 +10,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Components/AudioComponent.h"
 #include "Player/GoHomeCharacter.h"
+#include "Core/HudNoticeSubsystem.h"
 
 AItemActorBase::AItemActorBase()
 {
@@ -207,6 +208,18 @@ bool AItemActorBase::ServerGrantToPawn(APawn* InstigatorPawn)
 		Inventory->SetActiveSlot(SlotIndex);
 	}
 
+	if (IsNoticeTarget() && ItemData)
+	{
+		FHudNotice Notice;
+		Notice.Severity = EHudNoticeSeverity::Info;
+		Notice.Icon = ItemData->Icon;
+		Notice.Badge = FText::FromString(TEXT("+"));
+		Notice.Title = FText::Format(NSLOCTEXT("ItemNotice", "PickedUp", "{0} 획득"), ItemData->DisplayName);
+		Notice.Subtitle = FText::Format(NSLOCTEXT("ItemNotice", "PickedUpValue", "가치 {0}"),
+			FText::AsNumber(FMath::RoundToInt(GetCurrentValue())));
+		SendHolderNotice(Notice);
+	}
+
 	return true;
 }
 
@@ -378,8 +391,25 @@ bool AItemActorBase::TryApplyBreakFromImpact(float ImpactSpeed)
 
 	if (ImpactSpeed >= ItemData->BreakVelocityThreshold)
 	{
+		const int32 ValueBefore = FMath::RoundToInt(GetCurrentValue());
 		++BreakCount;
 		UpdateDamageVisual(); // 서버 자신은 OnRep이 안 뜨므로 수동 호출.
+
+		// 들고 있을 때만(드롭 상태 파손은 알림 없음 — Pack 알림 피드 절)
+		if (HoldingPawn && IsNoticeTarget())
+		{
+			const int32 ValueAfter = FMath::RoundToInt(GetCurrentValue());
+			const int32 LossPercent = ValueBefore > 0 ? FMath::RoundToInt(100.f * (ValueBefore - ValueAfter) / ValueBefore) : 0;
+
+			FHudNotice Notice;
+			Notice.Severity = EHudNoticeSeverity::Danger;
+			Notice.Icon = ItemData->Icon;
+			Notice.Badge = FText::FromString(TEXT("!"));
+			Notice.Title = FText::Format(NSLOCTEXT("ItemNotice", "Broken", "{0} 파손"), ItemData->DisplayName);
+			Notice.Subtitle = FText::Format(NSLOCTEXT("ItemNotice", "BrokenValue", "가치 {0} → {1} (−{2}%)"),
+				FText::AsNumber(ValueBefore), FText::AsNumber(ValueAfter), FText::AsNumber(LossPercent));
+			SendHolderNotice(Notice);
+		}
 		return true;
 	}
 	return false;
@@ -388,6 +418,12 @@ bool AItemActorBase::TryApplyBreakFromImpact(float ImpactSpeed)
 
 
 // NoiseType
+
+namespace ItemNotice
+{
+	// 이 반경 이상이면 소음 타입 Large(몬스터 판정) — 알림 소음 단계 경계와 같은 값
+	constexpr float LargeNoiseRadius = 1500.f;
+}
 
 void AItemActorBase::NotifyPickedUp()
 {
@@ -465,11 +501,38 @@ void AItemActorBase::GrowNoiseRadius()
 {
 	if (!ItemData) return;
 
+	const int32 StageBefore = GetNoiseStage(CurrentNoiseRadius);
 	CurrentNoiseRadius = FMath::Min(
 		CurrentNoiseRadius + ItemData->NoiseRadiusGrowthPerInterval,
 		ItemData->MaxNoiseRadius);
 
-	const ENoiseType Type = (CurrentNoiseRadius >= 1500.f) ? ENoiseType::Large : ENoiseType::Medium;
+	const int32 Stage = GetNoiseStage(CurrentNoiseRadius);
+	if (Stage > StageBefore && HoldingPawn && IsNoticeTarget())
+	{
+		const int32 StageCount = GetNoiseStageCount();
+		const bool bMax = Stage >= StageCount;
+
+		FHudNotice Notice;
+		// 아이템별 한 줄 — 단계가 오르면 같은 줄이 갱신된다
+		Notice.Key = FName(*FString::Printf(TEXT("Noise_%s"), *GetName()));
+		Notice.Severity = bMax ? EHudNoticeSeverity::Danger : EHudNoticeSeverity::Warning;
+		Notice.Icon = ItemData->Icon;
+		Notice.Badge = FText::FromString(TEXT("≈"));
+		if (bMax)
+		{
+			Notice.Title = FText::Format(NSLOCTEXT("ItemNotice", "NoiseMax", "{0} 소음 최대"), ItemData->DisplayName);
+			Notice.Subtitle = NSLOCTEXT("ItemNotice", "NoiseMaxSub", "괴물이 들을 수 있습니다");
+		}
+		else
+		{
+			Notice.Title = FText::Format(NSLOCTEXT("ItemNotice", "NoiseRising", "{0} 소음이 커지고 있습니다"), ItemData->DisplayName);
+			Notice.Subtitle = FText::Format(NSLOCTEXT("ItemNotice", "NoiseStage", "소음 단계 {0} / {1}"),
+				FText::AsNumber(Stage), FText::AsNumber(StageCount));
+		}
+		SendHolderNotice(Notice);
+	}
+
+	const ENoiseType Type = (CurrentNoiseRadius >= ItemNotice::LargeNoiseRadius) ? ENoiseType::Large : ENoiseType::Medium;
 	UGoHomeNoiseLibrary::GenerateNoise(this, GetActorLocation(), CurrentNoiseRadius, Type, this);
 
 	UpdateNoiseAudio(); // 서버 자신은 OnRep_CurrentNoiseRadius가 안 뜨므로 수동 호출.
@@ -568,4 +631,28 @@ void AItemActorBase::UpdateDamageVisual()
 		}
 
 	}
+}
+
+void AItemActorBase::SendHolderNotice(const FHudNotice& Notice) const
+{
+	UHudNoticeSubsystem::SendToPawnOwner(HoldingPawn, Notice);
+}
+
+int32 AItemActorBase::GetNoiseStage(float Radius) const
+{
+	if (!ItemData || Radius <= 0.f)
+	{
+		return 0;
+	}
+	if (Radius >= ItemData->MaxNoiseRadius)
+	{
+		return GetNoiseStageCount();
+	}
+	return Radius >= ItemNotice::LargeNoiseRadius ? 2 : 1;
+}
+
+int32 AItemActorBase::GetNoiseStageCount() const
+{
+	// 최대 반경이 Large 경계 이하면 "Large 진입 = 최대" 라 단계가 하나 줄어든다
+	return (ItemData && ItemData->MaxNoiseRadius > ItemNotice::LargeNoiseRadius) ? 3 : 2;
 }
