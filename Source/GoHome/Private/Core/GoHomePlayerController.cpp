@@ -596,6 +596,9 @@ void AGoHomePlayerController::HandleSettlementReadyForPause(const FSettlementRes
 
 	// 보관함도 같은 이유로 걷어낸다(입력 모드는 정산 화면 몫).
 	CloseSharedLocker(false);
+
+	// 이동 키를 누른 채 정산이 UIOnly로 입력을 가져가면 키 뗌이 위젯으로 가서 눌림 상태가 남는다 — 로비 복귀 후에도 계속 움직임.
+	FlushPressedKeys();
 }
 
 EPauseSessionRole AGoHomePlayerController::GetSessionRole() const

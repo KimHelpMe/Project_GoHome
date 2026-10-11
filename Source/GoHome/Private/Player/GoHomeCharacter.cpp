@@ -111,6 +111,8 @@ void AGoHomeCharacter::BeginPlay()
 
 		if (PC->IsLocalController())
 		{
+			// 이전 맵(정산 등 UI 화면)에서 남은 눌림 상태가 새 폰을 움직이지 않게 게임 입력으로 돌아오는 시점에 비운다.
+			PC->FlushPressedKeys();
 			PC->SetInputMode(FInputModeGameOnly());
 			PC->bShowMouseCursor = false;
 		}
