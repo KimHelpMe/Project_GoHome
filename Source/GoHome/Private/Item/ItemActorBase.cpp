@@ -11,6 +11,9 @@
 #include "Components/AudioComponent.h"
 #include "Player/GoHomeCharacter.h"
 #include "Core/HudNoticeSubsystem.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
+#include "Sound/SoundAttenuation.h"
 
 AItemActorBase::AItemActorBase()
 {
@@ -394,6 +397,7 @@ bool AItemActorBase::TryApplyBreakFromImpact(float ImpactSpeed)
 		const int32 ValueBefore = FMath::RoundToInt(GetCurrentValue());
 		++BreakCount;
 		UpdateDamageVisual(); // 서버 자신은 OnRep이 안 뜨므로 수동 호출.
+		Multicast_PlayBreakSound(); // 서버 포함 모든 머신에서 재생(NetMulticast는 서버 자신에게도 실행됨).
 
 		// 들고 있을 때만(드롭 상태 파손은 알림 없음 — Pack 알림 피드 절)
 		if (HoldingPawn && IsNoticeTarget())
@@ -607,6 +611,16 @@ void AItemActorBase::OnRep_BreakCount()
 {
 	UpdateDamageVisual();
 }
+
+void AItemActorBase::Multicast_PlayBreakSound_Implementation()
+{
+	if (!ItemData || !ItemData->BreakSound) return;
+
+	// 인벤토리 안에서 깨진 경우도 아이템이 플레이어에 붙어 있어서, 들고 있는 사람 위치에서 재생됨.
+	UGameplayStatics::PlaySoundAtLocation(this, ItemData->BreakSound, GetActorLocation(),
+		FRotator::ZeroRotator, 1.f, 1.f, 0.f, ItemData->BreakSoundAttenuation);
+}
+
 
 void AItemActorBase::UpdateDamageVisual()
 {

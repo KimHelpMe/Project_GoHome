@@ -241,6 +241,11 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Item")
 	TObjectPtr<UMaterialInterface> CrackOverlayMaterial;
 
+	// 파손 순간 1회 사운드. 서버가 파손을 확정할 때 호출 -> 모든 머신에서 재생.
+	// OnRep_BreakCount에서 재생하면 이미 깨진 아이템이 나중에 관련성 범위로 들어올 때도 소리가 나서 RPC로 분리.
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_PlayBreakSound();
+
 	UPROPERTY()
 	TObjectPtr<UMaterialInstanceDynamic> CrackOverlayMID;
 	//-----------
