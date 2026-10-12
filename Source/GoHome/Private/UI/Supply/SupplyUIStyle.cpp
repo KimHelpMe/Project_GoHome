@@ -206,8 +206,12 @@ namespace SupplyUI
 	UBorder* FBuilder::Fill(const FLinearColor& Color, const FMargin& Padding) const
 	{
 		UBorder* Border = Tree->ConstructWidget<UBorder>();
+		// Box(평면 사각형)는 렌더 변환으로 회전·기울이면 가장자리가 계단으로 깨진다. RoundedBox는 SDF 셰이더가 자기 공간에서
+		// 가장자리 커버리지를 계산해 회전해도 매끈하다 — 반지름 0·외곽선 없음으로 모서리는 그대로(외곽선은 부모 투명도를 안 따르므로 안 씀).
 		FSlateBrush Brush;
-		Brush.DrawAs = ESlateBrushDrawType::Box;
+		Brush.DrawAs = ESlateBrushDrawType::RoundedBox;
+		Brush.OutlineSettings = FSlateBrushOutlineSettings(FVector4(0.f, 0.f, 0.f, 0.f), FSlateColor(FLinearColor::Transparent), 0.f);
+		Brush.OutlineSettings.RoundingType = ESlateBrushRoundingType::FixedRadius;
 		Brush.TintColor = FSlateColor(FLinearColor::White);
 		Border->SetBrush(Brush);
 		Border->SetBrushColor(Color);
