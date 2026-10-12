@@ -243,7 +243,7 @@ UWidget* USupplyLockerPage::BuildDetail(const FBuilder& B)
 	Frame->SetContent(Inner);
 	AddFill(Inner, B.Fill(Blue()));
 
-	UWidget* InnerFrame = B.Ring(MixSRGB(0xbac7ff, 0x55 / 255.f, 0x2747d8), 1.f);
+	UWidget* InnerFrame = B.Ring(MixSRGB(0xbac7ff, 0x55 / 255.f, 0x2747d8), 1.f, true);	// -6° 회전 — 헤어라인은 AA가 없어 채움 변으로
 	InnerFrame->SetRenderTransformPivot(FVector2D(.5f, .5f));
 	InnerFrame->SetRenderTransformAngle(-6.f);
 	AddOverlay(Inner, InnerFrame, HAlign_Fill, VAlign_Fill, FMargin(20.f));
@@ -1441,6 +1441,14 @@ void USupplyLockerPage::OnPageRebuilt()
 	NoteSlot->SetPadding(FMargin(0.f, bExpedition ? Css(10.f, 6.f) : 0.f, 0.f, 0.f));
 	SetStatus(StatusMessage, bStatusError);
 	RefreshAll(false);
+	// 새 스크롤 상자는 맨 위에서 시작 — 선택 행을 다시 보이게(Select와 같은 규칙)
+	for (const FRowWidgets& Row : Rows)
+	{
+		if (Row.ProductId == SelectedId && Row.Root)
+		{
+			ScrollIntoViewNextFrame(RowsScroll, Row.Root);
+		}
+	}
 	if (bConfirmOpen)
 	{
 		HitLayer = LockerConfirmLayerIndex;

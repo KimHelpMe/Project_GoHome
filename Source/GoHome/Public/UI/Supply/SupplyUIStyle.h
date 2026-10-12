@@ -102,7 +102,8 @@ namespace SupplyUI
 		// 테두리만(안쪽 채움 없음). CSS outline/inset box-shadow 재현용 — 슬롯 패딩으로 offset을 준다.
 		// 네 변을 단색 막대로 그린다: RoundedBox 브러시의 외곽선(OutlineSettings)은 부모 RenderOpacity를 따르지 않아
 		// 페이드 아웃(스윕 잔상 등) 중에도 그대로 남는다(2026-10-12 확인).
-		UWidget* Ring(const FLinearColor& Color, float Width) const;
+		// bRotated: 렌더 변환으로 회전·기울일 링 — 1px도 헤어라인(축 정렬 스냅, AA 없음) 대신 매끈한 채움 변으로 그린다.
+		UWidget* Ring(const FLinearColor& Color, float Width, bool bRotated = false) const;
 
 		// Typeset 후 그 텍스트를 돌려준다(조립 체인용)
 		UTextBlock* LineBox(UTextBlock* TextWidget, float LineHeightPx = -1.f, ERef Ref = ERef::Malgun) const;
@@ -120,6 +121,6 @@ namespace SupplyUI
 	// 가로/세로 줄(CSS border). 1px은 UHairlineWidget — DPI 배율 < 1에서 1px 채움 막대는 픽셀 중심 사이에 끼면 통째로 사라진다
 	GOHOME_API UWidget* Rule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f);
 	GOHOME_API UWidget* VRule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f);
-	GOHOME_API void ShowIf(UWidget* Widget, bool bShow);
+	GOHOME_API void ShowIf(UWidget* Widget, bool bShow);	// 보이면 HitTestInvisible, 아니면 Hidden(자리 유지)
 	GOHOME_API void SetRingColor(UWidget* Ring, const FLinearColor& Color);	// FBuilder::Ring 네 변 색 바꾸기(채움 막대·헤어라인 둘 다)	// 보이면 HitTestInvisible, 아니면 Hidden(자리 유지)
 }

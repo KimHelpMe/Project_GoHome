@@ -608,6 +608,7 @@ void USupplyShopPage::BuildRows()
 	}
 	RowsList->ClearChildren();
 	Rows.Reset();
+	PruneHitTargets();
 	const FBuilder B(WidgetTree);
 	for (const FItemShopProduct& Product : Products)
 	{
@@ -1260,6 +1261,13 @@ void USupplyShopPage::OnPageRebuilt()
 	BuildRows();
 	SetStatus(StatusMessage, bStatusError);
 	RefreshAll();
+	for (const FRowWidgets& Row : Rows)
+	{
+		if (Row.ProductId == SelectedId && Row.Root)
+		{
+			ScrollIntoViewNextFrame(RowsScroll, Row.Root);
+		}
+	}
 	if (bConfirmOpen)
 	{
 		HitLayer = ShopConfirmLayerIndex;

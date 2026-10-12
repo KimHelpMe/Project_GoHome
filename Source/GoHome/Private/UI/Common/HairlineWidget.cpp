@@ -45,13 +45,13 @@ public:
 		const bool bHorizontal = Orientation == Orient_Horizontal;
 		const FSlateRenderTransform& Transform = AllottedGeometry.GetAccumulatedRenderTransform();
 
-		// 선 두께 방향으로 로컬 1단위가 몇 물리 픽셀인지 — 역수가 1 물리 픽셀의 로컬 두께
+		// 선 두께 방향으로 로컬 1단위가 몇 물리 픽셀인지. 두께는 그걸 정수로 반올림(최소 1) — 4K(배율 2)에선 2픽셀로 스펙 유지
 		const float PixelsPerUnit = Transform.TransformVector(bHorizontal ? FVector2f(0.f, 1.f) : FVector2f(1.f, 0.f)).Size();
 		if (PixelsPerUnit <= KINDA_SMALL_NUMBER)
 		{
 			return LayerId;
 		}
-		const float Thickness = 1.f / PixelsPerUnit;
+		const float Thickness = FMath::Max(1.f, FMath::RoundToFloat(PixelsPerUnit)) / PixelsPerUnit;
 
 		// 선 시작 모서리를 물리 픽셀 경계로 스냅 — 반 픽셀 걸침으로 흐려지거나 사라지지 않게
 		const FVector2f AbsOrigin = Transform.TransformPoint(FVector2f::ZeroVector);

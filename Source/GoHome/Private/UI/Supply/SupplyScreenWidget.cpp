@@ -1,5 +1,6 @@
 #include "UI/Supply/SupplyScreenWidget.h"
 
+#include "Blueprint/WidgetLayoutLibrary.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Overlay.h"
@@ -97,6 +98,14 @@ void USupplyScreenWidget::NativeConstruct()
 
 	Backend = TWeakInterfacePtr<ISupplyScreenBackend>(GetOwningPlayer());
 	bClosing = false;
+
+	// 압축 여부를 오프닝 전에 정한다 — 첫 틱에서 트리를 다시 만들면 오프닝·등장 모션이 옛 위젯에 걸린 채 새 트리는 바로 보인다.
+	// 이 화면은 뷰포트를 꽉 채우므로 뷰포트 논리 크기 = 첫 틱의 MyGeometry 크기.
+	const float ViewportScale = UWidgetLayoutLibrary::GetViewportScale(this);
+	if (ViewportScale > KINDA_SMALL_NUMBER)
+	{
+		ApplyViewSize(UWidgetLayoutLibrary::GetViewportSize(this) / ViewportScale);
+	}
 	Start(Backend.IsValid() ? Backend->GetSupplyEntry() : ESupplyEntry::LobbyHub);
 }
 
@@ -109,8 +118,18 @@ void USupplyScreenWidget::NativeDestruct()
 void USupplyScreenWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
+	ApplyViewSize(MyGeometry.GetLocalSize());
 
-	FVector2D ViewSize = MyGeometry.GetLocalSize();
+	float MotionDelta = InDeltaTime;
+#if !UE_BUILD_SHIPPING
+	MotionDelta *= FMath::Max(0.f, CVarSupplyMotionScale.GetValueOnGameThread());
+#endif
+	Animator.Tick(MotionDelta);
+}
+
+void USupplyScreenWidget::ApplyViewSize(const FVector2D& RawSize)
+{
+	FVector2D ViewSize = RawSize;
 	float ClipBottom = 0.f;
 #if !UE_BUILD_SHIPPING
 	const float ForcedHeight = CVarSupplyViewHeight.GetValueOnGameThread();
@@ -135,12 +154,6 @@ void USupplyScreenWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaT
 			}
 		}
 	}
-
-	float MotionDelta = InDeltaTime;
-#if !UE_BUILD_SHIPPING
-	MotionDelta *= FMath::Max(0.f, CVarSupplyMotionScale.GetValueOnGameThread());
-#endif
-	Animator.Tick(MotionDelta);
 }
 
 void USupplyScreenWidget::Start(ESupplyEntry Entry)

@@ -257,14 +257,25 @@ namespace SupplyUI
 		return TextWidget;
 	}
 
-	UWidget* FBuilder::Ring(const FLinearColor& Color, float Width) const
+	UWidget* FBuilder::Ring(const FLinearColor& Color, float Width, bool bRotated) const
 	{
 		UOverlay* RingOverlay = Overlay();
 		// 1px 변은 Rule/VRule과 같이 헤어라인(DPI 배율 < 1에서 채움 막대 변이 사라지는 문제 — kbd 칩 윗변 실측)
-		AddOverlay(RingOverlay, Rule(*this, Color, Width), HAlign_Fill, VAlign_Top);
-		AddOverlay(RingOverlay, Rule(*this, Color, Width), HAlign_Fill, VAlign_Bottom);
-		AddOverlay(RingOverlay, VRule(*this, Color, Width), HAlign_Left, VAlign_Fill);
-		AddOverlay(RingOverlay, VRule(*this, Color, Width), HAlign_Right, VAlign_Fill);
+		if (bRotated)
+		{
+			const float Half = Width * .5f;
+			AddOverlay(RingOverlay, Fill(Color, FMargin(0.f, Half)), HAlign_Fill, VAlign_Top);
+			AddOverlay(RingOverlay, Fill(Color, FMargin(0.f, Half)), HAlign_Fill, VAlign_Bottom);
+			AddOverlay(RingOverlay, Fill(Color, FMargin(Half, 0.f)), HAlign_Left, VAlign_Fill);
+			AddOverlay(RingOverlay, Fill(Color, FMargin(Half, 0.f)), HAlign_Right, VAlign_Fill);
+		}
+		else
+		{
+			AddOverlay(RingOverlay, Rule(*this, Color, Width), HAlign_Fill, VAlign_Top);
+			AddOverlay(RingOverlay, Rule(*this, Color, Width), HAlign_Fill, VAlign_Bottom);
+			AddOverlay(RingOverlay, VRule(*this, Color, Width), HAlign_Left, VAlign_Fill);
+			AddOverlay(RingOverlay, VRule(*this, Color, Width), HAlign_Right, VAlign_Fill);
+		}
 		RingOverlay->SetVisibility(ESlateVisibility::HitTestInvisible);
 		return RingOverlay;
 	}
