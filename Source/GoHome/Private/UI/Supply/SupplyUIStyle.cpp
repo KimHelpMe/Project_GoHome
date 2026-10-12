@@ -20,6 +20,7 @@
 #include "Fonts/FontMeasure.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Rendering/SlateRenderer.h"
+#include "UI/Common/HairlineWidget.h"
 
 namespace SupplyUI
 {
@@ -255,11 +256,11 @@ namespace SupplyUI
 	UWidget* FBuilder::Ring(const FLinearColor& Color, float Width) const
 	{
 		UOverlay* RingOverlay = Overlay();
-		const float Half = Width * .5f;
-		AddOverlay(RingOverlay, Fill(Color, FMargin(0.f, Half)), HAlign_Fill, VAlign_Top);
-		AddOverlay(RingOverlay, Fill(Color, FMargin(0.f, Half)), HAlign_Fill, VAlign_Bottom);
-		AddOverlay(RingOverlay, Fill(Color, FMargin(Half, 0.f)), HAlign_Left, VAlign_Fill);
-		AddOverlay(RingOverlay, Fill(Color, FMargin(Half, 0.f)), HAlign_Right, VAlign_Fill);
+		// 1px 변은 Rule/VRule과 같이 헤어라인(DPI 배율 < 1에서 채움 막대 변이 사라지는 문제 — kbd 칩 윗변 실측)
+		AddOverlay(RingOverlay, Rule(*this, Color, Width), HAlign_Fill, VAlign_Top);
+		AddOverlay(RingOverlay, Rule(*this, Color, Width), HAlign_Fill, VAlign_Bottom);
+		AddOverlay(RingOverlay, VRule(*this, Color, Width), HAlign_Left, VAlign_Fill);
+		AddOverlay(RingOverlay, VRule(*this, Color, Width), HAlign_Right, VAlign_Fill);
 		RingOverlay->SetVisibility(ESlateVisibility::HitTestInvisible);
 		return RingOverlay;
 	}
@@ -335,14 +336,25 @@ namespace SupplyUI
 		return FText::FromString(TEXT("—"));
 	}
 
-	UBorder* Rule(const FBuilder& B, const FLinearColor& Color, float Thickness)
+	namespace
 	{
-		return B.Fill(Color, FMargin(0.f, Thickness * .5f));
+		UWidget* Hairline(const FBuilder& B, const FLinearColor& Color, EOrientation Orientation)
+		{
+			UHairlineWidget* Line = B.Tree->ConstructWidget<UHairlineWidget>();
+			Line->SetLineColor(Color);
+			Line->SetOrientation(Orientation);
+			return Line;
+		}
 	}
 
-	UBorder* VRule(const FBuilder& B, const FLinearColor& Color, float Thickness)
+	UWidget* Rule(const FBuilder& B, const FLinearColor& Color, float Thickness)
 	{
-		return B.Fill(Color, FMargin(Thickness * .5f, 0.f));
+		return Thickness <= 1.f ? Hairline(B, Color, Orient_Horizontal) : B.Fill(Color, FMargin(0.f, Thickness * .5f));
+	}
+
+	UWidget* VRule(const FBuilder& B, const FLinearColor& Color, float Thickness)
+	{
+		return Thickness <= 1.f ? Hairline(B, Color, Orient_Vertical) : B.Fill(Color, FMargin(Thickness * .5f, 0.f));
 	}
 
 	void ShowIf(UWidget* Widget, bool bShow)

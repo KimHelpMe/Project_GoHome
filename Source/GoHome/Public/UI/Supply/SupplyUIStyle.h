@@ -117,7 +117,8 @@ namespace SupplyUI
 
 	// 페이지 공용 소품(상점·보관함)
 	GOHOME_API FText Dash();	// 값 없음 "—"
-	GOHOME_API UBorder* Rule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f);	// 가로 줄(CSS border 1px 등)
-	GOHOME_API UBorder* VRule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f);	// 세로 줄
+	// 가로/세로 줄(CSS border). 1px은 UHairlineWidget — DPI 배율 < 1에서 1px 채움 막대는 픽셀 중심 사이에 끼면 통째로 사라진다
+	GOHOME_API UWidget* Rule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f);
+	GOHOME_API UWidget* VRule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f);
 	GOHOME_API void ShowIf(UWidget* Widget, bool bShow);	// 보이면 HitTestInvisible, 아니면 Hidden(자리 유지)
 }

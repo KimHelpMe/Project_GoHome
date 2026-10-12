@@ -299,7 +299,8 @@ UWidget* USupplyLockerPage::BuildDetail(const FBuilder& B)
 	auto AddCell = [&](const FText& Label, TObjectPtr<UTextBlock>& OutValue, TObjectPtr<UTextBlock>* OutLabel, bool bFirst, bool bLast, TObjectPtr<UBorder>* OutBlock)
 	{
 		// 압축: padding-block 6, dt 10(mb 3), dd 25
-		UBorder* Cell = B.Fill(FLinearColor::Transparent, FMargin(bFirst ? 0.f : 12.f, Css(10.f, 6.f), 12.f, Css(10.f, 6.f)));
+		// 가로 패딩은 슬롯에 — flex:1은 패딩 뺀 내용 폭을 똑같이 나눈다(첫 칸 padding-left 0이라 첫 칸만 12 좁다). 박스 패널 채움도 슬롯 패딩은 고정분으로 뺀다.
+		UBorder* Cell = B.Fill(FLinearColor::Transparent, FMargin(0.f, Css(10.f, 6.f)));
 		UVerticalBox* Stack = B.VBox();
 		UTextBlock* LabelText = B.LineBox(B.Text(Label, Font(EFace::Regular, Css(11.f, 10.f)), Muted()));
 		AddV(Stack, LabelText, FMargin(0.f, 0.f, 0.f, Css(5.f, 3.f)));
@@ -307,7 +308,7 @@ UWidget* USupplyLockerPage::BuildDetail(const FBuilder& B)
 		OutValue = B.LineBox(B.Text(Dash(), Font(EFace::ExtraBold, ValuePx), Paper()), ValuePx, ERef::Segoe);
 		AddV(Stack, OutValue);
 		Cell->SetContent(Stack);
-		AddH(Cells, Cell, FMargin(0.f), VAlign_Fill, 1.f);
+		AddH(Cells, Cell, FMargin(bFirst ? 0.f : 12.f, 0.f, 12.f, 0.f), VAlign_Fill, 1.f);
 		if (!bLast)
 		{
 			AddH(Cells, VRule(B, Line()), FMargin(0.f), VAlign_Fill);
@@ -390,6 +391,10 @@ UWidget* USupplyLockerPage::BuildManifest(const FBuilder& B)
 		BarStyle.SetVerticalBackgroundImage(Clear).SetVerticalTopSlotImage(Clear).SetVerticalBottomSlotImage(Clear);
 		BarStyle.SetThickness(4.f);
 		RowsScroll->SetWidgetBarStyle(BarStyle);
+		// SScrollBox 기본 위/아래 가장자리 그림자(스크롤 가능할 때 그라데이션 띠) — CSS overflow엔 없다
+		FScrollBoxStyle BoxStyle = RowsScroll->GetWidgetStyle();
+		BoxStyle.SetTopShadowBrush(Clear).SetBottomShadowBrush(Clear).SetLeftShadowBrush(Clear).SetRightShadowBrush(Clear);
+		RowsScroll->SetWidgetStyle(BoxStyle);
 	}
 	UBorder* RowsPad = B.Box(FMargin(17.f, 6.f, 10.f, 12.f));
 	RowsList = B.VBox();

@@ -88,6 +88,15 @@ void UHairlineWidget::SetLineColor(const FLinearColor& InColor)
 	}
 }
 
+void UHairlineWidget::SetOrientation(EOrientation InOrientation)
+{
+	Orientation = InOrientation;
+	if (MyHairline.IsValid())
+	{
+		MyHairline->SetOrientation(Orientation);
+	}
+}
+
 void UHairlineWidget::SynchronizeProperties()
 {
 	Super::SynchronizeProperties();

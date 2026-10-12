@@ -138,7 +138,7 @@ UWidget* USupplyShopPage::BuildMasthead(const FBuilder& B)
 		// strong(900 italic 32px/1.2)이 부모 줄(맑은 고딕 15px 기준) 안에 들어가 줄 상자 43
 		FundsText = B.Text(Dash(), Font(EFace::Black, 32.f, 0.f, true), Paper());
 		Typeset(FundsText, ERef::Segoe, 43.f);
-		AddV(WalletColumn, FundsText, FMargin(16.f, 0.f, 16.f, 0.f), HAlign_Right);
+		AddV(WalletColumn, FundsText, FMargin(16.f, 0.f, 16.f, 5.f), HAlign_Right);	// padding 5px 16px — 아래 5는 밑줄 위
 		AddV(WalletColumn, Rule(B, Lime(), 3.f));
 		AddFill(Wallet, WalletColumn);
 		AddH(Side, Wallet, FMargin(0.f, 0.f, 24.f, 0.f), VAlign_Center);
@@ -228,6 +228,10 @@ UWidget* USupplyShopPage::BuildCatalog(const FBuilder& B)
 		BarStyle.SetVerticalBackgroundImage(Clear).SetVerticalTopSlotImage(Clear).SetVerticalBottomSlotImage(Clear);
 		BarStyle.SetThickness(4.f);
 		RowsScroll->SetWidgetBarStyle(BarStyle);
+		// SScrollBox 기본 위/아래 가장자리 그림자(스크롤 가능할 때 그라데이션 띠) — CSS overflow엔 없다
+		FScrollBoxStyle BoxStyle = RowsScroll->GetWidgetStyle();
+		BoxStyle.SetTopShadowBrush(Clear).SetBottomShadowBrush(Clear).SetLeftShadowBrush(Clear).SetRightShadowBrush(Clear);
+		RowsScroll->SetWidgetStyle(BoxStyle);
 	}
 	UBorder* RowsPad = B.Box(FMargin(17.f, 8.f, 12.f, 12.f));
 	RowsList = B.VBox();
@@ -534,18 +538,17 @@ UWidget* USupplyShopPage::BuildConfirm(const FBuilder& B)
 	AddV(Values, Rule(B, Hex(0x7e8988)));
 	auto AddValue = [&](const FText& Label, TObjectPtr<UTextBlock>* OutLabel, TObjectPtr<UTextBlock>& OutValue, bool bMinor, float TopGap)
 	{
+		// grid 기본 stretch — 칸마다 자기 줄 상자(line-height normal)의 위에서 시작한다(기준선 공유 아님): 14px 라벨이 21px 값보다 위에 뜬다
 		UHorizontalBox* ValueLine = B.HBox();
-		const float RowHeight = bMinor ? 16.f : 28.f;
 		const float ValuePx = bMinor ? 12.f : 21.f;
-		const float Baseline = CssBaseline(ValuePx, ERef::Malgun, RowHeight);
 		UTextBlock* LabelText = B.Text(Label, Font(EFace::Regular, bMinor ? 12.f : 14.f), Ink());
-		Typeset(LabelText, ERef::Malgun, RowHeight, Baseline);
+		Typeset(LabelText, ERef::Malgun);
 		if (OutLabel)
 		{
 			*OutLabel = LabelText;
 		}
 		OutValue = B.Text(FText::GetEmpty(), Font(EFace::Bold, ValuePx), Ink());
-		Typeset(OutValue, ERef::Malgun, RowHeight, Baseline);
+		Typeset(OutValue, ERef::Malgun);
 		AddH(ValueLine, LabelText, FMargin(0.f, 0.f, 10.f, 0.f), VAlign_Top, 1.f);
 		AddH(ValueLine, OutValue, FMargin(0.f), VAlign_Top);
 		AddV(Values, ValueLine, FMargin(0.f, TopGap, 0.f, 0.f));
