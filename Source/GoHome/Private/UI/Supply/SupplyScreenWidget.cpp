@@ -28,6 +28,14 @@ static TAutoConsoleVariable<float> CVarSupplyMotionScale(
 	1.f,
 	TEXT("보급 화면 장식 모션 재생 속도 배율(개발용)."),
 	ECVF_Cheat);
+
+// 압축 변형 시험용: 페이지가 받는 뷰포트 논리 높이를 이 값으로 바꾸고 페이지 영역도 위에서부터 그 높이로 자른다(0 = 끔).
+// UE 기본 DPI 규칙(ShortestSide)에선 가로 화면 논리 높이가 항상 ≈1080이라 실제 창 크기로는 850 이하를 만들 수 없다.
+static TAutoConsoleVariable<float> CVarSupplyViewHeight(
+	TEXT("GoHome.Supply.ViewHeight"),
+	0.f,
+	TEXT("보급 화면 페이지 논리 높이 강제(개발용, 0 = 실제 크기)."),
+	ECVF_Cheat);
 #endif
 
 namespace
@@ -102,15 +110,28 @@ void USupplyScreenWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaT
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
 
-	const FVector2D ViewSize = MyGeometry.GetLocalSize();
+	FVector2D ViewSize = MyGeometry.GetLocalSize();
+	float ClipBottom = 0.f;
+#if !UE_BUILD_SHIPPING
+	const float ForcedHeight = CVarSupplyViewHeight.GetValueOnGameThread();
+	if (ForcedHeight > 1.f && ForcedHeight < ViewSize.Y)
+	{
+		ClipBottom = ViewSize.Y - ForcedHeight;
+		ViewSize.Y = ForcedHeight;
+	}
+#endif
 	if (!ViewSize.Equals(LastViewSize, 0.5f) && ViewSize.X > 1.f)
 	{
 		LastViewSize = ViewSize;
+		if (UOverlaySlot* LayerSlot = PageLayer ? Cast<UOverlaySlot>(PageLayer->Slot) : nullptr)
+		{
+			LayerSlot->SetPadding(FMargin(0.f, 0.f, 0.f, ClipBottom));
+		}
 		for (USupplyPageBase* Page : { HubPage.Get(), ShopPage.Get(), LockerPage.Get() })
 		{
 			if (Page)
 			{
-				Page->OnViewSizeChanged(ViewSize);
+				Page->ApplyViewSize(ViewSize);
 			}
 		}
 	}

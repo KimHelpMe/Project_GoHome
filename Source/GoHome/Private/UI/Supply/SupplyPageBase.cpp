@@ -4,6 +4,7 @@
 #include "Components/Border.h"
 #include "Components/CanvasPanel.h"
 #include "Components/CanvasPanelSlot.h"
+#include "Components/Overlay.h"
 #include "UI/Supply/SupplyMotion.h"
 #include "UI/Supply/SupplyScreenWidget.h"
 
@@ -19,9 +20,45 @@ void USupplyPageBase::NativeOnInitialized()
 	if (WidgetTree && !WidgetTree->RootWidget)
 	{
 		const SupplyUI::FBuilder B(WidgetTree);
-		Surface = BuildPage(B);
-		WidgetTree->RootWidget = Surface;
+		PageRoot = B.Overlay();
+		Surface = PageRoot;
+		WidgetTree->RootWidget = PageRoot;
+		SupplyUI::AddFill(PageRoot, BuildPage(B));
 	}
+}
+
+void USupplyPageBase::ApplyViewSize(const FVector2D& InViewSize)
+{
+	CurrentViewSize = InViewSize;
+	const bool bWantCompact = SupportsCompact() && InViewSize.Y <= 850.f;
+	if (bWantCompact != bCompact)
+	{
+		bCompact = bWantCompact;
+		RebuildPage();
+	}
+	OnViewSizeChanged(InViewSize);
+}
+
+void USupplyPageBase::RebuildPage()
+{
+	if (!WidgetTree || !PageRoot)
+	{
+		return;
+	}
+
+	// 진행 중 트랙은 옛 위젯을 잡고 있다 — 끝 값으로 정리한 뒤 트리를 버린다(해상도 전환 때만 일어나 호스트 연출까지 끝내도 무방).
+	if (FSupplyAnimator* Animator = GetAnimator())
+	{
+		Animator->FinishAll();
+	}
+	HitTargets.Reset();
+	Masthead = nullptr;
+	Footer = nullptr;
+	PageRoot->ClearChildren();
+
+	const SupplyUI::FBuilder B(WidgetTree);
+	SupplyUI::AddFill(PageRoot, BuildPage(B));
+	OnPageRebuilt();
 }
 
 bool USupplyPageBase::HandleClick(const FVector2D& ScreenPosition)

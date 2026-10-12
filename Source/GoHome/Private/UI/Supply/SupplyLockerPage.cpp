@@ -49,7 +49,10 @@ namespace
 UWidget* USupplyLockerPage::BuildPage(const FBuilder& B)
 {
 	// .screen: max-width 1920, padding clamp(18px,3.2vw,60px)=60, gap 25(≥1500px)
-	PagePadding = FMargin(60.f);
+	// 압축(@media max-height 850): padding 20px 3vw, gap 12 — 이하 Css(기본, 압축) 쌍은 이 규칙이 ≥1500 규칙을 덮은 결과
+	Rows.Reset();
+	PagePadding = IsCompact() ? FMargin(GetViewSize().X * .03f, 20.f) : FMargin(60.f);
+	const float Gap = Css(25.f, 12.f);
 
 	UOverlay* Root = B.Overlay();
 	AddFill(Root, B.Fill(Ink()));
@@ -75,11 +78,12 @@ UWidget* USupplyLockerPage::BuildPage(const FBuilder& B)
 
 	UVerticalBox* Column = B.VBox();
 	AddOverlay(Frame, Column, HAlign_Fill, VAlign_Fill, PagePadding);
+	PageColumn = Column;
 
 	Masthead = BuildMasthead(B);
 	AddV(Column, Masthead);
 	CategoryBar = BuildCategories(B);
-	AddV(Column, CategoryBar, FMargin(0.f, 25.f, 0.f, 0.f));
+	AddV(Column, CategoryBar, FMargin(0.f, Gap, 0.f, 0.f));
 
 	// .workspace: minmax(280px,.92fr) / clamp(24px,4vw,70px)=70 / minmax(360px,1.35fr), align-items start
 	UHorizontalBox* Workspace = B.HBox();
@@ -88,7 +92,7 @@ UWidget* USupplyLockerPage::BuildPage(const FBuilder& B)
 	AddH(Workspace, DetailColumn, FMargin(0.f), VAlign_Top, .92f);
 	AddH(Workspace, B.Spacer(70.f, 0.f));
 	AddH(Workspace, ManifestColumn, FMargin(0.f), VAlign_Top, 1.35f);
-	AddV(Column, Workspace, FMargin(0.f, 25.f), HAlign_Fill, true);
+	AddV(Column, Workspace, FMargin(0.f, Gap), HAlign_Fill, true);
 
 	Footer = BuildFooter(B);
 	AddV(Column, Footer);
@@ -106,19 +110,23 @@ UWidget* USupplyLockerPage::BuildMasthead(const FBuilder& B)
 	UHorizontalBox* Heading = B.HBox();
 	{
 		UVerticalBox* Brand = B.VBox();
-		AddV(Brand, B.LineBox(B.Text(LOCTEXT("Kicker", "SUBMARINE / CREW EQUIPMENT"), Font(EFace::Bold, 11.f, .18f), Lime()), 16.5f, ERef::Segoe), FMargin(0.f, 0.f, 0.f, 7.f));
-		AddV(Brand, B.LineBox(B.Text(LOCTEXT("Wordmark", "GOHOME"), Font(EFace::Display, 48.f, -.08f, true), Paper()), 45.6f, ERef::ArialBlack));
+		// 압축: kicker 10, wordmark 34(line-height .95), slash 42, h1 36
+		const float KickerPx = Css(11.f, 10.f);
+		const float WordmarkPx = Css(48.f, 34.f);
+		AddV(Brand, B.LineBox(B.Text(LOCTEXT("Kicker", "SUBMARINE / CREW EQUIPMENT"), Font(EFace::Bold, KickerPx, .18f), Lime()), KickerPx * 1.5f, ERef::Segoe), FMargin(0.f, 0.f, 0.f, 7.f));
+		AddV(Brand, B.LineBox(B.Text(LOCTEXT("Wordmark", "GOHOME"), Font(EFace::Display, WordmarkPx, -.08f, true), Paper()), WordmarkPx * .95f, ERef::ArialBlack));
 		AddH(Heading, Brand, FMargin(0.f, 0.f, 24.f, 0.f), VAlign_Center);
 
-		USizeBox* Slash = B.Size(5.f, 55.f);
+		USizeBox* Slash = B.Size(5.f, Css(55.f, 42.f));
 		Slash->AddChild(B.Fill(Lime()));
 		Slash->SetRenderTransformPivot(FVector2D(.5f, .5f));
 		Slash->SetRenderTransformAngle(15.f);
 		AddH(Heading, Slash, FMargin(0.f, 0.f, 24.f, 0.f), VAlign_Center);
 
 		// h1 clamp(28px,3.4vw,56px)=56, 950, -.07em, line-height 1.15, margin-top 4
-		UTextBlock* Title = B.Text(LOCTEXT("Title", "팀 보관함"), Font(EFace::Bold, 56.f, -.07f), Paper());
-		AddH(Heading, B.LineBox(Title, 64.4f), FMargin(0.f, 4.f, 0.f, 0.f), VAlign_Center);
+		const float TitlePx = Css(56.f, 36.f);
+		UTextBlock* Title = B.Text(LOCTEXT("Title", "팀 보관함"), Font(EFace::Bold, TitlePx, -.07f), Paper());
+		AddH(Heading, B.LineBox(Title, TitlePx * 1.15f), FMargin(0.f, 4.f, 0.f, 0.f), VAlign_Center);
 	}
 	AddH(Head, Heading, FMargin(0.f), VAlign_Top);
 	AddH(Head, B.Spacer(24.f, 0.f), FMargin(0.f), VAlign_Top, 1.f);
@@ -191,7 +199,7 @@ UWidget* USupplyLockerPage::BuildCategories(const FBuilder& B)
 		AddH(Content, LabelText, FMargin(0.f, 0.f, 20.f, 0.f), VAlign_Top);
 		AddH(Content, Tab.Count, FMargin(0.f), VAlign_Top);
 		Tab.Texts = { IndexText, LabelText, Tab.Count };
-		AddOverlay(Card, Content, HAlign_Left, VAlign_Fill, FMargin(22.f, 12.f));
+		AddOverlay(Card, Content, HAlign_Left, VAlign_Fill, FMargin(22.f, Css(12.f, 9.f)));
 
 		// .category:focus — outline 3px lime, offset 0
 		UWidget* Ring = B.Ring(Lime(), 3.f);
@@ -226,7 +234,8 @@ UWidget* USupplyLockerPage::BuildDetail(const FBuilder& B)
 	UVerticalBox* Detail = B.VBox();
 
 	// .artboard: clamp(170px,27vh,310px), 코발트 + 2px #7185f5, 안쪽 틀(inset 20, -6°), 종이색 띠, 큰 번호, +, 도해, 라벨
-	ArtBoard = B.Size(-1.f, 291.6f);
+	// 압축: 높이 100, 도해 .58, 큰 번호 100px, 라벨 8px(bottom 12)
+	ArtBoard = B.Size(-1.f, Css(FMath::Clamp(GetViewSize().Y * .27f, 170.f, 310.f), 100.f));
 	UBorder* Frame = B.Fill(Hex(0x7185f5), FMargin(2.f));
 	Frame->SetClipping(EWidgetClipping::ClipToBounds);
 	ArtBoard->AddChild(Frame);
@@ -247,8 +256,9 @@ UWidget* USupplyLockerPage::BuildDetail(const FBuilder& B)
 	// width 120%, height 34, left -6%, bottom -12
 	BandSlot->SetAnchors(FAnchors(-.06f, 1.f, 1.14f, 1.f));
 	BandSlot->SetOffsets(FMargin(0.f, -22.f, 0.f, 34.f));
-	ArtIndexText = B.Text(LOCTEXT("ArtIndex", "01"), Font(EFace::Display, 175.f, -.1f, true), MixSRGB(0xffffff, 0x18 / 255.f, 0x2747d8));
-	Typeset(ArtIndexText, ERef::ArialBlack, 175.f);
+	const float ArtIndexPx = Css(175.f, 100.f);
+	ArtIndexText = B.Text(LOCTEXT("ArtIndex", "01"), Font(EFace::Display, ArtIndexPx, -.1f, true), MixSRGB(0xffffff, 0x18 / 255.f, 0x2747d8));
+	Typeset(ArtIndexText, ERef::ArialBlack, ArtIndexPx);
 	UCanvasPanelSlot* IndexSlot = Decor->AddChildToCanvas(ArtIndexText);
 	IndexSlot->SetAutoSize(true);
 	IndexSlot->SetPosition(FVector2D(14.f, -12.f));
@@ -258,24 +268,28 @@ UWidget* USupplyLockerPage::BuildDetail(const FBuilder& B)
 	AddOverlay(Inner, Cross, HAlign_Right, VAlign_Top, FMargin(0.f, 10.f, 16.f, 0.f));
 
 	Art = B.Tree->ConstructWidget<USupplyEquipmentArt>(USupplyEquipmentArt::StaticClass());
+	Art->SetArtScale(Css(1.f, .58f));
 	AddOverlay(Inner, Art, HAlign_Center, VAlign_Center);
 
-	AddOverlay(Inner, B.LineBox(B.Text(LOCTEXT("ArtLabel", "GOHOME / EQUIPMENT STUDY"), Font(EFace::Regular, 10.f, .18f), Paper())), HAlign_Left, VAlign_Bottom, FMargin(18.f, 0.f, 0.f, 19.f));
+	AddOverlay(Inner, B.LineBox(B.Text(LOCTEXT("ArtLabel", "GOHOME / EQUIPMENT STUDY"), Font(EFace::Regular, Css(10.f, 8.f), .18f), Paper())), HAlign_Left, VAlign_Bottom, FMargin(18.f, 0.f, 0.f, Css(19.f, 12.f)));
 	AddV(Detail, ArtBoard);
 
 	// .detail-copy: padding-top 22(≥1500)
 	UVerticalBox* Copy = B.VBox();
 	DetailCopy = Copy;
-	KindText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Bold, 11.f, .1f), Lime()));
-	NameText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Bold, 39.f, -.05f), Paper()), 46.8f);
+	// 압축: kind 10, h2 25/1.15(margin 5 0 7), 설명 12/1.4(min-height 34)
+	KindText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Bold, Css(11.f, 10.f), .1f), Lime()));
+	const float NamePx = Css(39.f, 25.f);
+	NameText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Bold, NamePx, -.05f), Paper()), NamePx * Css(1.2f, 1.15f));
 	NameText->SetAutoWrapText(true);
-	DescriptionText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 15.f), Hex(0xcad4e5)), 15.f * 1.65f);
+	const float DescriptionPx = Css(15.f, 12.f);
+	DescriptionText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, DescriptionPx), Hex(0xcad4e5)), DescriptionPx * Css(1.65f, 1.4f));
 	DescriptionText->SetAutoWrapText(true);
 	USizeBox* DescriptionBox = B.Size();
-	DescriptionBox->SetMinDesiredHeight(44.f);
+	DescriptionBox->SetMinDesiredHeight(Css(44.f, 34.f));
 	DescriptionBox->AddChild(DescriptionText);
 	AddV(Copy, KindText);
-	AddV(Copy, NameText, FMargin(0.f, 7.f, 0.f, 9.f));
+	AddV(Copy, NameText, FMargin(0.f, Css(7.f, 5.f), 0.f, Css(9.f, 7.f)));
 	AddV(Copy, DescriptionBox);
 
 	// .quantities: margin 18 0 14, border-block 1px, 4칸(flex 1, padding 10 12, 첫 칸 padding-left 0)
@@ -284,11 +298,13 @@ UWidget* USupplyLockerPage::BuildDetail(const FBuilder& B)
 	UHorizontalBox* Cells = B.HBox();
 	auto AddCell = [&](const FText& Label, TObjectPtr<UTextBlock>& OutValue, TObjectPtr<UTextBlock>* OutLabel, bool bFirst, bool bLast, TObjectPtr<UBorder>* OutBlock)
 	{
-		UBorder* Cell = B.Fill(FLinearColor::Transparent, FMargin(bFirst ? 0.f : 12.f, 10.f, 12.f, 10.f));
+		// 압축: padding-block 6, dt 10(mb 3), dd 25
+		UBorder* Cell = B.Fill(FLinearColor::Transparent, FMargin(bFirst ? 0.f : 12.f, Css(10.f, 6.f), 12.f, Css(10.f, 6.f)));
 		UVerticalBox* Stack = B.VBox();
-		UTextBlock* LabelText = B.LineBox(B.Text(Label, Font(EFace::Regular, 11.f), Muted()));
-		AddV(Stack, LabelText, FMargin(0.f, 0.f, 0.f, 5.f));
-		OutValue = B.LineBox(B.Text(Dash(), Font(EFace::ExtraBold, 29.f), Paper()), 29.f, ERef::Segoe);
+		UTextBlock* LabelText = B.LineBox(B.Text(Label, Font(EFace::Regular, Css(11.f, 10.f)), Muted()));
+		AddV(Stack, LabelText, FMargin(0.f, 0.f, 0.f, Css(5.f, 3.f)));
+		const float ValuePx = Css(29.f, 25.f);
+		OutValue = B.LineBox(B.Text(Dash(), Font(EFace::ExtraBold, ValuePx), Paper()), ValuePx, ERef::Segoe);
 		AddV(Stack, OutValue);
 		Cell->SetContent(Stack);
 		AddH(Cells, Cell, FMargin(0.f), VAlign_Fill, 1.f);
@@ -311,21 +327,23 @@ UWidget* USupplyLockerPage::BuildDetail(const FBuilder& B)
 	AddCell(LOCTEXT("Owned", "팀 보유"), OwnedText, nullptr, false, true, nullptr);
 	AddV(QuantityBlock, Cells);
 	AddV(QuantityBlock, Rule(B, Line()));
-	AddV(Copy, QuantityBlock, FMargin(0.f, 18.f, 0.f, 14.f));
+	AddV(Copy, QuantityBlock, FMargin(0.f, Css(18.f, 9.f), 0.f, Css(14.f, 8.f)));
 
 	// #transferControls(탐사만) — .quantities margin-bottom 14 바로 아래
 	TransferBlock = BuildTransfer(B);
 	AddV(Copy, TransferBlock);
 
 	// .action-note: 11px/1.5, min-height 33
-	ActionNoteText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 11.f), Muted()), 16.5f);
+	// 압축: 10px/1.4, min-height 28, margin-top 6
+	const float NotePx = Css(11.f, 10.f);
+	ActionNoteText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, NotePx), Muted()), NotePx * Css(1.5f, 1.4f));
 	ActionNoteText->SetAutoWrapText(true);
 	USizeBox* NoteBox = B.Size();
-	NoteBox->SetMinDesiredHeight(33.f);
+	NoteBox->SetMinDesiredHeight(Css(33.f, 28.f));
 	NoteBox->AddChild(ActionNoteText);
 	// 로비에선 위 .quantities margin-bottom 14와 .action-note margin-top 10이 겹쳐(마진 상쇄) 14만 남는다 — 탐사는 버튼 뒤 10
 	NoteSlot = AddV(Copy, NoteBox);
-	AddV(Detail, Copy, FMargin(0.f, 22.f, 0.f, 0.f));
+	AddV(Detail, Copy, FMargin(0.f, Css(22.f, 10.f), 0.f, 0.f));
 	return Detail;
 }
 
@@ -338,21 +356,23 @@ UWidget* USupplyLockerPage::BuildManifest(const FBuilder& B)
 	UVerticalBox* TitleStack = B.VBox();
 	CategoryTitleText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 11.f, .12f), Lime()));
 	AddV(TitleStack, CategoryTitleText, FMargin(0.f, 0.f, 0.f, 6.f));
-	AddV(TitleStack, B.LineBox(B.Text(LOCTEXT("OnBoard", "ON BOARD."), Font(EFace::Display, 65.f, -.055f, true), Paper()), 65.f, ERef::ArialBlack));
+	const float OnBoardPx = Css(65.f, 45.f);
+	AddV(TitleStack, B.LineBox(B.Text(LOCTEXT("OnBoard", "ON BOARD."), Font(EFace::Display, OnBoardPx, -.055f, true), Paper()), OnBoardPx, ERef::ArialBlack));
 	AddH(Head, TitleStack, FMargin(0.f), VAlign_Bottom, 1.f);
 	TotalText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 12.f), Muted()), 19.2f);
 	TotalText->SetJustification(ETextJustify::Right);
 	AddH(Head, TotalText, FMargin(16.f, 0.f, 0.f, 0.f), VAlign_Bottom);
-	AddV(Manifest, Head, FMargin(0.f, 2.f, 0.f, 12.f));
+	AddV(Manifest, Head, FMargin(0.f, 2.f, 0.f, Css(12.f, 10.f)));
 	AddV(Manifest, Rule(B, Line()));
 
 	UHorizontalBox* ColumnHead = B.HBox();
 	AddH(ColumnHead, B.LineBox(B.Text(LOCTEXT("HeadItems", "보유 아이템"), Font(EFace::Regular, 10.f, .08f), Muted())), FMargin(0.f), VAlign_Top, 1.f);
 	AddH(ColumnHead, B.LineBox(B.Text(LOCTEXT("HeadCounts", "보관 / 팀 보유"), Font(EFace::Regular, 10.f, .08f), Muted())), FMargin(0.f), VAlign_Top);
-	AddV(Manifest, ColumnHead, FMargin(30.f, 15.f, 17.f, 9.f));
+	AddV(Manifest, ColumnHead, FMargin(30.f, Css(15.f, 11.f), 17.f, 9.f));
 
 	// .rows: gap 8, max-height 44vh, padding 6 10 12 17
 	RowsFrame = B.Size();
+	RowsFrame->SetMaxDesiredHeight(GetViewSize().Y * Css(.44f, .41f));
 	RowsScroll = B.Tree->ConstructWidget<UScrollBox>();
 	RowsScroll->SetScrollbarThickness(FVector2D(4.f, 4.f));
 	RowsScroll->SetScrollbarPadding(FMargin(0.f));
@@ -402,7 +422,7 @@ UWidget* USupplyLockerPage::BuildManifest(const FBuilder& B)
 	AddH(Legend, B.LineBox(B.Text(LOCTEXT("LegendSelected", "색면 = 선택 "), Font(EFace::Regular, 11.f), Muted())));
 	AddH(Legend, B.LineBox(B.Text(LOCTEXT("LegendFocus", "▶ = 현재 조작"), Font(EFace::Bold, 11.f), Lime())));
 	AddH(Foot, Legend, FMargin(20.f, 0.f, 0.f, 0.f), VAlign_Top);
-	AddV(Manifest, Foot, FMargin(10.f, 15.f));
+	AddV(Manifest, Foot, FMargin(10.f, Css(15.f, 11.f)));
 	return Manifest;
 }
 
@@ -412,8 +432,9 @@ UWidget* USupplyLockerPage::BuildRow(const FBuilder& B)
 	FRowWidgets& Row = Rows.AddDefaulted_GetRef();
 
 	// .item-row: min-height 88(≥1500), grid 30px/1fr/auto gap 12, padding 12 17 12 10, border-bottom 1px #56647a
+	// 압축: min-height 65, padding-block 9, 이름 18, 종류 mt 4
 	USizeBox* Root = B.Size();
-	Root->SetMinDesiredHeight(88.f);
+	Root->SetMinDesiredHeight(Css(88.f, 65.f));
 	Row.Root = Root;
 	UOverlay* Card = B.Overlay();
 	Root->AddChild(Card);
@@ -439,11 +460,12 @@ UWidget* USupplyLockerPage::BuildRow(const FBuilder& B)
 	AddH(Content, IndexCell, FMargin(0.f, 0.f, 12.f, 0.f), VAlign_Center);
 
 	UVerticalBox* Words = B.VBox();
-	Row.Name = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Bold, 23.f, -.04f), Paper()), 28.75f);
+	const float RowNamePx = Css(23.f, 18.f);
+	Row.Name = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Bold, RowNamePx, -.04f), Paper()), RowNamePx * 1.25f);
 	Row.Kind = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 10.f), Paper()), 12.5f);
 	Row.Kind->SetRenderOpacity(.76f);
 	AddV(Words, Row.Name);
-	AddV(Words, Row.Kind, FMargin(0.f, 6.f, 0.f, 0.f));
+	AddV(Words, Row.Kind, FMargin(0.f, Css(6.f, 4.f), 0.f, 0.f));
 	AddH(Content, Words, FMargin(0.f, 0.f, 12.f, 0.f), VAlign_Center, 1.f);
 
 	UVerticalBox* Counts = B.VBox();
@@ -453,7 +475,7 @@ UWidget* USupplyLockerPage::BuildRow(const FBuilder& B)
 	AddV(Counts, Row.State, FMargin(0.f, 3.f, 0.f, 0.f), HAlign_Right);
 	AddH(Content, Counts, FMargin(0.f), VAlign_Center);
 
-	AddOverlay(Card, Content, HAlign_Fill, VAlign_Center, FMargin(10.f, 12.f, 17.f, 13.f));
+	AddOverlay(Card, Content, HAlign_Fill, VAlign_Center, FMargin(10.f, Css(12.f, 9.f), 17.f, Css(13.f, 10.f)));
 	AddOverlay(Card, Rule(B, Hex(0x56647a)), HAlign_Fill, VAlign_Bottom);
 
 	// :focus:after ▶ 22px, left -15, top 24
@@ -487,20 +509,22 @@ UWidget* USupplyLockerPage::BuildTransfer(const FBuilder& B)
 	ZoneTags = { ZoneLeft, ZoneRight };
 	AddH(Head, ZoneLeft, FMargin(0.f), VAlign_Center, 1.f);
 	AddH(Head, ZoneRight, FMargin(0.f), VAlign_Center);
-	AddV(Block, Head, FMargin(0.f, 0.f, 0.f, 8.f));
+	AddV(Block, Head, FMargin(0.f, 0.f, 0.f, Css(8.f, 6.f)));
 
 	// .actions: gap 8, .action padding 13 14, min-height 48, 14px 900
 	UHorizontalBox* Actions = B.HBox();
 	auto MakeAction = [&](FActionWidgets& Button, const FText& Label, const TCHAR* Arrow, ESharedLockerAction InAction, bool bFirst)
 	{
+		// 압축: min-height 40, padding 9 12, 13px
 		USizeBox* Size = B.Size();
-		Size->SetMinDesiredHeight(48.f);
+		Size->SetMinDesiredHeight(Css(48.f, 40.f));
 		UOverlay* Card = B.Overlay();
 		Size->AddChild(Card);
-		UBorder* Face = B.Fill(Paper(), FMargin(14.f, 13.f));
+		UBorder* Face = B.Fill(Paper(), FMargin(Css(14.f, 12.f), Css(13.f, 9.f)));
 		UHorizontalBox* Row = B.HBox();
-		UTextBlock* LabelText = B.LineBox(B.Text(Label, Font(EFace::Bold, 14.f), Ink()));
-		UTextBlock* ArrowText = B.LineBox(B.Text(FText::FromString(Arrow), Font(EFace::Bold, 14.f), Ink()));
+		const float ActionPx = Css(14.f, 13.f);
+		UTextBlock* LabelText = B.LineBox(B.Text(Label, Font(EFace::Bold, ActionPx), Ink()));
+		UTextBlock* ArrowText = B.LineBox(B.Text(FText::FromString(Arrow), Font(EFace::Bold, ActionPx), Ink()));
 		AddH(Row, LabelText, FMargin(0.f), VAlign_Center, 1.f);
 		AddH(Row, ArrowText, FMargin(8.f, 0.f, 0.f, 0.f), VAlign_Center);
 		Face->SetContent(Row);
@@ -628,8 +652,9 @@ UWidget* USupplyLockerPage::BuildFooter(const FBuilder& B)
 	// .status-band(min-height 49, border-top, padding-top 13) + gap 25 + .footer(26, 시험 버튼 높이 유지)
 	UVerticalBox* Stack = B.VBox();
 	AddV(Stack, Rule(B, Line()));
+	// 압축: status-band min-height 34(padding-top 8), gap 12, .footer 11px
 	USizeBox* BandSize = B.Size();
-	BandSize->SetMinDesiredHeight(36.f);
+	BandSize->SetMinDesiredHeight(Css(36.f, 26.f));
 	UHorizontalBox* Band = B.HBox();
 	BandSize->AddChild(Band);
 	USizeBox* Signal = B.Size(8.f, 8.f);
@@ -637,13 +662,13 @@ UWidget* USupplyLockerPage::BuildFooter(const FBuilder& B)
 	AddH(Band, Signal, FMargin(0.f, 0.f, 14.f, 0.f), VAlign_Center);
 	StatusText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 14.f), Hex(0xccd6e9)), 22.4f);
 	AddH(Band, StatusText, FMargin(0.f), VAlign_Center, 1.f);
-	AddV(Stack, BandSize, FMargin(0.f, 13.f, 0.f, 0.f));
+	AddV(Stack, BandSize, FMargin(0.f, Css(13.f, 8.f), 0.f, 0.f));
 
 	USizeBox* FootSize = B.Size(-1.f, 26.f);
 	HelpBox = B.HBox();
 	FootSize->AddChild(HelpBox);
 	FooterRow = FootSize;
-	AddV(Stack, FootSize, FMargin(0.f, 25.f, 0.f, 0.f));
+	AddV(Stack, FootSize, FMargin(0.f, Css(25.f, 12.f), 0.f, 0.f));
 	return Stack;
 }
 
@@ -723,7 +748,7 @@ void USupplyLockerPage::OnPageShown(bool bBack, FName FocusHint)
 	ViewContextText->SetText(bExpedition ? LOCTEXT("ContextExpedition", "탐사 · 아이템 박스") : LOCTEXT("ContextLobby", "로비 · 조회 전용"));
 
 	TransferBlock->SetVisibility(bExpedition ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
-	NoteSlot->SetPadding(FMargin(0.f, bExpedition ? 10.f : 0.f, 0.f, 0.f));
+	NoteSlot->SetPadding(FMargin(0.f, bExpedition ? Css(10.f, 6.f) : 0.f, 0.f, 0.f));
 	Action = ESharedLockerAction::Withdraw;
 	bConfirmOpen = false;
 	HitLayer = 0;
@@ -1232,6 +1257,8 @@ void USupplyLockerPage::ReturnFromLocker()
 
 void USupplyLockerPage::SetStatus(const FText& Message, bool bError)
 {
+	StatusMessage = Message;
+	bStatusError = bError;
 	StatusText->SetText(Message);
 	StatusText->SetColorAndOpacity(FSlateColor(bError ? Alert() : Hex(0xccd6e9)));
 }
@@ -1402,11 +1429,36 @@ void USupplyLockerPage::OnViewSizeChanged(const FVector2D& ViewSize)
 	}
 	if (ArtBoard)
 	{
-		ArtBoard->SetHeightOverride(FMath::Clamp(ViewSize.Y * .27f, 170.f, 310.f));
+		ArtBoard->SetHeightOverride(Css(FMath::Clamp(ViewSize.Y * .27f, 170.f, 310.f), 100.f));
 	}
 	if (RowsFrame)
 	{
-		RowsFrame->SetMaxDesiredHeight(ViewSize.Y * .44f);
+		RowsFrame->SetMaxDesiredHeight(ViewSize.Y * Css(.44f, .41f));
+	}
+	if (IsCompact())
+	{
+		// padding 20px 3vw — 폭이 바뀌면 다시
+		PagePadding = FMargin(ViewSize.X * .03f, 20.f);
+		if (UOverlaySlot* ColumnSlot = PageColumn ? Cast<UOverlaySlot>(PageColumn->Slot) : nullptr)
+		{
+			ColumnSlot->SetPadding(PagePadding);
+		}
+	}
+}
+
+void USupplyLockerPage::OnPageRebuilt()
+{
+	// OnPageShown의 진입 초기화(선택·분류 리셋)는 하지 않고, 들고 있던 상태로 새 트리를 다시 그린다
+	ViewContextText->SetText(bExpedition ? LOCTEXT("ContextExpedition", "탐사 · 아이템 박스") : LOCTEXT("ContextLobby", "로비 · 조회 전용"));
+	TransferBlock->SetVisibility(bExpedition ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+	NoteSlot->SetPadding(FMargin(0.f, bExpedition ? Css(10.f, 6.f) : 0.f, 0.f, 0.f));
+	SetStatus(StatusMessage, bStatusError);
+	RefreshAll(false);
+	if (bConfirmOpen)
+	{
+		HitLayer = LockerConfirmLayerIndex;
+		ConfirmLayer->SetVisibility(ESlateVisibility::HitTestInvisible);
+		RefreshConfirm();
 	}
 }
 
@@ -1468,7 +1520,7 @@ void USupplyLockerPage::RefreshRows()
 		const FBuilder B(WidgetTree);
 		while (Rows.Num() < Visible.Num())
 		{
-			AddV(RowsList, BuildRow(B), FMargin(0.f, Rows.Num() == 0 ? 0.f : 8.f, 0.f, 0.f));
+			AddV(RowsList, BuildRow(B), FMargin(0.f, Rows.Num() == 0 ? 0.f : Css(8.f, 6.f), 0.f, 0.f));
 		}
 	}
 
@@ -1666,7 +1718,7 @@ void USupplyLockerPage::RefreshFocus()
 			AddFill(Chip, B.Ring(Hex(0x7b8aa0), 1.f));
 			AddOverlay(Chip, B.LineBox(B.Text(Hints[Index].Key, Font(EFace::ExtraBold, 11.f), Paper()), -1.f, ERef::Segoe), HAlign_Fill, VAlign_Fill, FMargin(6.f, 3.f));
 			AddH(HelpBox, Chip, FMargin(Index == 0 ? 0.f : 20.f, 0.f, 6.f, 0.f), VAlign_Center);
-			AddH(HelpBox, B.LineBox(B.Text(Hints[Index].Value, Font(EFace::Regular, 12.f), Muted())), FMargin(0.f), VAlign_Center);
+			AddH(HelpBox, B.LineBox(B.Text(Hints[Index].Value, Font(EFace::Regular, Css(12.f, 11.f)), Muted())), FMargin(0.f), VAlign_Center);
 		}
 	}
 }

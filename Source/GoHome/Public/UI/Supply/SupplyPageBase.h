@@ -48,8 +48,12 @@ public:
 	// 내부 이동 사선 스윕이 지나가는 띠(머리 아래 ~ 바닥 위). 화면 위/아래 기준 거리(px).
 	void GetWipeBand(float& OutTop, float& OutBottom) const;
 
-	// 뷰포트 논리 크기가 바뀔 때(최초 포함). CSS vw 단위 간격을 여기서 갱신한다.
-	virtual void OnViewSizeChanged(const FVector2D& ViewSize) {}
+	// 호스트가 뷰포트 논리 크기가 바뀔 때마다(최초 포함) 부른다. 압축 여부가 바뀌면 트리를 다시 만든 뒤 OnViewSizeChanged.
+	void ApplyViewSize(const FVector2D& ViewSize);
+
+	// 시안 @media(max-height:850px) 압축 변형 중인지. UE 기본 DPI 규칙(ShortestSide)에선 가로 화면 논리 높이가 항상 ≈1080이라
+	// 실제로는 UI 배율 옵션 같은 게 생겨야 걸린다 — 개발용 GoHome.Supply.ViewHeight로 시험한다.
+	bool IsCompact() const { return bCompact; }
 
 	// Sophia 오프닝 동안 판 뒤에서 순차 정착하는 등장(페이지별 지연표 — motion.md)
 	virtual void PlayOpeningLift() {}
@@ -59,6 +63,20 @@ public:
 
 protected:
 	virtual void NativeOnInitialized() override;
+
+	// 뷰포트 논리 크기가 바뀔 때(최초 포함). CSS vw 단위 간격을 여기서 갱신한다.
+	virtual void OnViewSizeChanged(const FVector2D& ViewSize) {}
+
+	// 압축 변형이 있는 페이지만 true(분기·오프닝은 시안에 높이 규칙이 없다)
+	virtual bool SupportsCompact() const { return false; }
+
+	// 압축 전환으로 트리를 다시 만든 직후. 위젯 포인터는 전부 새것이다 — 들고 있던 논리 상태(분류·선택·영역·확인 패널)로 다시 그린다.
+	virtual void OnPageRebuilt() {}
+
+	// 압축이면 Compact, 아니면 Normal(시안 수치 쌍)
+	float Css(float Normal, float Compact) const { return bCompact ? Compact : Normal; }
+
+	const FVector2D& GetViewSize() const { return CurrentViewSize; }
 
 	// 위젯 트리를 만들고 루트를 돌려준다. Masthead/Footer/PagePadding을 채워야 스윕 띠가 맞는다.
 	virtual UWidget* BuildPage(const SupplyUI::FBuilder& B) { return nullptr; }
@@ -95,6 +113,15 @@ private:
 		int32 Layer = 0;
 	};
 
+	void RebuildPage();
+
 	TArray<FHitTarget> HitTargets;
 	TWeakObjectPtr<USupplyScreenWidget> Host;
+
+	// 페이지 트리를 담는 고정 루트(= Surface). 압축 전환 때 안쪽만 갈아 끼운다 — 호스트·스윕은 페이지 위젯 자체를 다룬다.
+	UPROPERTY(Transient)
+	TObjectPtr<UOverlay> PageRoot;
+
+	bool bCompact = false;
+	FVector2D CurrentViewSize = FVector2D(1920.f, 1080.f);
 };

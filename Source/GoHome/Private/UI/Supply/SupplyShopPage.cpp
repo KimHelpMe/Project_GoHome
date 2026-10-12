@@ -63,7 +63,8 @@ namespace
 UWidget* USupplyShopPage::BuildPage(const FBuilder& B)
 {
 	// .supply: max-width 1920 가운데, padding clamp(20px,3vw,54px)=54, gap 20, 남청 사선 면 inset 25% -10% 20% / -8°
-	PagePadding = FMargin(54.f);
+	// 압축(@media min-width 761 and max-height 850): padding 24px 36px, gap 14 — 이하 Css(기본, 압축) 쌍
+	PagePadding = IsCompact() ? FMargin(36.f, 24.f) : FMargin(54.f);
 
 	UOverlay* Root = B.Overlay();
 	AddFill(Root, B.Fill(Ink()));
@@ -85,7 +86,7 @@ UWidget* USupplyShopPage::BuildPage(const FBuilder& B)
 	AddH(Grid, BuildCatalog(B), FMargin(0.f), VAlign_Top, 1.25f);
 	AddH(Grid, B.Spacer(70.f, 0.f));
 	AddH(Grid, BuildPanel(B), FMargin(0.f), VAlign_Top, .85f);
-	AddV(Column, Grid, FMargin(0.f, 20.f), HAlign_Fill, true);
+	AddV(Column, Grid, FMargin(0.f, Css(20.f, 14.f)), HAlign_Fill, true);
 
 	Footer = BuildFooter(B);
 	AddV(Column, Footer);
@@ -104,18 +105,22 @@ UWidget* USupplyShopPage::BuildMasthead(const FBuilder& B)
 	UHorizontalBox* Heading = B.HBox();
 	{
 		UVerticalBox* Brand = B.VBox();
-		AddV(Brand, B.LineBox(B.Text(LOCTEXT("Kicker", "LOBBY / SUPPLY DESK"), Font(EFace::Bold, 11.f, .18f), Lime()), 16.5f, ERef::Segoe), FMargin(0.f, 0.f, 0.f, 7.f));
-		AddV(Brand, B.LineBox(B.Text(LOCTEXT("Wordmark", "GOHOME"), Font(EFace::Display, 48.f, -.08f, true), Paper()), 45.6f, ERef::ArialBlack));
+		// 압축: 보관함 850 규칙의 .kicker 10 · .wordmark 34 · .slash 42는 페이지 범위가 없어 상점에도 걸린다(h1은 .supply 규칙이 이김)
+		const float KickerPx = Css(11.f, 10.f);
+		const float WordmarkPx = Css(48.f, 34.f);
+		AddV(Brand, B.LineBox(B.Text(LOCTEXT("Kicker", "LOBBY / SUPPLY DESK"), Font(EFace::Bold, KickerPx, .18f), Lime()), KickerPx * 1.5f, ERef::Segoe), FMargin(0.f, 0.f, 0.f, 7.f));
+		AddV(Brand, B.LineBox(B.Text(LOCTEXT("Wordmark", "GOHOME"), Font(EFace::Display, WordmarkPx, -.08f, true), Paper()), WordmarkPx * .95f, ERef::ArialBlack));
 		AddH(Heading, Brand, FMargin(0.f, 0.f, 24.f, 0.f), VAlign_Center);
 
-		USizeBox* Slash = B.Size(5.f, 55.f);
+		USizeBox* Slash = B.Size(5.f, Css(55.f, 42.f));
 		Slash->AddChild(B.Fill(Lime()));
 		Slash->SetRenderTransformPivot(FVector2D(0.5f, 0.5f));
 		Slash->SetRenderTransformAngle(15.f);
 		AddH(Heading, Slash, FMargin(0.f, 0.f, 24.f, 0.f), VAlign_Center);
 
-		UTextBlock* Title = B.Text(LOCTEXT("Title", "보급 상점"), Font(EFace::Bold, 30.f, -.07f), Paper());
-		AddH(Heading, B.LineBox(Title, 34.5f), FMargin(0.f, 4.f, 0.f, 0.f), VAlign_Center);
+		const float TitlePx = Css(30.f, 26.f);
+		UTextBlock* Title = B.Text(LOCTEXT("Title", "보급 상점"), Font(EFace::Bold, TitlePx, -.07f), Paper());
+		AddH(Heading, B.LineBox(Title, TitlePx * 1.15f), FMargin(0.f, 4.f, 0.f, 0.f), VAlign_Center);
 	}
 	AddH(Head, Heading, FMargin(0.f), VAlign_Top);
 	AddH(Head, B.Spacer(24.f, 0.f), FMargin(0.f), VAlign_Top, 1.f);
@@ -166,8 +171,10 @@ UWidget* USupplyShopPage::BuildCatalog(const FBuilder& B)
 	UVerticalBox* Catalog = B.VBox();
 
 	// .shop-title: 900 italic clamp(46px,6vw,88px)/.95, margin 4 0 18
-	UTextBlock* Title = B.Text(LOCTEXT("NextDive", "NEXT DIVE."), Font(EFace::Display, 88.f, -.065f, true), Paper());
-	AddV(Catalog, B.LineBox(Title, 83.6f, ERef::ArialBlack), FMargin(0.f, 4.f, 0.f, 18.f));
+	// 압축: 52px, margin-bottom 12
+	const float NextDivePx = Css(88.f, 52.f);
+	UTextBlock* Title = B.Text(LOCTEXT("NextDive", "NEXT DIVE."), Font(EFace::Display, NextDivePx, -.065f, true), Paper());
+	AddV(Catalog, B.LineBox(Title, NextDivePx * .95f, ERef::ArialBlack), FMargin(0.f, 4.f, 0.f, Css(18.f, 12.f)));
 
 	// .shop-filters: gap 4, padding-bottom 12, border-bottom 1px line
 	UHorizontalBox* FilterRow = B.HBox();
@@ -198,10 +205,11 @@ UWidget* USupplyShopPage::BuildCatalog(const FBuilder& B)
 	UHorizontalBox* ColumnHead = B.HBox();
 	AddH(ColumnHead, B.LineBox(B.Text(LOCTEXT("CatalogHead", "보급 카탈로그"), Font(EFace::Regular, 10.f, .08f), Muted())), FMargin(0.f), VAlign_Top, 1.f);
 	AddH(ColumnHead, B.LineBox(B.Text(LOCTEXT("PriceHead", "단가"), Font(EFace::Regular, 10.f, .08f), Muted())), FMargin(0.f), VAlign_Top);
-	AddV(Catalog, ColumnHead, FMargin(30.f, 15.f, 17.f, 9.f));
+	AddV(Catalog, ColumnHead, FMargin(30.f, Css(15.f, 11.f), 17.f, 9.f));
 
 	// .shop-rows: max-height 43vh, padding 8 12 12 17, 얇은 종이색 스크롤바
 	RowsFrame = B.Size();
+	RowsFrame->SetMaxDesiredHeight(GetViewSize().Y * .43f);
 	RowsScroll = B.Tree->ConstructWidget<UScrollBox>();
 	RowsScroll->SetScrollbarThickness(FVector2D(4.f, 4.f));
 	RowsScroll->SetScrollbarPadding(FMargin(0.f));
@@ -239,7 +247,7 @@ UWidget* USupplyShopPage::BuildCatalog(const FBuilder& B)
 	AddV(Catalog, EmptyPad);
 
 	// .shop-extra
-	AddV(Catalog, B.LineBox(B.Text(LOCTEXT("Extra", "구매품은 팀 보관함에 추가됩니다. 장비 꺼내기는 탐사 아이템 박스에서."), Font(EFace::Regular, 10.f), Muted())), FMargin(0.f, 12.f, 0.f, 0.f));
+	AddV(Catalog, B.LineBox(B.Text(LOCTEXT("Extra", "구매품은 팀 보관함에 추가됩니다. 장비 꺼내기는 탐사 아이템 박스에서."), Font(EFace::Regular, 10.f), Muted())), FMargin(0.f, Css(12.f, 8.f), 0.f, 0.f));
 	return Catalog;
 }
 
@@ -249,8 +257,9 @@ UWidget* USupplyShopPage::BuildRow(const FBuilder& B, const FItemShopProduct& Pr
 	Row.ProductId = Product.ProductId;
 
 	// .shop-row: min-height 81, grid 25px/1fr/auto gap 12, padding 12 15, border-bottom 1px
+	// 압축: min-height 69, 이름 18, 단가 23
 	USizeBox* Root = B.Size();
-	Root->SetMinDesiredHeight(81.f);
+	Root->SetMinDesiredHeight(Css(81.f, 69.f));
 	Row.Root = Root;
 	UOverlay* Card = B.Overlay();
 	Root->AddChild(Card);
@@ -275,7 +284,7 @@ UWidget* USupplyShopPage::BuildRow(const FBuilder& B, const FItemShopProduct& Pr
 	AddH(Content, IndexCell, FMargin(0.f, 0.f, 12.f, 0.f), VAlign_Center);
 
 	UVerticalBox* Words = B.VBox();
-	Row.Name = B.LineBox(B.Text(GetProductName(Product), Font(EFace::Bold, 20.f), Paper()));
+	Row.Name = B.LineBox(B.Text(GetProductName(Product), Font(EFace::Bold, Css(20.f, 18.f)), Paper()));
 	Row.Kind = B.LineBox(B.Text(GetLifetimeShort(Product), Font(EFace::Regular, 10.f), Paper()));
 	Row.Kind->SetRenderOpacity(.8f);
 	AddV(Words, Row.Name);
@@ -283,7 +292,7 @@ UWidget* USupplyShopPage::BuildRow(const FBuilder& B, const FItemShopProduct& Pr
 	AddH(Content, Words, FMargin(0.f, 0.f, 12.f, 0.f), VAlign_Center, 1.f);
 
 	UVerticalBox* PriceColumn = B.VBox();
-	Row.Price = B.LineBox(B.Text(Money(Product.PurchasePrice), Font(EFace::Black, 25.f, 0.f, true), Paper()), -1.f, ERef::Segoe);
+	Row.Price = B.LineBox(B.Text(Money(Product.PurchasePrice), Font(EFace::Black, Css(25.f, 23.f), 0.f, true), Paper()), -1.f, ERef::Segoe);
 	Row.Stock = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Bold, 10.f), Paper()));
 	Row.Stock->SetRenderOpacity(.8f);
 	AddV(PriceColumn, Row.Price, FMargin(0.f), HAlign_Right);
@@ -315,7 +324,8 @@ UWidget* USupplyShopPage::BuildPanel(const FBuilder& B)
 	UVerticalBox* Panel = B.VBox();
 
 	// .shop-art: 150px, 코발트 + 2px #7185f5, 종이색 띠(130%×30, bottom 10, -14°), 도해 .75, 라벨
-	USizeBox* ArtBox = B.Size(-1.f, 150.f);
+	// 압축: 높이 100, 도해 .55
+	USizeBox* ArtBox = B.Size(-1.f, Css(150.f, 100.f));
 	UBorder* ArtFrame = B.Fill(Hex(0x7185f5), FMargin(2.f));
 	ArtFrame->SetClipping(EWidgetClipping::ClipToBounds);
 	ArtBox->AddChild(ArtFrame);
@@ -333,26 +343,28 @@ UWidget* USupplyShopPage::BuildPanel(const FBuilder& B)
 	AddFill(ArtInner, BandCanvas);
 
 	Art = B.Tree->ConstructWidget<USupplyEquipmentArt>(USupplyEquipmentArt::StaticClass());
-	Art->SetArtScale(.75f);
+	Art->SetArtScale(Css(.75f, .55f));
 	AddOverlay(ArtInner, Art, HAlign_Center, VAlign_Center);
 
 	UBorder* ArtLabel = B.Fill(Ink(), FMargin(6.f, 3.f));
-	ArtLabel->SetContent(B.LineBox(B.Text(LOCTEXT("ArtLabel", "SUPPLY / EQUIPMENT STUDY"), Font(EFace::Bold, 10.f, .18f), Paper())));
-	AddOverlay(ArtInner, ArtLabel, HAlign_Left, VAlign_Bottom, FMargin(18.f, 0.f, 0.f, 19.f));
+	// 압축: .art-label 8px / bottom 12(보관함 규칙이 상점 라벨에도 걸림)
+	ArtLabel->SetContent(B.LineBox(B.Text(LOCTEXT("ArtLabel", "SUPPLY / EQUIPMENT STUDY"), Font(EFace::Bold, Css(10.f, 8.f), .18f), Paper())));
+	AddOverlay(ArtInner, ArtLabel, HAlign_Left, VAlign_Bottom, FMargin(18.f, 0.f, 0.f, Css(19.f, 12.f)));
 	AddV(Panel, ArtBox);
 
 	// .shop-details: padding 16 0
 	UVerticalBox* Copy = B.VBox();
 	DetailCopy = Copy;
-	KindText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Bold, 11.f, .1f), Lime()));
-	NameText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Bold, 30.f), Paper()), 37.5f);
+	KindText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Bold, Css(11.f, 10.f), .1f), Lime()));
+	const float NamePx = Css(30.f, 25.f);
+	NameText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Bold, NamePx), Paper()), NamePx * 1.25f);
 	NameText->SetAutoWrapText(true);
 	DescriptionText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 12.f), Hex(0xcad4e5)), 19.2f);
 	DescriptionText->SetAutoWrapText(true);
 	AddV(Copy, KindText);
 	AddV(Copy, NameText, FMargin(0.f, 6.f));
 	AddV(Copy, DescriptionText);
-	AddV(Panel, Copy, FMargin(0.f, 16.f));
+	AddV(Panel, Copy, FMargin(0.f, Css(16.f, 10.f)));
 
 	// .shop-stock: gap 22, 11px, padding 12 0, border-bottom — b 17px lime(ml 5)가 같은 기준선
 	UHorizontalBox* Stock = B.HBox();
@@ -368,7 +380,7 @@ UWidget* USupplyShopPage::BuildPanel(const FBuilder& B)
 	};
 	AddStock(LOCTEXT("Owned", "팀 보유"), OwnedText, 22.f);
 	AddStock(LOCTEXT("Stored", "보관 중"), StoredText, 0.f);
-	AddV(Panel, Stock, FMargin(0.f, 12.f));
+	AddV(Panel, Stock, FMargin(0.f, Css(12.f, 8.f)));
 	AddV(Panel, Rule(B, Line()));
 
 	// .shop-order: mt 16, padding 18, 종이색, box-shadow 7px 7px 0 blue
@@ -376,11 +388,11 @@ UWidget* USupplyShopPage::BuildPanel(const FBuilder& B)
 	UBorder* OrderShadow = B.Fill(Blue());
 	OrderShadow->SetRenderTranslation(FVector2D(7.f, 7.f));
 	AddFill(Order, OrderShadow);
-	UBorder* Sheet = B.Fill(Paper(), FMargin(18.f));
+	UBorder* Sheet = B.Fill(Paper(), IsCompact() ? FMargin(16.f, 12.f) : FMargin(18.f));
 	AddFill(Order, Sheet);
 	UVerticalBox* SheetColumn = B.VBox();
 	Sheet->SetContent(SheetColumn);
-	AddV(Panel, Order, FMargin(0.f, 16.f, 0.f, 0.f));
+	AddV(Panel, Order, FMargin(0.f, Css(16.f, 10.f), 0.f, 0.f));
 
 	AddV(SheetColumn, B.LineBox(B.Text(LOCTEXT("OrderMicro", "ORDER / 팀 공유 보관함으로"), Font(EFace::Bold, 10.f, .18f), Hex(0x3b5056)), 15.f, ERef::Segoe));
 
@@ -425,20 +437,20 @@ UWidget* USupplyShopPage::BuildPanel(const FBuilder& B)
 		AddHitTarget(Size, [this]() { SetArea(EArea::Quantity); });
 	}
 	AddH(Picker, MakeStepper(PlusButton, TEXT("+"), 1), FMargin(0.f), VAlign_Center);
-	AddV(SheetColumn, Picker, FMargin(0.f, 12.f));
+	AddV(SheetColumn, Picker, FMargin(0.f, Css(12.f, 8.f)));
 
 	// .order-total: padding 10 0, border-top 1px #718187
 	AddV(SheetColumn, Rule(B, Hex(0x718187)));
 	UHorizontalBox* Total = B.HBox();
 	AddH(Total, B.LineBox(B.Text(LOCTEXT("TotalLabel", "주문 합계"), Font(EFace::Regular, 13.f), Ink())), FMargin(0.f), VAlign_Center, 1.f);
-	TotalText = B.LineBox(B.Text(Dash(), Font(EFace::Black, 30.f, 0.f, true), Ink()), -1.f, ERef::Segoe);
+	TotalText = B.LineBox(B.Text(Dash(), Font(EFace::Black, Css(30.f, 26.f), 0.f, true), Ink()), -1.f, ERef::Segoe);
 	AddH(Total, TotalText, FMargin(0.f), VAlign_Center);
-	AddV(SheetColumn, Total, FMargin(0.f, 10.f));
+	AddV(SheetColumn, Total, FMargin(0.f, Css(10.f, 7.f)));
 
 	// .shop-buy: padding 13 16, ink / 비활성 #46515b
 	{
 		UOverlay* Card = B.Overlay();
-		UBorder* Face = B.Fill(Ink(), FMargin(16.f, 13.f));
+		UBorder* Face = B.Fill(Ink(), FMargin(Css(16.f, 14.f), Css(13.f, 10.f)));
 		UHorizontalBox* Row = B.HBox();
 		UTextBlock* Label = B.LineBox(B.Text(LOCTEXT("Buy", "주문 확인"), Font(EFace::Bold, 15.f), Paper()));
 		UTextBlock* Arrow = B.LineBox(B.Text(FText::FromString(TEXT("↗")), Font(EFace::Bold, 15.f), Paper()));
@@ -460,7 +472,7 @@ UWidget* USupplyShopPage::BuildPanel(const FBuilder& B)
 
 	ReasonText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 11.f), Ink()), 16.5f);
 	ReasonText->SetAutoWrapText(true);
-	AddV(SheetColumn, ReasonText, FMargin(0.f, 10.f, 0.f, 0.f));
+	AddV(SheetColumn, ReasonText, FMargin(0.f, Css(10.f, 7.f), 0.f, 0.f));
 	return Panel;
 }
 
@@ -474,7 +486,7 @@ UWidget* USupplyShopPage::BuildFooter(const FBuilder& B)
 	AddV(Texts, StatusText);
 	HintText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 11.f), Muted()));
 	AddV(Texts, HintText, FMargin(0.f, 8.f, 0.f, 0.f));
-	AddV(Foot, Texts, FMargin(0.f, 12.f, 0.f, 0.f));
+	AddV(Foot, Texts, FMargin(0.f, Css(12.f, 9.f), 0.f, 0.f));
 	return Foot;
 }
 
@@ -1076,6 +1088,8 @@ void USupplyShopPage::ReturnToHub()
 
 void USupplyShopPage::SetStatus(const FText& Message, bool bError)
 {
+	StatusMessage = Message;
+	bStatusError = bError;
 	if (StatusText)
 	{
 		StatusText->SetText(Message);
@@ -1234,6 +1248,19 @@ void USupplyShopPage::OnViewSizeChanged(const FVector2D& ViewSize)
 	if (RowsFrame)
 	{
 		RowsFrame->SetMaxDesiredHeight(ViewSize.Y * .43f);
+	}
+}
+
+void USupplyShopPage::OnPageRebuilt()
+{
+	// OnPageShown의 진입 초기화(분류·선택·수량 리셋)는 하지 않고, 들고 있던 상태로 새 트리를 다시 그린다
+	BuildRows();
+	SetStatus(StatusMessage, bStatusError);
+	RefreshAll();
+	if (bConfirmOpen)
+	{
+		HitLayer = ShopConfirmLayerIndex;
+		ConfirmLayer->SetVisibility(ESlateVisibility::HitTestInvisible);
 	}
 }
 

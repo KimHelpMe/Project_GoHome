@@ -34,6 +34,8 @@ public:
 protected:
 	virtual UWidget* BuildPage(const SupplyUI::FBuilder& B) override;
 	virtual void NativeDestruct() override;
+	virtual bool SupportsCompact() const override { return true; }
+	virtual void OnPageRebuilt() override;
 
 private:
 	enum class EArea : uint8
@@ -108,6 +110,10 @@ private:
 	void CommitConfirm();
 	void ReturnToHub();
 	void SetStatus(const FText& Message, bool bError);
+
+	// 압축 전환으로 다시 만든 트리에 그대로 옮겨 그린다(상태 문구는 위젯에만 있으므로 따로 기억)
+	FText StatusMessage;
+	bool bStatusError = false;
 
 	// --- 그리기 ---
 	void RefreshAll();
