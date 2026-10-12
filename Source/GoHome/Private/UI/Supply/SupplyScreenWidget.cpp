@@ -13,6 +13,7 @@
 #include "GameFramework/PlayerController.h"
 #include "InputCoreTypes.h"
 #include "UI/Supply/SupplyHubPage.h"
+#include "UI/Supply/SupplyLockerPage.h"
 #include "UI/Supply/SupplyOpeningOverlay.h"
 #include "UI/Supply/SupplyPageWipe.h"
 #include "UI/Supply/SupplyShopPage.h"
@@ -73,6 +74,7 @@ void USupplyScreenWidget::NativeOnInitialized()
 
 	HubPage = MakePage<USupplyHubPage>(this, PageLayer);
 	ShopPage = MakePage<USupplyShopPage>(this, PageLayer);
+	LockerPage = MakePage<USupplyLockerPage>(this, PageLayer);
 
 	Wipe = CreateWidget<USupplyPageWipe>(this, USupplyPageWipe::StaticClass());
 	SupplyUI::AddFill(Root, Wipe);

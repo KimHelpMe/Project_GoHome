@@ -1,0 +1,1163 @@
+#include "UI/Supply/SupplyLockerPage.h"
+
+#include "Blueprint/WidgetTree.h"
+#include "Components/Border.h"
+#include "Components/CanvasPanel.h"
+#include "Components/CanvasPanelSlot.h"
+#include "Components/HorizontalBox.h"
+#include "Components/Overlay.h"
+#include "Components/OverlaySlot.h"
+#include "Components/ScrollBox.h"
+#include "Components/SizeBox.h"
+#include "Components/Spacer.h"
+#include "Components/TextBlock.h"
+#include "Components/VerticalBox.h"
+#include "Core/GoHomeGameState.h"
+#include "Core/SupplyScreenBackend.h"
+#include "Item/ItemDataAsset.h"
+#include "Shop/ItemShopCatalogDataAsset.h"
+#include "UI/Supply/SupplyEquipmentArt.h"
+#include "UI/Supply/SupplyHubPage.h"
+#include "UI/Supply/SupplyMotion.h"
+#include "UI/Supply/SupplyScreenWidget.h"
+
+#define LOCTEXT_NAMESPACE "SupplyLocker"
+
+using namespace SupplyUI;
+
+namespace
+{
+	const FName ListTrack(TEXT("Locker.List"));
+	const FName DetailTrack(TEXT("Locker.Detail"));
+	const FName ArtTrack(TEXT("Locker.Art"));
+	const FName CursorTrack(TEXT("Locker.Cursor"));
+	const FName StoredTrack(TEXT("Locker.Stored"));
+
+	FText Dash()
+	{
+		return FText::FromString(TEXT("—"));
+	}
+
+	UBorder* Rule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f)
+	{
+		return B.Fill(Color, FMargin(0.f, Thickness * .5f));
+	}
+
+	UBorder* VRule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f)
+	{
+		return B.Fill(Color, FMargin(Thickness * .5f, 0.f));
+	}
+
+	void ShowIf(UWidget* Widget, bool bShow)
+	{
+		if (Widget)
+		{
+			Widget->SetVisibility(bShow ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
+		}
+	}
+
+	FText TwoDigits(int32 Value)
+	{
+		return FText::FromString(FString::Printf(TEXT("%02d"), Value));
+	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 조립
+
+UWidget* USupplyLockerPage::BuildPage(const FBuilder& B)
+{
+	// .screen: max-width 1920, padding clamp(18px,3.2vw,60px)=60, gap 25(≥1500px)
+	PagePadding = FMargin(60.f);
+
+	UOverlay* Root = B.Overlay();
+	AddFill(Root, B.Fill(Ink()));
+
+	UOverlay* Frame = B.Overlay();
+	Frame->SetClipping(EWidgetClipping::ClipToBounds);
+	PageFrame = Frame;
+	AddFill(Root, Frame);
+
+	// :before 남청 띠(110vw × 36vh, top 24%, left -4%, -9°) / :after 세로 줄(left 3%, top 22%, 66%)
+	UCanvasPanel* Decor = B.Canvas();
+	Decor->SetVisibility(ESlateVisibility::HitTestInvisible);
+	UBorder* Band = B.Fill(Navy());
+	Band->SetRenderTransformPivot(FVector2D(.5f, .5f));
+	Band->SetRenderTransformAngle(-9.f);
+	AddCanvas(Decor, Band, FVector2D(-76.8f, 259.2f), FVector2D(2112.f, 388.8f));
+	BackBand = Band;
+	UBorder* SideLine = B.Fill(Line());
+	UCanvasPanelSlot* LineSlot = Decor->AddChildToCanvas(SideLine);
+	LineSlot->SetAnchors(FAnchors(.03f, .22f, .03f, .88f));
+	LineSlot->SetOffsets(FMargin(0.f, 0.f, 1.f, 0.f));
+	AddFill(Frame, Decor);
+
+	UVerticalBox* Column = B.VBox();
+	AddOverlay(Frame, Column, HAlign_Fill, VAlign_Fill, PagePadding);
+
+	Masthead = BuildMasthead(B);
+	AddV(Column, Masthead);
+	CategoryBar = BuildCategories(B);
+	AddV(Column, CategoryBar, FMargin(0.f, 25.f, 0.f, 0.f));
+
+	// .workspace: minmax(280px,.92fr) / clamp(24px,4vw,70px)=70 / minmax(360px,1.35fr), align-items start
+	UHorizontalBox* Workspace = B.HBox();
+	DetailColumn = BuildDetail(B);
+	ManifestColumn = BuildManifest(B);
+	AddH(Workspace, DetailColumn, FMargin(0.f), VAlign_Top, .92f);
+	AddH(Workspace, B.Spacer(70.f, 0.f));
+	AddH(Workspace, ManifestColumn, FMargin(0.f), VAlign_Top, 1.35f);
+	AddV(Column, Workspace, FMargin(0.f, 25.f), HAlign_Fill, true);
+
+	Footer = BuildFooter(B);
+	AddV(Column, Footer);
+	return Root;
+}
+
+UWidget* USupplyLockerPage::BuildMasthead(const FBuilder& B)
+{
+	UHorizontalBox* Head = B.HBox();
+
+	UHorizontalBox* Heading = B.HBox();
+	{
+		UVerticalBox* Brand = B.VBox();
+		AddV(Brand, B.LineBox(B.Text(LOCTEXT("Kicker", "SUBMARINE / CREW EQUIPMENT"), Font(EFace::Bold, 11.f, .18f), Lime()), 16.5f, ERef::Segoe), FMargin(0.f, 0.f, 0.f, 7.f));
+		AddV(Brand, B.LineBox(B.Text(LOCTEXT("Wordmark", "GOHOME"), Font(EFace::Display, 48.f, -.08f, true), Paper()), 45.6f, ERef::ArialBlack));
+		AddH(Heading, Brand, FMargin(0.f, 0.f, 24.f, 0.f), VAlign_Center);
+
+		USizeBox* Slash = B.Size(5.f, 55.f);
+		Slash->AddChild(B.Fill(Lime()));
+		Slash->SetRenderTransformPivot(FVector2D(.5f, .5f));
+		Slash->SetRenderTransformAngle(15.f);
+		AddH(Heading, Slash, FMargin(0.f, 0.f, 24.f, 0.f), VAlign_Center);
+
+		// h1 clamp(28px,3.4vw,56px)=56, 950, -.07em, line-height 1.15, margin-top 4
+		UTextBlock* Title = B.Text(LOCTEXT("Title", "팀 보관함"), Font(EFace::Bold, 56.f, -.07f), Paper());
+		AddH(Heading, B.LineBox(Title, 64.4f), FMargin(0.f, 4.f, 0.f, 0.f), VAlign_Center);
+	}
+	AddH(Head, Heading, FMargin(0.f), VAlign_Top);
+	AddH(Head, B.Spacer(24.f, 0.f), FMargin(0.f), VAlign_Top, 1.f);
+
+	UHorizontalBox* Side = B.HBox();
+	{
+		ViewContextText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 11.f, .04f), Lime()));
+		AddH(Side, ViewContextText, FMargin(0.f, 0.f, 24.f, 0.f), VAlign_Center);
+
+		// .exit "나가기 ↗"(시안 상점과 같은 규격)
+		UOverlay* ExitCard = B.Overlay();
+		UVerticalBox* Exit = B.VBox();
+		UHorizontalBox* ExitRow = B.HBox();
+		const float ExitBaseline = CssBaseline(22.f, ERef::Malgun, 29.f);
+		UTextBlock* ExitLabel = B.Text(LOCTEXT("Exit", "나가기"), Font(EFace::Regular, 13.f), Paper());
+		Typeset(ExitLabel, ERef::Malgun, 29.f, ExitBaseline);
+		UTextBlock* ExitArrow = B.Text(FText::FromString(TEXT("↗")), Font(EFace::Bold, 22.f), Paper());
+		Typeset(ExitArrow, ERef::Malgun, 29.f, ExitBaseline);
+		AddH(ExitRow, ExitLabel, FMargin(0.f), VAlign_Top);
+		AddH(ExitRow, ExitArrow, FMargin(10.f, 0.f, 0.f, 0.f), VAlign_Top);
+		AddV(Exit, ExitRow, FMargin(12.f, 10.f, 0.f, 10.f));
+		AddV(Exit, Rule(B, Paper()));
+		AddFill(ExitCard, Exit);
+		UWidget* Ring = B.Ring(Lime(), 3.f);
+		AddOverlay(ExitCard, Ring, HAlign_Fill, VAlign_Fill, FMargin(-7.f));
+		Ring->SetVisibility(ESlateVisibility::Hidden);
+		ExitRing = Ring;
+		AddH(Side, ExitCard, FMargin(0.f), VAlign_Center);
+		AddHitTarget(ExitCard, [this]() { ReturnFromLocker(); });
+	}
+	AddH(Head, Side, FMargin(0.f), VAlign_Top);
+	return Head;
+}
+
+UWidget* USupplyLockerPage::BuildCategories(const FBuilder& B)
+{
+	// .categories: gap 5, border-bottom 2px paper, padding-bottom 8 / .channel 오른쪽
+	UOverlay* Bar = B.Overlay();
+	UVerticalBox* Stack = B.VBox();
+	AddFill(Bar, Stack);
+	UHorizontalBox* Row = B.HBox();
+	AddV(Stack, Row, FMargin(0.f, 0.f, 0.f, 8.f));
+	AddV(Stack, Rule(B, Paper(), 2.f));
+
+	const FText Labels[3] = { LOCTEXT("All", "전체"), LOCTEXT("Permanent", "장비"), LOCTEXT("Consumable", "소모품") };
+	// 한 줄 안 크기가 다른 글자(13/15/12px)가 15px 기준선을 공유한다(줄 상자 20)
+	const float Baseline = CssBaseline(15.f, ERef::Malgun, 20.f);
+	for (int32 Index = 0; Index < 3; ++Index)
+	{
+		FCategoryWidgets& Tab = Categories[Index];
+		USizeBox* Size = B.Size();
+		Size->SetMinDesiredWidth(135.f);
+		UOverlay* Card = B.Overlay();
+		Card->SetRenderTransformPivot(FVector2D(.5f, .5f));
+		Size->AddChild(Card);
+		Tab.Card = Card;
+		Tab.Face = B.Fill(FLinearColor::Transparent);
+		AddFill(Card, Tab.Face);
+
+		UHorizontalBox* Content = B.HBox();
+		Content->SetRenderTransformPivot(FVector2D(.5f, .5f));
+		Tab.Content = Content;
+		UTextBlock* IndexText = B.Text(TwoDigits(Index + 1), Font(EFace::ExtraBold, 13.f, 0.f, true), Muted());
+		Typeset(IndexText, ERef::Segoe, 20.f, Baseline);
+		UTextBlock* LabelText = B.Text(Labels[Index], Font(EFace::Bold, 15.f), Muted());
+		Typeset(LabelText, ERef::Malgun, 20.f, Baseline);
+		Tab.Count = B.Text(Dash(), Font(EFace::ExtraBold, 12.f), Muted());
+		Typeset(Tab.Count, ERef::Segoe, 20.f, Baseline);
+		AddH(Content, IndexText, FMargin(0.f, 0.f, 12.f, 0.f), VAlign_Top);
+		AddH(Content, LabelText, FMargin(0.f, 0.f, 20.f, 0.f), VAlign_Top);
+		AddH(Content, Tab.Count, FMargin(0.f), VAlign_Top);
+		Tab.Texts = { IndexText, LabelText, Tab.Count };
+		AddOverlay(Card, Content, HAlign_Left, VAlign_Fill, FMargin(22.f, 12.f));
+
+		// .category:focus — outline 3px lime, offset 0
+		UWidget* Ring = B.Ring(Lime(), 3.f);
+		AddOverlay(Card, Ring, HAlign_Fill, VAlign_Fill, FMargin(-3.f));
+		Ring->SetVisibility(ESlateVisibility::Hidden);
+		Tab.Ring = Ring;
+
+		AddH(Row, Size, FMargin(0.f, 0.f, Index < 2 ? 5.f : 0.f, 0.f), VAlign_Fill);
+		AddHitTarget(Size, [this, Index]()
+		{
+			SetCategory(Index, true);
+			SetArea(EArea::Category);
+		});
+	}
+	AddH(Row, B.Spacer(0.f, 0.f), FMargin(0.f), VAlign_Fill, 1.f);
+
+	UVerticalBox* Channel = B.VBox();
+	AddV(Channel, B.LineBox(B.Text(LOCTEXT("Channel", "PRESSURE INDEX"), Font(EFace::Bold, 11.f, .12f), Muted()), 17.6f, ERef::Segoe), FMargin(0.f), HAlign_Right);
+	AddV(Channel, B.LineBox(B.Text(LOCTEXT("ChannelSub", "공유 장비 · 팀 전체"), Font(EFace::Bold, 14.f, .12f), Paper()), 22.4f), FMargin(0.f), HAlign_Right);
+	AddH(Row, Channel, FMargin(0.f), VAlign_Center);
+
+	// .category:focus:after ▼ — 분류 띠의 오른쪽 위(right 8, top -11)
+	UTextBlock* Caret = B.LineBox(B.Text(FText::FromString(TEXT("▼")), Font(EFace::Regular, 16.f), Lime()));
+	AddOverlay(Bar, Caret, HAlign_Right, VAlign_Top, FMargin(0.f, -11.f, 8.f, 0.f));
+	Caret->SetVisibility(ESlateVisibility::Hidden);
+	CategoryCaret = Caret;
+	return Bar;
+}
+
+UWidget* USupplyLockerPage::BuildDetail(const FBuilder& B)
+{
+	UVerticalBox* Detail = B.VBox();
+
+	// .artboard: clamp(170px,27vh,310px), 코발트 + 2px #7185f5, 안쪽 틀(inset 20, -6°), 종이색 띠, 큰 번호, +, 도해, 라벨
+	ArtBoard = B.Size(-1.f, 291.6f);
+	UBorder* Frame = B.Fill(Hex(0x7185f5), FMargin(2.f));
+	Frame->SetClipping(EWidgetClipping::ClipToBounds);
+	ArtBoard->AddChild(Frame);
+	UOverlay* Inner = B.Overlay();
+	Frame->SetContent(Inner);
+	AddFill(Inner, B.Fill(Blue()));
+
+	UWidget* InnerFrame = B.Ring(MixSRGB(0xbac7ff, 0x55 / 255.f, 0x2747d8), 1.f);
+	InnerFrame->SetRenderTransformPivot(FVector2D(.5f, .5f));
+	InnerFrame->SetRenderTransformAngle(-6.f);
+	AddOverlay(Inner, InnerFrame, HAlign_Fill, VAlign_Fill, FMargin(20.f));
+
+	UCanvasPanel* Decor = B.Canvas();
+	UBorder* Band = B.Fill(Paper());
+	Band->SetRenderTransformPivot(FVector2D(.5f, .5f));
+	Band->SetRenderTransformAngle(-16.f);
+	UCanvasPanelSlot* BandSlot = Decor->AddChildToCanvas(Band);
+	// width 120%, height 34, left -6%, bottom -12
+	BandSlot->SetAnchors(FAnchors(-.06f, 1.f, 1.14f, 1.f));
+	BandSlot->SetOffsets(FMargin(0.f, -22.f, 0.f, 34.f));
+	ArtIndexText = B.Text(LOCTEXT("ArtIndex", "01"), Font(EFace::Display, 175.f, -.1f, true), MixSRGB(0xffffff, 0x18 / 255.f, 0x2747d8));
+	Typeset(ArtIndexText, ERef::ArialBlack, 175.f);
+	UCanvasPanelSlot* IndexSlot = Decor->AddChildToCanvas(ArtIndexText);
+	IndexSlot->SetAutoSize(true);
+	IndexSlot->SetPosition(FVector2D(14.f, -12.f));
+	AddFill(Inner, Decor);
+
+	UTextBlock* Cross = B.LineBox(B.Text(FText::FromString(TEXT("+")), Font(EFace::Regular, 25.f), Paper()));
+	AddOverlay(Inner, Cross, HAlign_Right, VAlign_Top, FMargin(0.f, 10.f, 16.f, 0.f));
+
+	Art = B.Tree->ConstructWidget<USupplyEquipmentArt>(USupplyEquipmentArt::StaticClass());
+	AddOverlay(Inner, Art, HAlign_Center, VAlign_Center);
+
+	AddOverlay(Inner, B.LineBox(B.Text(LOCTEXT("ArtLabel", "GOHOME / EQUIPMENT STUDY"), Font(EFace::Regular, 10.f, .18f), Paper())), HAlign_Left, VAlign_Bottom, FMargin(18.f, 0.f, 0.f, 19.f));
+	AddV(Detail, ArtBoard);
+
+	// .detail-copy: padding-top 22(≥1500)
+	UVerticalBox* Copy = B.VBox();
+	DetailCopy = Copy;
+	KindText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Bold, 11.f, .1f), Lime()));
+	NameText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Bold, 39.f, -.05f), Paper()), 46.8f);
+	NameText->SetAutoWrapText(true);
+	DescriptionText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 15.f), Hex(0xcad4e5)), 15.f * 1.65f);
+	DescriptionText->SetAutoWrapText(true);
+	USizeBox* DescriptionBox = B.Size();
+	DescriptionBox->SetMinDesiredHeight(44.f);
+	DescriptionBox->AddChild(DescriptionText);
+	AddV(Copy, KindText);
+	AddV(Copy, NameText, FMargin(0.f, 7.f, 0.f, 9.f));
+	AddV(Copy, DescriptionBox);
+
+	// .quantities: margin 18 0 14, border-block 1px, 4칸(flex 1, padding 10 12, 첫 칸 padding-left 0)
+	UVerticalBox* QuantityBlock = B.VBox();
+	AddV(QuantityBlock, Rule(B, Line()));
+	UHorizontalBox* Cells = B.HBox();
+	auto AddCell = [&](const FText& Label, TObjectPtr<UTextBlock>& OutValue, TObjectPtr<UTextBlock>* OutLabel, bool bFirst, bool bLast, TObjectPtr<UBorder>* OutBlock)
+	{
+		UBorder* Cell = B.Fill(FLinearColor::Transparent, FMargin(bFirst ? 0.f : 12.f, 10.f, 12.f, 10.f));
+		UVerticalBox* Stack = B.VBox();
+		UTextBlock* LabelText = B.LineBox(B.Text(Label, Font(EFace::Regular, 11.f), Muted()));
+		AddV(Stack, LabelText, FMargin(0.f, 0.f, 0.f, 5.f));
+		OutValue = B.LineBox(B.Text(Dash(), Font(EFace::ExtraBold, 29.f), Paper()), 29.f, ERef::Segoe);
+		AddV(Stack, OutValue);
+		Cell->SetContent(Stack);
+		AddH(Cells, Cell, FMargin(0.f), VAlign_Fill, 1.f);
+		if (!bLast)
+		{
+			AddH(Cells, VRule(B, Line()), FMargin(0.f), VAlign_Fill);
+		}
+		if (OutLabel)
+		{
+			*OutLabel = LabelText;
+		}
+		if (OutBlock)
+		{
+			*OutBlock = Cell;
+		}
+	};
+	AddCell(LOCTEXT("Stored", "보관 중"), StoredText, &StoredLabel, true, false, &StoredBlock);
+	AddCell(LOCTEXT("CheckedOut", "팀 반출"), CheckedOutText, nullptr, false, false, nullptr);
+	AddCell(LOCTEXT("Held", "내 소지"), HeldText, nullptr, false, false, nullptr);
+	AddCell(LOCTEXT("Owned", "팀 보유"), OwnedText, nullptr, false, true, nullptr);
+	AddV(QuantityBlock, Cells);
+	AddV(QuantityBlock, Rule(B, Line()));
+	AddV(Copy, QuantityBlock, FMargin(0.f, 18.f, 0.f, 14.f));
+
+	// .action-note: 11px/1.5, min-height 33
+	ActionNoteText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 11.f), Muted()), 16.5f);
+	ActionNoteText->SetAutoWrapText(true);
+	USizeBox* NoteBox = B.Size();
+	NoteBox->SetMinDesiredHeight(33.f);
+	NoteBox->AddChild(ActionNoteText);
+	// 로비에선 위 .quantities margin-bottom 14와 .action-note margin-top 10이 겹쳐(마진 상쇄) 14만 남는다
+	AddV(Copy, NoteBox);
+	AddV(Detail, Copy, FMargin(0.f, 22.f, 0.f, 0.f));
+	return Detail;
+}
+
+UWidget* USupplyLockerPage::BuildManifest(const FBuilder& B)
+{
+	UVerticalBox* Manifest = B.VBox();
+
+	// .manifest-head: flex end, border-bottom 1px, padding-bottom 12
+	UHorizontalBox* Head = B.HBox();
+	UVerticalBox* TitleStack = B.VBox();
+	CategoryTitleText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 11.f, .12f), Lime()));
+	AddV(TitleStack, CategoryTitleText, FMargin(0.f, 0.f, 0.f, 6.f));
+	AddV(TitleStack, B.LineBox(B.Text(LOCTEXT("OnBoard", "ON BOARD."), Font(EFace::Display, 65.f, -.055f, true), Paper()), 65.f, ERef::ArialBlack));
+	AddH(Head, TitleStack, FMargin(0.f), VAlign_Bottom, 1.f);
+	TotalText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 12.f), Muted()), 19.2f);
+	TotalText->SetJustification(ETextJustify::Right);
+	AddH(Head, TotalText, FMargin(16.f, 0.f, 0.f, 0.f), VAlign_Bottom);
+	AddV(Manifest, Head, FMargin(0.f, 2.f, 0.f, 12.f));
+	AddV(Manifest, Rule(B, Line()));
+
+	UHorizontalBox* ColumnHead = B.HBox();
+	AddH(ColumnHead, B.LineBox(B.Text(LOCTEXT("HeadItems", "보유 아이템"), Font(EFace::Regular, 10.f, .08f), Muted())), FMargin(0.f), VAlign_Top, 1.f);
+	AddH(ColumnHead, B.LineBox(B.Text(LOCTEXT("HeadCounts", "보관 / 팀 보유"), Font(EFace::Regular, 10.f, .08f), Muted())), FMargin(0.f), VAlign_Top);
+	AddV(Manifest, ColumnHead, FMargin(30.f, 15.f, 17.f, 9.f));
+
+	// .rows: gap 8, max-height 44vh, padding 6 10 12 17
+	RowsFrame = B.Size();
+	RowsScroll = B.Tree->ConstructWidget<UScrollBox>();
+	RowsScroll->SetScrollbarThickness(FVector2D(4.f, 4.f));
+	RowsScroll->SetScrollbarPadding(FMargin(0.f));
+	RowsScroll->SetAnimateWheelScrolling(false);
+	{
+		FScrollBarStyle BarStyle = RowsScroll->GetWidgetBarStyle();
+		FSlateBrush Thumb;
+		Thumb.DrawAs = ESlateBrushDrawType::Box;
+		Thumb.TintColor = FSlateColor(Paper());
+		Thumb.ImageSize = FVector2D(4.f, 4.f);
+		FSlateBrush Clear;
+		Clear.DrawAs = ESlateBrushDrawType::NoDrawType;
+		Clear.ImageSize = FVector2D::ZeroVector;
+		BarStyle.SetNormalThumbImage(Thumb).SetHoveredThumbImage(Thumb).SetDraggedThumbImage(Thumb);
+		BarStyle.SetVerticalBackgroundImage(Clear).SetVerticalTopSlotImage(Clear).SetVerticalBottomSlotImage(Clear);
+		BarStyle.SetThickness(4.f);
+		RowsScroll->SetWidgetBarStyle(BarStyle);
+	}
+	UBorder* RowsPad = B.Box(FMargin(17.f, 6.f, 10.f, 12.f));
+	RowsList = B.VBox();
+	RowsPad->SetContent(RowsList);
+	RowsScroll->AddChild(RowsPad);
+	RowsFrame->AddChild(RowsScroll);
+	AddV(Manifest, RowsFrame);
+
+	// .empty: padding 44 15, border-bottom
+	UVerticalBox* Empty = B.VBox();
+	EmptyTitle = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Bold, 23.f), Paper()));
+	EmptyBody = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 15.f), Muted()), 15.f * 1.7f);
+	AddV(Empty, EmptyTitle, FMargin(0.f, 0.f, 0.f, 9.f));
+	AddV(Empty, EmptyBody);
+	UVerticalBox* EmptyStack = B.VBox();
+	UBorder* EmptyPad = B.Box(FMargin(15.f, 44.f));
+	EmptyPad->SetContent(Empty);
+	AddV(EmptyStack, EmptyPad);
+	AddV(EmptyStack, Rule(B, Line()));
+	EmptyBox = EmptyStack;
+	EmptyBox->SetVisibility(ESlateVisibility::Collapsed);
+	AddV(Manifest, EmptyStack);
+
+	// .manifest-foot: border-top, padding 15 10, 11px
+	AddV(Manifest, Rule(B, Line()));
+	UHorizontalBox* Foot = B.HBox();
+	PositionText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 11.f), Muted()));
+	AddH(Foot, PositionText, FMargin(0.f), VAlign_Top, 1.f);
+	UHorizontalBox* Legend = B.HBox();
+	AddH(Legend, B.LineBox(B.Text(LOCTEXT("LegendSelected", "색면 = 선택 "), Font(EFace::Regular, 11.f), Muted())));
+	AddH(Legend, B.LineBox(B.Text(LOCTEXT("LegendFocus", "▶ = 현재 조작"), Font(EFace::Bold, 11.f), Lime())));
+	AddH(Foot, Legend, FMargin(20.f, 0.f, 0.f, 0.f), VAlign_Top);
+	AddV(Manifest, Foot, FMargin(10.f, 15.f));
+	return Manifest;
+}
+
+UWidget* USupplyLockerPage::BuildRow(const FBuilder& B)
+{
+	const int32 RowIndex = Rows.Num();
+	FRowWidgets& Row = Rows.AddDefaulted_GetRef();
+
+	// .item-row: min-height 88(≥1500), grid 30px/1fr/auto gap 12, padding 12 17 12 10, border-bottom 1px #56647a
+	USizeBox* Root = B.Size();
+	Root->SetMinDesiredHeight(88.f);
+	Row.Root = Root;
+	UOverlay* Card = B.Overlay();
+	Root->AddChild(Card);
+
+	// :before inset 0 5px, skewX(-7deg)
+	UBorder* Face = B.Fill(FLinearColor::Transparent);
+	Face->SetRenderTransformPivot(FVector2D(.5f, .5f));
+	Face->SetRenderShear(FVector2D(-7.f, 0.f));
+	Row.Face = Face;
+	AddOverlay(Card, Face, HAlign_Fill, VAlign_Fill, FMargin(5.f, 0.f));
+	UWidget* Ring = B.Ring(Lime(), 3.f);
+	Ring->SetRenderTransformPivot(FVector2D(.5f, .5f));
+	Ring->SetRenderShear(FVector2D(-7.f, 0.f));
+	Ring->SetVisibility(ESlateVisibility::Hidden);
+	Row.Ring = Ring;
+	AddOverlay(Card, Ring, HAlign_Fill, VAlign_Fill, FMargin(5.f, 0.f));
+
+	UHorizontalBox* Content = B.HBox();
+	USizeBox* IndexCell = B.Size(30.f);
+	Row.Index = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Black, 18.f, 0.f, true), Paper()), -1.f, ERef::Segoe);
+	Row.Index->SetRenderOpacity(.7f);
+	SetContent(IndexCell, Row.Index, HAlign_Left, VAlign_Center);
+	AddH(Content, IndexCell, FMargin(0.f, 0.f, 12.f, 0.f), VAlign_Center);
+
+	UVerticalBox* Words = B.VBox();
+	Row.Name = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Bold, 23.f, -.04f), Paper()), 28.75f);
+	Row.Kind = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 10.f), Paper()), 12.5f);
+	Row.Kind->SetRenderOpacity(.76f);
+	AddV(Words, Row.Name);
+	AddV(Words, Row.Kind, FMargin(0.f, 6.f, 0.f, 0.f));
+	AddH(Content, Words, FMargin(0.f, 0.f, 12.f, 0.f), VAlign_Center, 1.f);
+
+	UVerticalBox* Counts = B.VBox();
+	Row.Quantity = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Black, 26.f), Paper()), -1.f, ERef::Segoe);
+	Row.State = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Bold, 10.f), Paper()));
+	AddV(Counts, Row.Quantity, FMargin(0.f), HAlign_Right);
+	AddV(Counts, Row.State, FMargin(0.f, 3.f, 0.f, 0.f), HAlign_Right);
+	AddH(Content, Counts, FMargin(0.f), VAlign_Center);
+
+	AddOverlay(Card, Content, HAlign_Fill, VAlign_Center, FMargin(10.f, 12.f, 17.f, 13.f));
+	AddOverlay(Card, Rule(B, Hex(0x56647a)), HAlign_Fill, VAlign_Bottom);
+
+	// :focus:after ▶ 22px, left -15, top 24
+	UTextBlock* CursorMark = B.LineBox(B.Text(FText::FromString(TEXT("▶")), Font(EFace::Regular, 22.f), Lime()));
+	CursorMark->SetVisibility(ESlateVisibility::Hidden);
+	Row.Cursor = CursorMark;
+	UBorder* CursorHolder = B.Box();
+	CursorHolder->SetContent(CursorMark);
+	AddOverlay(Card, CursorHolder, HAlign_Left, VAlign_Top, FMargin(-15.f, 24.f, 0.f, 0.f));
+
+	AddHitTarget(Root, [this, RowIndex]()
+	{
+		if (Rows.IsValidIndex(RowIndex) && Rows[RowIndex].ProductId != NAME_None)
+		{
+			// 로비 행 클릭은 선택만(별도 진입 없음)
+			Select(Rows[RowIndex].ProductId);
+			SetArea(EArea::List);
+		}
+	});
+	return Root;
+}
+
+UWidget* USupplyLockerPage::BuildFooter(const FBuilder& B)
+{
+	// .status-band(min-height 49, border-top, padding-top 13) + gap 25 + .footer(26, 시험 버튼 높이 유지)
+	UVerticalBox* Stack = B.VBox();
+	AddV(Stack, Rule(B, Line()));
+	USizeBox* BandSize = B.Size();
+	BandSize->SetMinDesiredHeight(36.f);
+	UHorizontalBox* Band = B.HBox();
+	BandSize->AddChild(Band);
+	USizeBox* Signal = B.Size(8.f, 8.f);
+	Signal->AddChild(B.Fill(Lime()));
+	AddH(Band, Signal, FMargin(0.f, 0.f, 14.f, 0.f), VAlign_Center);
+	StatusText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 14.f), Hex(0xccd6e9)), 22.4f);
+	AddH(Band, StatusText, FMargin(0.f), VAlign_Center, 1.f);
+	AddV(Stack, BandSize, FMargin(0.f, 13.f, 0.f, 0.f));
+
+	USizeBox* FootSize = B.Size(-1.f, 26.f);
+	HelpBox = B.HBox();
+	FootSize->AddChild(HelpBox);
+	FooterRow = FootSize;
+	AddV(Stack, FootSize, FMargin(0.f, 25.f, 0.f, 0.f));
+	return Stack;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 데이터
+
+TArray<FSharedLockerViewEntry> USupplyLockerPage::GetOwnedEntries() const
+{
+	TArray<FSharedLockerViewEntry> Result;
+	for (const FSharedLockerViewEntry& Entry : Entries)
+	{
+		if (Entry.OwnedQuantity > 0)
+		{
+			Result.Add(Entry);
+		}
+	}
+	return Result;
+}
+
+bool USupplyLockerPage::IsCategoryMatch(int32 InCategory, const FSharedLockerViewEntry& Entry) const
+{
+	return InCategory == 0
+		|| (InCategory == 1 && Entry.Lifetime == EItemShopItemLifetime::Permanent)
+		|| (InCategory == 2 && Entry.Lifetime == EItemShopItemLifetime::Consumable);
+}
+
+TArray<FSharedLockerViewEntry> USupplyLockerPage::GetVisibleEntries() const
+{
+	TArray<FSharedLockerViewEntry> Result;
+	for (const FSharedLockerViewEntry& Entry : GetOwnedEntries())
+	{
+		if (IsCategoryMatch(Category, Entry))
+		{
+			Result.Add(Entry);
+		}
+	}
+	return Result;
+}
+
+const FSharedLockerViewEntry* USupplyLockerPage::FindEntry(FName ProductId) const
+{
+	return Entries.FindByPredicate([ProductId](const FSharedLockerViewEntry& Entry) { return Entry.ProductId == ProductId && Entry.OwnedQuantity > 0; });
+}
+
+const FItemShopProduct* USupplyLockerPage::FindProduct(FName ProductId) const
+{
+	const USupplyScreenWidget* Screen = GetHost();
+	const ISupplyScreenBackend* Backend = Screen ? Screen->GetBackend() : nullptr;
+	const UItemShopCatalogDataAsset* Catalog = Backend ? Backend->GetShopCatalog() : nullptr;
+	return Catalog ? Catalog->FindProduct(ProductId) : nullptr;
+}
+
+FText USupplyLockerPage::GetEntryName(const FSharedLockerViewEntry& Entry) const
+{
+	if (const FItemShopProduct* Product = FindProduct(Entry.ProductId))
+	{
+		if (!Product->ShopDisplayName.IsEmpty())
+		{
+			return Product->ShopDisplayName;
+		}
+		if (Product->ItemData && !Product->ItemData->DisplayName.IsEmpty())
+		{
+			return Product->ItemData->DisplayName;
+		}
+	}
+	return FText::FromName(Entry.ProductId);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 수명·구독
+
+void USupplyLockerPage::OnPageShown(bool bBack, FName FocusHint)
+{
+	const USupplyScreenWidget* Screen = GetHost();
+	const ISupplyScreenBackend* Backend = Screen ? Screen->GetBackend() : nullptr;
+	bExpedition = Backend && Backend->GetSupplyEntry() == ESupplyEntry::ExpeditionLocker;
+	ViewContextText->SetText(bExpedition ? LOCTEXT("ContextExpedition", "탐사 · 아이템 박스") : LOCTEXT("ContextLobby", "로비 · 조회 전용"));
+
+	BindSources();
+	Entries = BoundGameState.IsValid() ? BoundGameState->GetSharedLockerItems() : TArray<FSharedLockerViewEntry>();
+
+	// 시안 openLocker: 전체 분류, 선택 없음 → 데이터가 오면 첫 행·목록 포커스
+	CategoryMemory.Reset();
+	Category = 0;
+	SelectedId = NAME_None;
+	LastStored = INDEX_NONE;
+	SetCategory(0, false);
+	Area = SelectedId != NAME_None ? EArea::List : EArea::Category;
+
+	if (!BoundGameState.IsValid())
+	{
+		SetStatus(LOCTEXT("StatusLoading", "공유 상태를 불러오는 중입니다."), false);
+	}
+	else
+	{
+		SetStatus(LOCTEXT("StatusReady", "팀의 장비가 여기에 있습니다."), false);
+	}
+	RefreshAll(false);
+}
+
+void USupplyLockerPage::OnPageHidden()
+{
+	UnbindSources();
+	if (FSupplyAnimator* Animator = GetAnimator())
+	{
+		for (const FName& Track : { ListTrack, DetailTrack, ArtTrack, CursorTrack, StoredTrack })
+		{
+			Animator->Finish(Track);
+		}
+	}
+}
+
+void USupplyLockerPage::NativeDestruct()
+{
+	UnbindSources();
+	Super::NativeDestruct();
+}
+
+void USupplyLockerPage::BindSources()
+{
+	UnbindSources();
+	if (AGoHomeGameState* GameState = GetWorld() ? GetWorld()->GetGameState<AGoHomeGameState>() : nullptr)
+	{
+		BoundGameState = GameState;
+		GameState->OnSharedLockerChanged.AddUniqueDynamic(this, &USupplyLockerPage::HandleLockerChanged);
+	}
+}
+
+void USupplyLockerPage::UnbindSources()
+{
+	if (AGoHomeGameState* GameState = BoundGameState.Get())
+	{
+		GameState->OnSharedLockerChanged.RemoveDynamic(this, &USupplyLockerPage::HandleLockerChanged);
+	}
+	BoundGameState.Reset();
+}
+
+void USupplyLockerPage::HandleLockerChanged()
+{
+	Reconcile();
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 상태 전이
+
+void USupplyLockerPage::SetCategory(int32 InCategory, bool bAnimate)
+{
+	const bool bChanged = Category != InCategory;
+	Category = FMath::Clamp(InCategory, 0, 2);
+	const TArray<FSharedLockerViewEntry> Visible = GetVisibleEntries();
+	const FName* Remembered = CategoryMemory.Find(Category);
+	const FSharedLockerViewEntry* Kept = Remembered ? Visible.FindByPredicate([Remembered](const FSharedLockerViewEntry& Entry) { return Entry.ProductId == *Remembered; }) : nullptr;
+	const FName Previous = SelectedId;
+	SelectedId = Kept ? Kept->ProductId : (Visible.Num() > 0 ? Visible[0].ProductId : NAME_None);
+
+	RefreshAll(bChanged && Previous != SelectedId);
+	if (RowsScroll)
+	{
+		RowsScroll->SetScrollOffset(0.f);
+	}
+
+	FSupplyAnimator* Animator = GetAnimator();
+	if (bAnimate && bChanged && Animator && RowsFrame)
+	{
+		// .rows.changing: Y 7→0, opacity .6→1, 140ms snap
+		TWeakObjectPtr<UWidget> Target = RowsFrame.Get();
+		Animator->Play(ListTrack, 0.f, .14f, [Target](float T)
+		{
+			if (UWidget* Widget = Target.Get())
+			{
+				const float E = FSupplyEase::Snap().Eval(T);
+				Widget->SetRenderOpacity(FMath::Lerp(.6f, 1.f, E));
+				Widget->SetRenderTranslation(FVector2D(0.f, 7.f * (1.f - E)));
+			}
+		});
+	}
+}
+
+void USupplyLockerPage::Select(FName ProductId)
+{
+	const bool bChanged = SelectedId != ProductId;
+	SelectedId = ProductId;
+	CategoryMemory.Add(Category, ProductId);
+	RefreshAll(bChanged);
+
+	for (const FRowWidgets& Row : Rows)
+	{
+		if (Row.ProductId == ProductId && RowsScroll)
+		{
+			RowsScroll->ScrollWidgetIntoView(Row.Root, false, EDescendantScrollDestination::IntoView);
+		}
+	}
+}
+
+void USupplyLockerPage::SetArea(EArea InArea)
+{
+	if (InArea == EArea::List && !FindEntry(SelectedId))
+	{
+		InArea = EArea::Category;
+	}
+	Area = InArea;
+	RefreshFocus();
+
+	if (Area == EArea::List)
+	{
+		// ▶ X -7→0, 100ms
+		for (const FRowWidgets& Row : Rows)
+		{
+			if (Row.ProductId == SelectedId)
+			{
+				if (FSupplyAnimator* Animator = GetAnimator())
+				{
+					TWeakObjectPtr<UWidget> CursorMark = Row.Cursor.Get();
+					Animator->Play(CursorTrack, 0.f, .1f, [CursorMark](float T)
+					{
+						if (UWidget* Widget = CursorMark.Get())
+						{
+							Widget->SetRenderTranslation(FVector2D(-7.f * (1.f - FSupplyEase::Snap().Eval(T)), 0.f));
+						}
+					});
+				}
+			}
+		}
+	}
+}
+
+void USupplyLockerPage::Reconcile()
+{
+	// 시안 reconcile(): 같은 ProductId·영역 유지, 사라지면 옛 인덱스의 다음 행(없으면 마지막), 비면 분류
+	const TArray<FSharedLockerViewEntry> OldVisible = GetVisibleEntries();
+	const FName OldId = SelectedId;
+	const int32 OldIndex = FMath::Max(0, OldVisible.IndexOfByPredicate([OldId](const FSharedLockerViewEntry& Entry) { return Entry.ProductId == OldId; }));
+	const FSharedLockerViewEntry* OldEntry = FindEntry(OldId);
+	const int32 OldStored = OldEntry ? OldEntry->StoredQuantity : INDEX_NONE;
+
+	Entries = BoundGameState.IsValid() ? BoundGameState->GetSharedLockerItems() : TArray<FSharedLockerViewEntry>();
+	const TArray<FSharedLockerViewEntry> Visible = GetVisibleEntries();
+	if (Visible.ContainsByPredicate([OldId](const FSharedLockerViewEntry& Entry) { return Entry.ProductId == OldId; }))
+	{
+		SelectedId = OldId;
+	}
+	else
+	{
+		SelectedId = Visible.Num() > 0 ? Visible[FMath::Min(OldIndex, Visible.Num() - 1)].ProductId : NAME_None;
+	}
+	const bool bRemoved = OldId != NAME_None && OldId != SelectedId;
+
+	RefreshAll(bRemoved);
+
+	const FSharedLockerViewEntry* NewEntry = FindEntry(SelectedId);
+	if (!bRemoved && NewEntry && OldStored != INDEX_NONE && NewEntry->StoredQuantity != OldStored)
+	{
+		// #storedBlock.changed: 라임 바탕/짙은 숫자 → 기본, 400ms ease-out
+		if (FSupplyAnimator* Animator = GetAnimator())
+		{
+			TWeakObjectPtr<USupplyLockerPage> WeakThis = this;
+			Animator->Play(StoredTrack, 0.f, .4f, [WeakThis](float T)
+			{
+				USupplyLockerPage* Page = WeakThis.Get();
+				if (!Page)
+				{
+					return;
+				}
+				const float E = FSupplyEase::EaseOut().Eval(T);
+				FLinearColor Back = Lime();
+				Back.A = 1.f - E;
+				Page->StoredBlock->SetBrushColor(Back);
+				const FLinearColor ValueColor = Page->bExpedition ? Lime() : Paper();
+				Page->StoredText->SetColorAndOpacity(FSlateColor(FMath::Lerp(Ink(), ValueColor, E)));
+				Page->StoredLabel->SetColorAndOpacity(FSlateColor(FMath::Lerp(Ink(), Muted(), E)));
+			});
+		}
+	}
+
+	if (bRemoved)
+	{
+		SetStatus(SelectedId != NAME_None
+			? LOCTEXT("RemovedNext", "선택한 항목이 목록에서 사라졌습니다. 가까운 항목으로 이동했습니다.")
+			: LOCTEXT("RemovedCategory", "선택한 항목이 목록에서 사라졌습니다. 분류로 돌아갑니다."), false);
+		SetArea(SelectedId != NAME_None ? EArea::List : EArea::Category);
+	}
+	else
+	{
+		SetArea(Area);
+	}
+}
+
+void USupplyLockerPage::ReturnFromLocker()
+{
+	USupplyScreenWidget* Screen = GetHost();
+	if (!Screen)
+	{
+		return;
+	}
+	// 로비 조회는 메인 분기의 팀 보관함으로, 탐사는 화면 종료
+	if (bExpedition)
+	{
+		Screen->RequestClose();
+	}
+	else
+	{
+		Screen->NavigateTo(ESupplyPage::Hub, true, USupplyHubPage::FocusLocker);
+	}
+}
+
+void USupplyLockerPage::SetStatus(const FText& Message, bool bError)
+{
+	StatusText->SetText(Message);
+	StatusText->SetColorAndOpacity(FSlateColor(bError ? Alert() : Hex(0xccd6e9)));
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 입력
+
+void USupplyLockerPage::HandleInput(ESupplyInput Input)
+{
+	if (Input == ESupplyInput::TabNext || Input == ESupplyInput::TabPrev)
+	{
+		// 선택 분류 → 선택 행 → 나가기
+		TArray<EArea> Stops = { EArea::Category };
+		if (FindEntry(SelectedId))
+		{
+			Stops.Add(EArea::List);
+		}
+		Stops.Add(EArea::Utility);
+		const int32 Current = FMath::Max(0, Stops.IndexOfByKey(Area));
+		SetArea(Stops[(Current + (Input == ESupplyInput::TabNext ? 1 : -1) + Stops.Num()) % Stops.Num()]);
+		return;
+	}
+
+	switch (Area)
+	{
+	case EArea::Category:
+		if (Input == ESupplyInput::Left || Input == ESupplyInput::Right)
+		{
+			const int32 Next = FMath::Clamp(Category + (Input == ESupplyInput::Right ? 1 : -1), 0, 2);
+			if (Next != Category)
+			{
+				SetCategory(Next, true);
+			}
+			SetArea(EArea::Category);
+		}
+		else if (Input == ESupplyInput::Down || Input == ESupplyInput::Accept)
+		{
+			if (FindEntry(SelectedId))
+			{
+				SetArea(EArea::List);
+			}
+			else
+			{
+				SetStatus(BoundGameState.IsValid() ? LOCTEXT("EmptyCategoryStatus", "이 분류에는 보유 아이템이 없습니다.") : LOCTEXT("StatusLoadingShort", "공유 상태를 확인 중입니다."), false);
+			}
+		}
+		break;
+	case EArea::List:
+		if (Input == ESupplyInput::Up || Input == ESupplyInput::Down)
+		{
+			const TArray<FSharedLockerViewEntry> Visible = GetVisibleEntries();
+			const int32 Index = Visible.IndexOfByPredicate([this](const FSharedLockerViewEntry& Entry) { return Entry.ProductId == SelectedId; });
+			const int32 Next = FMath::Clamp(Index + (Input == ESupplyInput::Down ? 1 : -1), 0, Visible.Num() - 1);
+			if (Visible.IsValidIndex(Next))
+			{
+				Select(Visible[Next].ProductId);
+				SetArea(EArea::List);
+			}
+		}
+		// 로비: Enter/A는 소비만 하고 동작 없음(조회 전용). 탐사 상세 조작은 supply-ui-4.
+		break;
+	case EArea::Utility:
+		if (Input == ESupplyInput::Accept)
+		{
+			ReturnFromLocker();
+		}
+		break;
+	}
+}
+
+void USupplyLockerPage::HandleBack()
+{
+	// 로비: 목록 → 분류 → 메인 분기 / 탐사: 목록 → 분류 → 닫기
+	switch (Area)
+	{
+	case EArea::List:
+		SetArea(EArea::Category);
+		break;
+	case EArea::Utility:
+		SetArea(FindEntry(SelectedId) ? EArea::List : EArea::Category);
+		break;
+	default:
+		ReturnFromLocker();
+		break;
+	}
+}
+
+void USupplyLockerPage::OnViewSizeChanged(const FVector2D& ViewSize)
+{
+	const float FrameWidth = FMath::Min(ViewSize.X, 1920.f);
+	if (UOverlaySlot* FrameSlot = PageFrame ? Cast<UOverlaySlot>(PageFrame->Slot) : nullptr)
+	{
+		FrameSlot->SetPadding(FMargin(FMath::Max(0.f, (ViewSize.X - 1920.f) * .5f), 0.f));
+	}
+	if (UCanvasPanelSlot* BandSlot = BackBand ? Cast<UCanvasPanelSlot>(BackBand->Slot) : nullptr)
+	{
+		// width 110vw, height 36vh, top 24%, left -4%
+		BandSlot->SetPosition(FVector2D(-.04f * FrameWidth, .24f * ViewSize.Y));
+		BandSlot->SetSize(FVector2D(1.1f * ViewSize.X, .36f * ViewSize.Y));
+	}
+	if (ArtBoard)
+	{
+		ArtBoard->SetHeightOverride(FMath::Clamp(ViewSize.Y * .27f, 170.f, 310.f));
+	}
+	if (RowsFrame)
+	{
+		RowsFrame->SetMaxDesiredHeight(ViewSize.Y * .44f);
+	}
+}
+
+void USupplyLockerPage::PlayOpeningLift()
+{
+	// 탐사 직접 진입: 상단 200 ease-out +170, 분류 180 +210, 상세·목록 210 +240, 하단 180 +280
+	PlayLift(Masthead, TEXT("LockerLift.Head"), 170.f, 200.f, false);
+	PlayLift(CategoryBar, TEXT("LockerLift.Categories"), 210.f, 180.f, false);
+	PlayLift(DetailColumn, TEXT("LockerLift.Detail"), 240.f, 210.f, true);
+	PlayLift(ManifestColumn, TEXT("LockerLift.Manifest"), 240.f, 210.f, true);
+	PlayLift(FooterRow, TEXT("LockerLift.Foot"), 280.f, 180.f, false);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 그리기
+
+void USupplyLockerPage::RefreshAll(bool bDetailChanged)
+{
+	RefreshCategories();
+	RefreshRows();
+	RefreshDetail(bDetailChanged);
+	RefreshFocus();
+}
+
+void USupplyLockerPage::RefreshCategories()
+{
+	const bool bReady = BoundGameState.IsValid();
+	const TArray<FSharedLockerViewEntry> Owned = GetOwnedEntries();
+	for (int32 Index = 0; Index < 3; ++Index)
+	{
+		FCategoryWidgets& Widgets = Categories[Index];
+		const bool bPressed = Index == Category;
+		Widgets.Face->SetBrushColor(bPressed ? Paper() : FLinearColor::Transparent);
+		// skewX(-8deg), 글자는 skewX(8deg)로 바로 세운다
+		Widgets.Card->SetRenderShear(FVector2D(bPressed ? -8.f : 0.f, 0.f));
+		Widgets.Content->SetRenderShear(FVector2D(bPressed ? 8.f : 0.f, 0.f));
+		for (UTextBlock* Text : Widgets.Texts)
+		{
+			Text->SetColorAndOpacity(FSlateColor(bPressed ? Ink() : Muted()));
+		}
+		int32 Count = 0;
+		for (const FSharedLockerViewEntry& Entry : Owned)
+		{
+			Count += IsCategoryMatch(Index, Entry) ? 1 : 0;
+		}
+		Widgets.Count->SetText(bReady ? FText::AsNumber(Count) : Dash());
+	}
+
+	static const TCHAR* Titles[3] = { TEXT("01 / ALL EQUIPMENT"), TEXT("02 / PERMANENT"), TEXT("03 / CONSUMABLE") };
+	CategoryTitleText->SetText(FText::FromString(Titles[Category]));
+	TotalText->SetText(bReady ? FText::Format(LOCTEXT("Total", "{0} 품목 · 팀 공유"), FText::AsNumber(Owned.Num())) : LOCTEXT("TotalLoading", "공유 상태\n확인 중"));
+}
+
+void USupplyLockerPage::RefreshRows()
+{
+	const TArray<FSharedLockerViewEntry> Visible = GetVisibleEntries();
+	if (WidgetTree)
+	{
+		const FBuilder B(WidgetTree);
+		while (Rows.Num() < Visible.Num())
+		{
+			AddV(RowsList, BuildRow(B), FMargin(0.f, Rows.Num() == 0 ? 0.f : 8.f, 0.f, 0.f));
+		}
+	}
+
+	for (int32 Index = 0; Index < Rows.Num(); ++Index)
+	{
+		FRowWidgets& Row = Rows[Index];
+		if (!Visible.IsValidIndex(Index))
+		{
+			Row.ProductId = NAME_None;
+			Row.Root->SetVisibility(ESlateVisibility::Collapsed);
+			continue;
+		}
+		const FSharedLockerViewEntry& Entry = Visible[Index];
+		Row.ProductId = Entry.ProductId;
+		Row.Root->SetVisibility(ESlateVisibility::HitTestInvisible);
+
+		const bool bSelected = Entry.ProductId == SelectedId;
+		const FLinearColor TextColor = bSelected ? Ink() : Paper();
+		Row.Face->SetBrushColor(bSelected ? Paper() : FLinearColor::Transparent);
+		Row.Index->SetText(TwoDigits(Index + 1));
+		Row.Name->SetText(GetEntryName(Entry));
+		Row.Kind->SetText(Entry.Lifetime == EItemShopItemLifetime::Permanent ? LOCTEXT("KindPermanent", "장비") : LOCTEXT("KindConsumable", "소모품"));
+		Row.Quantity->SetText(FText::Format(LOCTEXT("RowCounts", "{0} / {1}"), FText::AsNumber(Entry.StoredQuantity), FText::AsNumber(Entry.OwnedQuantity)));
+		Row.State->SetText(Entry.StoredQuantity == 0 ? LOCTEXT("AllOut", "모두 꺼냄") : LOCTEXT("InStore", "보관 중"));
+		for (UTextBlock* Text : { Row.Index.Get(), Row.Name.Get(), Row.Kind.Get(), Row.Quantity.Get(), Row.State.Get() })
+		{
+			Text->SetColorAndOpacity(FSlateColor(TextColor));
+		}
+	}
+
+	const bool bEmpty = Visible.Num() == 0;
+	RowsFrame->SetVisibility(bEmpty ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible);
+	EmptyBox->SetVisibility(bEmpty ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+	const bool bReady = BoundGameState.IsValid();
+	EmptyTitle->SetText(bReady ? LOCTEXT("EmptyTitle", "이 분류에는 보유 아이템이 없습니다") : LOCTEXT("EmptyLoading", "보관함을 확인합니다"));
+	EmptyBody->SetText(bReady ? LOCTEXT("EmptyBody", "분류를 바꾸거나 보관함을 닫을 수 있습니다.") : LOCTEXT("EmptyLoadingBody", "공유 장비 상태를 불러오는 중입니다."));
+
+	const int32 Position = Visible.IndexOfByPredicate([this](const FSharedLockerViewEntry& Entry) { return Entry.ProductId == SelectedId; });
+	PositionText->SetText(Position != INDEX_NONE
+		? FText::Format(LOCTEXT("Position", "{0} / {1}"), TwoDigits(Position + 1), TwoDigits(Visible.Num()))
+		: FText::FromString(TEXT("— / —")));
+}
+
+void USupplyLockerPage::RefreshDetail(bool bChanged)
+{
+	const FSharedLockerViewEntry* Entry = FindEntry(SelectedId);
+	const FItemShopProduct* Product = Entry ? FindProduct(Entry->ProductId) : nullptr;
+	const bool bReady = BoundGameState.IsValid();
+
+	if (Entry)
+	{
+		KindText->SetText(Entry->Lifetime == EItemShopItemLifetime::Permanent ? LOCTEXT("KindLongPermanent", "장비 / PERMANENT") : LOCTEXT("KindLongConsumable", "소모품 / CONSUMABLE"));
+		NameText->SetText(GetEntryName(*Entry));
+		DescriptionText->SetText(Product && !Product->ShopDescription.IsEmpty() ? Product->ShopDescription : LOCTEXT("NoDescription", "상품 설명이 등록되지 않았습니다. 식별 번호로 표시합니다."));
+		Art->SetArt(Product ? Product->ShopArt : EItemShopArt::Unknown);
+		StoredText->SetText(FText::AsNumber(Entry->StoredQuantity));
+		CheckedOutText->SetText(FText::AsNumber(Entry->OwnedQuantity - Entry->StoredQuantity));
+		OwnedText->SetText(FText::AsNumber(Entry->OwnedQuantity));
+		const TArray<FSharedLockerViewEntry> Visible = GetVisibleEntries();
+		const int32 Position = Visible.IndexOfByPredicate([this](const FSharedLockerViewEntry& It) { return It.ProductId == SelectedId; });
+		ArtIndexText->SetText(TwoDigits(Position + 1));
+	}
+	else
+	{
+		KindText->SetText(LOCTEXT("KindShared", "SHARED EQUIPMENT"));
+		NameText->SetText(bReady ? LOCTEXT("NoItem", "보유 아이템 없음") : LOCTEXT("Waiting", "수신 대기"));
+		DescriptionText->SetText(bReady ? LOCTEXT("OtherCategory", "다른 분류에서 팀 보유 아이템을 확인할 수 있습니다.") : LOCTEXT("Loading", "공유 상태를 불러오는 중입니다."));
+		Art->SetArt(EItemShopArt::Unknown);
+		StoredText->SetText(Dash());
+		CheckedOutText->SetText(Dash());
+		OwnedText->SetText(Dash());
+		ArtIndexText->SetText(FText::FromString(TEXT("00")));
+	}
+	// 개인 소지(반납 가능) 수량은 클라 데이터 계약이 아직 없다 — supply-ui-4
+	HeldText->SetText(Dash());
+
+	// 로비 조회 전용은 첫 칸도 기본 글자색(시안 .readonly)
+	StoredText->SetColorAndOpacity(FSlateColor(bExpedition ? Lime() : Paper()));
+	StoredBlock->SetBrushColor(FLinearColor::Transparent);
+	StoredLabel->SetColorAndOpacity(FSlateColor(Muted()));
+
+	ActionNoteText->SetText(bExpedition ? FText::GetEmpty() : LOCTEXT("ReadOnlyNote", "조회 전용 · 장비는 탐사 맵의 아이템 박스에서 꺼낼 수 있습니다."));
+
+	if (bChanged)
+	{
+		PlayDetailChange();
+	}
+}
+
+void USupplyLockerPage::PlayDetailChange()
+{
+	FSupplyAnimator* Animator = GetAnimator();
+	if (!Animator)
+	{
+		return;
+	}
+	// .detail.changing: 글 X -8→0 / opacity .65→1 130ms, 도해 Y 14→0 / opacity .35→1 160ms
+	TWeakObjectPtr<UWidget> Copy = DetailCopy.Get();
+	Animator->Play(DetailTrack, 0.f, .13f, [Copy](float T)
+	{
+		if (UWidget* Widget = Copy.Get())
+		{
+			const float E = FSupplyEase::Snap().Eval(T);
+			Widget->SetRenderOpacity(FMath::Lerp(.65f, 1.f, E));
+			Widget->SetRenderTranslation(FVector2D(-8.f * (1.f - E), 0.f));
+		}
+	});
+	TWeakObjectPtr<UWidget> ArtMotion = Art ? Art->GetMotionTarget() : nullptr;
+	Animator->Play(ArtTrack, 0.f, .16f, [ArtMotion](float T)
+	{
+		if (UWidget* Widget = ArtMotion.Get())
+		{
+			const float E = FSupplyEase::Snap().Eval(T);
+			Widget->SetRenderOpacity(FMath::Lerp(.35f, 1.f, E));
+			Widget->SetRenderTranslation(FVector2D(0.f, 14.f * (1.f - E)));
+		}
+	});
+}
+
+void USupplyLockerPage::RefreshFocus()
+{
+	for (int32 Index = 0; Index < 3; ++Index)
+	{
+		ShowIf(Categories[Index].Ring, Area == EArea::Category && Index == Category);
+	}
+	ShowIf(CategoryCaret, Area == EArea::Category);
+	for (FRowWidgets& Row : Rows)
+	{
+		const bool bFocused = Area == EArea::List && Row.ProductId != NAME_None && Row.ProductId == SelectedId;
+		ShowIf(Row.Ring, bFocused);
+		ShowIf(Row.Cursor, bFocused);
+	}
+	ShowIf(ExitRing, Area == EArea::Utility);
+
+	// .help: kbd 칩 + 설명(gap 20)
+	TArray<TPair<FText, FText>> Hints;
+	switch (Area)
+	{
+	case EArea::Category:
+		Hints = {
+			{ FText::FromString(TEXT("← →")), LOCTEXT("HintCategory", "분류") },
+			{ FText::FromString(TEXT("↓ / Enter")), LOCTEXT("HintToList", "목록") },
+			{ FText::FromString(TEXT("Esc")), bExpedition ? LOCTEXT("HintClose", "닫기") : LOCTEXT("HintHub", "메인 분기") } };
+		break;
+	case EArea::List:
+		Hints = {
+			{ FText::FromString(TEXT("↑ ↓")), LOCTEXT("HintSelect", "선택") },
+			{ FText::FromString(TEXT("Esc")), LOCTEXT("HintToCategory", "분류") } };
+		break;
+	default:
+		Hints = {
+			{ FText::FromString(TEXT("Enter")), LOCTEXT("HintRun", "실행") },
+			{ FText::FromString(TEXT("Esc")), LOCTEXT("HintPrev", "이전 단계") } };
+		break;
+	}
+
+	if (HelpBox && WidgetTree)
+	{
+		HelpBox->ClearChildren();
+		const FBuilder B(WidgetTree);
+		for (int32 Index = 0; Index < Hints.Num(); ++Index)
+		{
+			// kbd: 800 11px, border 1px #7b8aa0, box-shadow 0 2px 0 #48556a, padding 2 5, margin-right 6
+			UOverlay* Chip = B.Overlay();
+			UBorder* ChipShadow = B.Fill(Hex(0x48556a));
+			ChipShadow->SetRenderTranslation(FVector2D(0.f, 2.f));
+			AddFill(Chip, ChipShadow);
+			AddFill(Chip, B.Fill(Ink()));
+			AddFill(Chip, B.Ring(Hex(0x7b8aa0), 1.f));
+			AddOverlay(Chip, B.LineBox(B.Text(Hints[Index].Key, Font(EFace::ExtraBold, 11.f), Paper()), -1.f, ERef::Segoe), HAlign_Fill, VAlign_Fill, FMargin(6.f, 3.f));
+			AddH(HelpBox, Chip, FMargin(Index == 0 ? 0.f : 20.f, 0.f, 6.f, 0.f), VAlign_Center);
+			AddH(HelpBox, B.LineBox(B.Text(Hints[Index].Value, Font(EFace::Regular, 12.f), Muted())), FMargin(0.f), VAlign_Center);
+		}
+	}
+}
+
+#undef LOCTEXT_NAMESPACE
