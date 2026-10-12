@@ -114,4 +114,10 @@ namespace SupplyUI
 	GOHOME_API UHorizontalBoxSlot* AddH(UHorizontalBox* Parent, UWidget* Child, const FMargin& Padding = FMargin(0.f), EVerticalAlignment V = VAlign_Fill, float FillRatio = 0.f);
 	GOHOME_API UCanvasPanelSlot* AddCanvas(UCanvasPanel* Parent, UWidget* Child, const FVector2D& Position, const FVector2D& Size);
 	GOHOME_API void SetContent(UPanelWidget* Parent, UWidget* Child, EHorizontalAlignment H = HAlign_Fill, EVerticalAlignment V = VAlign_Fill);
+
+	// 페이지 공용 소품(상점·보관함)
+	GOHOME_API FText Dash();	// 값 없음 "—"
+	GOHOME_API UBorder* Rule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f);	// 가로 줄(CSS border 1px 등)
+	GOHOME_API UBorder* VRule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f);	// 세로 줄
+	GOHOME_API void ShowIf(UWidget* Widget, bool bShow);	// 보이면 HitTestInvisible, 아니면 Hidden(자리 유지)
 }

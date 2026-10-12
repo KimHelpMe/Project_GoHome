@@ -6,7 +6,6 @@
 #include "GameFramework/PlayerController.h"
 #include "Core/HudNoticeTypes.h"
 #include "Core/PauseMenuBackend.h"
-#include "Core/SharedLockerBackend.h"
 #include "Core/SupplyScreenBackend.h"
 #include "Data/FSettlementResult.h"
 #include "Shop/ItemShopTypes.h"
@@ -20,20 +19,11 @@ class UUserWidget;
  *
  */
 UCLASS()
-class GOHOME_API AGoHomePlayerController : public APlayerController, public IPauseMenuBackend, public ISharedLockerBackend, public ISupplyScreenBackend
+class GOHOME_API AGoHomePlayerController : public APlayerController, public IPauseMenuBackend, public ISupplyScreenBackend
 {
 	GENERATED_BODY()
 
 public:
-	// ISharedLockerBackend
-	virtual void RequestLockerWithdraw(FName ProductId) override;
-	virtual void RequestLockerDeposit(FName ProductId) override;
-	virtual void RequestCloseSharedLocker() override;
-	virtual FSharedLockerResultEvent& OnSharedLockerResult() override { return SharedLockerResultEvent; }
-
-	UFUNCTION(BlueprintPure, Category = "UI|Shared Locker")
-	bool IsSharedLockerOpen() const { return SharedLockerWidget != nullptr; }
-
 	// ISupplyScreenBackend
 	virtual ESupplyEntry GetSupplyEntry() const override { return SupplyEntry; }
 	virtual void RequestCloseSupplyScreen() override;
@@ -55,10 +45,6 @@ public:
 
 	UFUNCTION(Client, Reliable)
 	void Client_OpenSupplyScreen(ESupplyEntry Entry);
-
-	// 서버(ASharedLockerActor::OnInteract) → 상호작용한 플레이어 화면에 보관함 UI를 연다.
-	UFUNCTION(Client, Reliable)
-	void Client_OpenSharedLocker();
 
 	// IPauseMenuBackend
 	virtual EPauseSessionRole GetSessionRole() const override;
@@ -130,7 +116,7 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Item Shop")
 	void OnShopPurchaseResult(const FItemShopPurchaseResult& Result);
 
-	// 공유 보관함 — UI는 ISharedLockerBackend로만 부른다. 서버 검증은 UItemShopSubsystem.
+	// 공유 보관함 — UI는 ISupplyScreenBackend::RequestLockerTransfer로만 부른다. 서버 검증은 UItemShopSubsystem.
 	UFUNCTION(Server, Reliable)
 	void Server_RequestLockerWithdraw(FName ProductId);
 
@@ -180,13 +166,6 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	int32 HudNoticeFeedZOrder = 1;
-
-	// 잠수정 공유 보관함 Modal(USharedLockerWidget 부모 WBP). 비어 있으면 보관함 상호작용 시 아무 것도 안 열린다.
-	UPROPERTY(EditDefaultsOnly, Category = "UI|Shared Locker")
-	TSubclassOf<UUserWidget> SharedLockerWidgetClass;
-
-	UPROPERTY(EditDefaultsOnly, Category = "UI|Shared Locker")
-	int32 SharedLockerZOrder = 50;
 
 	// 보급 화면 Modal 클래스. 기본값은 C++ USupplyScreenWidget(트리를 C++이 만든다) — WBP 없이도 열린다.
 	UPROPERTY(EditDefaultsOnly, Category = "UI|Supply")
@@ -265,13 +244,7 @@ private:
 	// 보관함 꺼내기/넣기 요청 진행 중(결과 RPC가 오면 해제). 화면을 닫았다 열어도 유지.
 	bool bLockerRequestPending = false;
 
-	// --- 공유 보관함 UI ---
-	void OpenSharedLocker();
-	void CloseSharedLocker(bool bRestoreInput);
-
-	UPROPERTY(Transient)
-	TObjectPtr<UUserWidget> SharedLockerWidget;
-
+	// 보관함 꺼내기/넣기 결과(Client_SharedLockerResult → 보급 화면)
 	FSharedLockerResultEvent SharedLockerResultEvent;
 
 	TOptional<EPauseLeaveTarget> PendingLeaveTarget;

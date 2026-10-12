@@ -26,29 +26,18 @@ using namespace SupplyUI;
 
 namespace
 {
-	constexpr int32 ConfirmLayerIndex = 1;
+	constexpr int32 ShopConfirmLayerIndex = 1;
 
-	const FName ListTrack(TEXT("Shop.List"));
-	const FName DetailTrack(TEXT("Shop.Detail"));
-	const FName ArtTrack(TEXT("Shop.Art"));
-	const FName CursorTrack(TEXT("Shop.Cursor"));
-	const FName WalletTrack(TEXT("Shop.Wallet"));
-	const FName TicketTrack(TEXT("Shop.Ticket"));
+	const FName ShopListTrack(TEXT("Shop.List"));
+	const FName ShopDetailTrack(TEXT("Shop.Detail"));
+	const FName ShopArtTrack(TEXT("Shop.Art"));
+	const FName ShopCursorTrack(TEXT("Shop.Cursor"));
+	const FName ShopWalletTrack(TEXT("Shop.Wallet"));
+	const FName ShopTicketTrack(TEXT("Shop.Ticket"));
 
 	FText Money(int32 Value)
 	{
 		return FText::Format(LOCTEXT("Money", "{0} C"), FText::AsNumber(Value));
-	}
-
-	FText Dash()
-	{
-		return FText::FromString(TEXT("—"));
-	}
-
-	// 가로 줄(CSS border 1px 등)
-	UBorder* Rule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f)
-	{
-		return B.Fill(Color, FMargin(0.f, Thickness * .5f));
 	}
 
 	// CSS outline: 바깥으로 Offset 띄우고 Width 두께
@@ -58,14 +47,6 @@ namespace
 		AddOverlay(Card, Ring, HAlign_Fill, VAlign_Fill, FMargin(-(Offset + Width)));
 		Ring->SetVisibility(ESlateVisibility::Hidden);
 		return Ring;
-	}
-
-	void ShowIf(UWidget* Widget, bool bShow)
-	{
-		if (Widget)
-		{
-			Widget->SetVisibility(bShow ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
-		}
 	}
 
 	bool IsCategoryMatch(int32 Category, const FItemShopProduct& Product)
@@ -596,7 +577,7 @@ UWidget* USupplyShopPage::BuildConfirm(const FBuilder& B)
 			{
 				CommitConfirm();
 			}
-		}, ConfirmLayerIndex);
+		}, ShopConfirmLayerIndex);
 	};
 	MakeAction(CancelButton, LOCTEXT("Cancel", "취소"), false, 0);
 	MakeAction(CommitButton, LOCTEXT("Commit", "구매 요청"), true, 1);
@@ -781,7 +762,7 @@ void USupplyShopPage::OnPageHidden()
 	UnbindSources();
 	if (FSupplyAnimator* Animator = GetAnimator())
 	{
-		for (const FName& Track : { ListTrack, DetailTrack, ArtTrack, CursorTrack, WalletTrack, TicketTrack })
+		for (const FName& Track : { ShopListTrack, ShopDetailTrack, ShopArtTrack, ShopCursorTrack, ShopWalletTrack, ShopTicketTrack })
 		{
 			Animator->Finish(Track);
 		}
@@ -836,7 +817,7 @@ void USupplyShopPage::HandleProgressChanged()
 		if (FSupplyAnimator* Animator = GetAnimator())
 		{
 			TWeakObjectPtr<USupplyShopPage> WeakThis = this;
-			Animator->Play(WalletTrack, 0.f, .4f, [WeakThis](float T)
+			Animator->Play(ShopWalletTrack, 0.f, .4f, [WeakThis](float T)
 			{
 				USupplyShopPage* Page = WeakThis.Get();
 				if (!Page || !Page->WalletFlash)
@@ -900,7 +881,7 @@ void USupplyShopPage::SetCategory(int32 InCategory, bool bAnimate)
 	{
 		// .shop-rows.changing: Y 7→0, opacity .6→1, 140ms snap
 		TWeakObjectPtr<UWidget> Target = RowsFrame.Get();
-		Animator->Play(ListTrack, 0.f, .14f, [Target](float T)
+		Animator->Play(ShopListTrack, 0.f, .14f, [Target](float T)
 		{
 			if (UWidget* Widget = Target.Get())
 			{
@@ -937,7 +918,7 @@ void USupplyShopPage::Select(FName ProductId, bool bFromNavigation)
 	{
 		// .shop-panel.changing: 상세 X -8→0 / opacity .65→1 130ms, 도해 Y 14→0 / opacity .35→1 160ms
 		TWeakObjectPtr<UWidget> Copy = DetailCopy.Get();
-		Animator->Play(DetailTrack, 0.f, .13f, [Copy](float T)
+		Animator->Play(ShopDetailTrack, 0.f, .13f, [Copy](float T)
 		{
 			if (UWidget* Widget = Copy.Get())
 			{
@@ -947,7 +928,7 @@ void USupplyShopPage::Select(FName ProductId, bool bFromNavigation)
 			}
 		});
 		TWeakObjectPtr<UWidget> ArtMotion = Art ? Art->GetMotionTarget() : nullptr;
-		Animator->Play(ArtTrack, 0.f, .16f, [ArtMotion](float T)
+		Animator->Play(ShopArtTrack, 0.f, .16f, [ArtMotion](float T)
 		{
 			if (UWidget* Widget = ArtMotion.Get())
 			{
@@ -979,7 +960,7 @@ void USupplyShopPage::SetArea(EArea InArea)
 			if (FSupplyAnimator* Animator = GetAnimator())
 			{
 				TWeakObjectPtr<UWidget> CursorMark = Row.Cursor.Get();
-				Animator->Play(CursorTrack, 0.f, .1f, [CursorMark](float T)
+				Animator->Play(ShopCursorTrack, 0.f, .1f, [CursorMark](float T)
 				{
 					if (UWidget* Widget = CursorMark.Get())
 					{
@@ -1015,7 +996,7 @@ void USupplyShopPage::OpenConfirm()
 	ConfirmId = SelectedId;
 	ConfirmQuantity = Quantity;
 	ConfirmFocus = 0;
-	HitLayer = ConfirmLayerIndex;
+	HitLayer = ShopConfirmLayerIndex;
 	ConfirmLayer->SetVisibility(ESlateVisibility::HitTestInvisible);
 	RefreshConfirm();
 	RefreshFocus();
@@ -1024,7 +1005,7 @@ void USupplyShopPage::OpenConfirm()
 	if (FSupplyAnimator* Animator = GetAnimator())
 	{
 		TWeakObjectPtr<UWidget> Target = Ticket.Get();
-		Animator->Play(TicketTrack, 0.f, .24f, [Target](float T)
+		Animator->Play(ShopTicketTrack, 0.f, .24f, [Target](float T)
 		{
 			UWidget* Widget = Target.Get();
 			if (!Widget)
@@ -1047,7 +1028,7 @@ void USupplyShopPage::CancelConfirm()
 {
 	if (FSupplyAnimator* Animator = GetAnimator())
 	{
-		Animator->Finish(TicketTrack);
+		Animator->Finish(ShopTicketTrack);
 	}
 	bConfirmOpen = false;
 	HitLayer = 0;

@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
-#include "Core/SharedLockerBackend.h"
 #include "Shop/ItemShopTypes.h"
 #include "SupplyScreenBackend.generated.h"
 
@@ -15,6 +14,9 @@ enum class ESupplyEntry : uint8
 };
 
 class UItemShopCatalogDataAsset;
+
+// 서버가 꺼내기/넣기를 처리한 결과(실패 사유 표시용). 성공 수량 변화는 GameState 복제 미러로도 따로 온다.
+DECLARE_MULTICAST_DELEGATE_OneParam(FSharedLockerResultEvent, const FSharedLockerResult& /*Result*/);
 
 // 구매 결과 + 그 요청의 상품·수량(서버 결과에는 상품이 없어 요청자가 기억해 둔 값)
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FSupplyPurchaseResultEvent, const FItemShopPurchaseResult& /*Result*/, FName /*ProductId*/, int32 /*Quantity*/);

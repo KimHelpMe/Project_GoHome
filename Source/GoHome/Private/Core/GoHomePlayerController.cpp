@@ -85,11 +85,6 @@ void AGoHomePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		PauseMenu->RemoveFromParent();
 		PauseMenu = nullptr;
 	}
-	if (SharedLockerWidget)
-	{
-		SharedLockerWidget->RemoveFromParent();
-		SharedLockerWidget = nullptr;
-	}
 	if (SupplyScreen)
 	{
 		SupplyScreen->RemoveFromParent();
@@ -115,11 +110,7 @@ void AGoHomePlayerController::SetPawn(APawn* InPawn)
 	RefreshExplorationHUD();
 	RefreshProgressHUD();
 
-	// 폰이 바뀌면(사망 후 관전 등) 이전 폰 기준으로 연 보관함은 닫는다.
-	if (IsLocalController() && SharedLockerWidget)
-	{
-		CloseSharedLocker(true);
-	}
+	// 폰이 바뀌면(사망 후 관전 등) 이전 폰 기준으로 연 보급 화면(보관함 내 소지 수량 등)은 닫는다.
 	if (IsLocalController() && SupplyScreen)
 	{
 		CloseSupplyScreen(true);
@@ -167,9 +158,9 @@ void AGoHomePlayerController::HandleGameStateSet(AGameStateBase* /*NewGameState*
 	{
 		ClosePauseMenu();
 	}
-	if (SharedLockerWidget)
+	if (SupplyScreen)
 	{
-		CloseSharedLocker(true);
+		CloseSupplyScreen(true);
 	}
 	RefreshExplorationHUD();
 	RefreshProgressHUD();
@@ -388,67 +379,6 @@ void AGoHomePlayerController::Client_ShopPurchaseResult_Implementation(const FIt
 
 // --- 잠수정 공유 보관함 ---
 
-void AGoHomePlayerController::Client_OpenSharedLocker_Implementation()
-{
-	OpenSharedLocker();
-}
-
-void AGoHomePlayerController::OpenSharedLocker()
-{
-	if (!IsLocalController() || !SharedLockerWidgetClass || SharedLockerWidget || PauseMenu)
-	{
-		return;
-	}
-
-	SharedLockerWidget = CreateWidget<UUserWidget>(this, SharedLockerWidgetClass);
-	if (!SharedLockerWidget)
-	{
-		return;
-	}
-	SharedLockerWidget->AddToViewport(SharedLockerZOrder);
-
-	// 열린 동안은 이동하지 않는다(UIOnly). Escape는 위젯이 받아 RequestCloseSharedLocker로 닫는다 — 커서가 켜져 있어
-	// 인게임 시스템 메뉴는 열리지 않는다(CanOpenPauseMenu).
-	FlushPressedKeys();
-	FInputModeUIOnly InputMode;
-	InputMode.SetWidgetToFocus(SharedLockerWidget->TakeWidget());
-	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-	SetInputMode(InputMode);
-	bShowMouseCursor = true;
-}
-
-void AGoHomePlayerController::CloseSharedLocker(bool bRestoreInput)
-{
-	if (!SharedLockerWidget)
-	{
-		return;
-	}
-
-	SharedLockerWidget->RemoveFromParent();
-	SharedLockerWidget = nullptr;
-
-	if (bRestoreInput)
-	{
-		SetInputMode(FInputModeGameOnly());
-		bShowMouseCursor = false;
-	}
-}
-
-void AGoHomePlayerController::RequestCloseSharedLocker()
-{
-	CloseSharedLocker(true);
-}
-
-void AGoHomePlayerController::RequestLockerWithdraw(FName ProductId)
-{
-	Server_RequestLockerWithdraw(ProductId);
-}
-
-void AGoHomePlayerController::RequestLockerDeposit(FName ProductId)
-{
-	Server_RequestLockerDeposit(ProductId);
-}
-
 void AGoHomePlayerController::Server_RequestLockerWithdraw_Implementation(FName ProductId)
 {
 	UItemShopSubsystem* ShopSubsystem = GetGameInstance() ? GetGameInstance()->GetSubsystem<UItemShopSubsystem>() : nullptr;
@@ -525,7 +455,7 @@ void AGoHomePlayerController::Client_OpenSupplyScreen_Implementation(ESupplyEntr
 
 void AGoHomePlayerController::OpenSupplyScreen(ESupplyEntry Entry)
 {
-	if (!IsLocalController() || SupplyScreen || PauseMenu || SharedLockerWidget)
+	if (!IsLocalController() || SupplyScreen || PauseMenu)
 	{
 		return;
 	}
@@ -545,7 +475,7 @@ void AGoHomePlayerController::OpenSupplyScreen(ESupplyEntry Entry)
 	}
 	SupplyScreen->AddToViewport(SupplyScreenZOrder);
 
-	// 보관함과 같은 Modal 규칙: UIOnly + 커서. 커서가 켜져 있으면 인게임 시스템 메뉴는 열리지 않는다(CanOpenPauseMenu).
+	// Modal 규칙: UIOnly + 커서. 커서가 켜져 있으면 인게임 시스템 메뉴는 열리지 않는다(CanOpenPauseMenu).
 	FlushPressedKeys();
 	FInputModeUIOnly InputMode;
 	InputMode.SetWidgetToFocus(SupplyScreen->TakeWidget());
@@ -781,8 +711,8 @@ void AGoHomePlayerController::HandleSettlementReadyForPause(const FSettlementRes
 		DismissPauseMenuWithoutInputRestore();
 	}
 
-	// 보관함도 같은 이유로 걷어낸다(입력 모드는 정산 화면 몫).
-	CloseSharedLocker(false);
+	// 보급 화면(탐사 보관함)도 같은 이유로 걷어낸다(입력 모드는 정산 화면 몫).
+	CloseSupplyScreen(false);
 
 	// 이동 키를 누른 채 정산이 UIOnly로 입력을 가져가면 키 뗌이 위젯으로 가서 눌림 상태가 남는다 — 로비 복귀 후에도 계속 움직임.
 	FlushPressedKeys();

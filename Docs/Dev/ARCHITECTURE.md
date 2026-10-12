@@ -155,7 +155,7 @@ known_gaps:
 decoupling:
   - "상점 구매품은 플레이어가 아니라 팀 소유다 — 구매는 자금 차감 + `SaveGame.SharedLockerItems`(상품별 팀 보유 수량) 증가만 하고 액터를 만들지 않는다. 액터는 잠수정 보관함에서 꺼낼 때만 생성돼 핫바(`UInventoryComponent`)에 들어간다. 핫바는 유물 운반·손에 들기용으로 그대로이고 구매품을 저장하지 않는다."
   - "영구/소모 구분은 `FItemShopProduct::Lifetime`(`EItemShopItemLifetime`)과 세이브 항목 `FSharedLockerEntry::Lifetime`이 출처다 — `IsDeliverable()`(납품 여부)에서 추론하지 않는다. 보관함 상품은 `AItemActorBase::IsSharedLockerItem()`으로 납품 정산에서 따로 빠진다."
-  - "UI는 수량을 `AGoHomeGameState::SharedLockerItems`(복제 미러, `OnSharedLockerChanged`)로만 읽고, 꺼내기/넣기는 `ISharedLockerBackend`(Core, `AGoHomePlayerController` 구현) 요청만 한다."
+  - "UI는 수량을 `AGoHomeGameState::SharedLockerItems`(복제 미러, `OnSharedLockerChanged`)로만 읽고, 꺼내기/넣기는 `ISupplyScreenBackend::RequestLockerTransfer`(Core, `AGoHomePlayerController` 구현) 요청만 한다."
 
 decisions:
   - name: 수량 모델 (보유 − 꺼냄 = 보관)
@@ -188,6 +188,10 @@ decisions:
       `ASharedLockerActor` 하나가 맵 단계로 역할을 바꾼다(사용자 결정 2026-10-12): 로비 = 보급 메인 분기(상점 / 조회 전용 보관함), 탐사 = 아이템 박스(보관함 꺼내기·넣기 직행). 로비 "조회 전용"은 UI 규칙만 — 서버 꺼내기·넣기 검증(위 절)은 로비도 그대로 허용한다(사용자 결정). 동작이 갈려 문제가 생기면 오브젝트를 분리하고, 분리 시 상점 오브젝트는 보급 상점 화면을 연다.
       "내 소지(넣기 가능)" = 내 핫바에 있는, 보관함에서 꺼낸 같은 상품 수. 꺼낼 때 `AItemActorBase::SharedLockerProductId`(복제)를 찍고 클라가 자기 인벤토리에서 센다 — 서버 `TryDepositToLocker`가 받는 대상(Checkouts 장부 + 요청자 핫바)과 같은 집합. 팀 반출(`Owned − Stored`)로 추정하지 않는다.
       꺼내기·넣기 요청은 한 번에 하나(`ISupplyScreenBackend::RequestLockerTransfer`, PC가 결과 RPC까지 pending 보존 — 화면을 닫았다 열어도 유지).
+  - name: 상점 단말은 로비 전용
+    detail: |
+      `AShopStation`은 로비에서만 보급 메인 분기를 연다. 탐사 맵에 놓인 단말은 `CanInteract` false + `BeginPlay`에서 Visibility 채널을 Ignore로 바꿔 조준 트레이스에 안 걸린다(프롬프트·외곽선 없음, 사용자 결정 2026-10-12).
+      서버의 탐사 중 구매 허용(위 "구매 장소·한도"의 Exploration→`bCanBuyInGame`)은 그대로라 탐사 구매 진입 UI가 없는 상태 — 탐사 구매를 막을지/열지는 미결정.
 ```
 
 ### Item
@@ -321,7 +325,7 @@ known_gaps:
 | 인벤토리 슬롯 | Interaction | UI(슬롯별 바인딩) |
 | `IDeathNotifier::OnDeath` | Player (`DeathNotifier.h`, `UHealthComponent`가 구현) | Interaction(`UInventoryComponent`가 `BeginPlay`에서 `FindComponentByInterface<IDeathNotifier>()`로 구독 → `ServerDropAllItems` 구현됨), Core(`AExplorationGameMode`가 `RestartPlayer`→`TrackPawnDeath`에서 폰별 구독 → 전원 사망 시 `HandleFail`, 구현됨). 구체 타입을 몰라도 사망 시점을 구독하게 하는 게 목적 |
 | `AGoHomeGameState::Fail(EFailReason)` | Core (`GoHomeGameState.h`) | 서버 전용 얇은 포워더 — `HasAuthority` 가드 후 `GetAuthGameMode<AExplorationGameMode>()->HandleFail(Reason)`. 콜러는 AI 도킹문 위협만 남음(미구현) — 타임오버는 `AExplorationGameMode`가 `TimeLimitTimer`로 `HandleFail`을 직접 부른다 |
-| 공유 보관함 | Shop (`UItemShopSubsystem`) → Core 미러 | 저장은 `UGoHomeSaveSubsystem`(`SharedLockerItems`), 표시는 `AGoHomeGameState::SharedLockerItems`/`OnSharedLockerChanged`, 요청은 `ISharedLockerBackend`(Core) → `AGoHomePlayerController` 서버 RPC, 상호작용 진입은 `ASharedLockerActor`(Interaction). 상세 Shop 절 |
+| 공유 보관함 | Shop (`UItemShopSubsystem`) → Core 미러 | 저장은 `UGoHomeSaveSubsystem`(`SharedLockerItems`), 표시는 `AGoHomeGameState::SharedLockerItems`/`OnSharedLockerChanged`, 요청은 `ISupplyScreenBackend`(Core) → `AGoHomePlayerController` 서버 RPC, 상호작용 진입은 `ASharedLockerActor`(Interaction). 상세 Shop 절 |
 | HUD 알림(`FHudNotice`) | Core (`HudNoticeTypes.h`, `UHudNoticeSubsystem`) | Item·Interaction(서버 판정 지점에서 `UHudNoticeSubsystem::SendToPawnOwner`) → `AGoHomePlayerController::Client_PushHudNotice` → `UHudNoticeFeedWidget`(UI). 상세 UI 절 "우측 알림 피드" |
 | 정산/납품 값 흐름 | Interaction → Core → Save | Interaction(딜리버리 존 진입 시 `AddDeliveredValue` 호출), Core(`AGoHomeGameState::AddDeliveredValue` → `SaveSubsystem::AccumulateDeliveredValue` 포워드, 구현됨), Save(스키마·로직 O) |
 

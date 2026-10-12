@@ -29,36 +29,13 @@ using namespace SupplyUI;
 
 namespace
 {
-	const FName ListTrack(TEXT("Locker.List"));
-	const FName DetailTrack(TEXT("Locker.Detail"));
-	const FName ArtTrack(TEXT("Locker.Art"));
-	const FName CursorTrack(TEXT("Locker.Cursor"));
-	const FName StoredTrack(TEXT("Locker.Stored"));
-	const FName ConfirmTrack(TEXT("Locker.Confirm"));
-	constexpr int32 ConfirmLayerIndex = 1;
-
-	FText Dash()
-	{
-		return FText::FromString(TEXT("—"));
-	}
-
-	UBorder* Rule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f)
-	{
-		return B.Fill(Color, FMargin(0.f, Thickness * .5f));
-	}
-
-	UBorder* VRule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f)
-	{
-		return B.Fill(Color, FMargin(Thickness * .5f, 0.f));
-	}
-
-	void ShowIf(UWidget* Widget, bool bShow)
-	{
-		if (Widget)
-		{
-			Widget->SetVisibility(bShow ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
-		}
-	}
+	const FName LockerListTrack(TEXT("Locker.List"));
+	const FName LockerDetailTrack(TEXT("Locker.Detail"));
+	const FName LockerArtTrack(TEXT("Locker.Art"));
+	const FName LockerCursorTrack(TEXT("Locker.Cursor"));
+	const FName LockerStoredTrack(TEXT("Locker.Stored"));
+	const FName LockerConfirmTrack(TEXT("Locker.Confirm"));
+	constexpr int32 LockerConfirmLayerIndex = 1;
 
 	FText TwoDigits(int32 Value)
 	{
@@ -638,7 +615,7 @@ UWidget* USupplyLockerPage::BuildConfirm(const FBuilder& B)
 			{
 				CommitConfirm();
 			}
-		}, ConfirmLayerIndex);
+		}, LockerConfirmLayerIndex);
 	};
 	MakeButton(CancelButton, LOCTEXT("Cancel", "취소"), false, 0);
 	MakeButton(CommitButton, LOCTEXT("Commit", "요청 확인"), true, 1);
@@ -783,7 +760,7 @@ void USupplyLockerPage::OnPageHidden()
 	UnbindSources();
 	if (FSupplyAnimator* Animator = GetAnimator())
 	{
-		for (const FName& Track : { ListTrack, DetailTrack, ArtTrack, CursorTrack, StoredTrack, ConfirmTrack })
+		for (const FName& Track : { LockerListTrack, LockerDetailTrack, LockerArtTrack, LockerCursorTrack, LockerStoredTrack, LockerConfirmTrack })
 		{
 			Animator->Finish(Track);
 		}
@@ -944,7 +921,7 @@ void USupplyLockerPage::OpenConfirm(ESharedLockerAction InAction)
 	ConfirmAction = InAction;
 	ConfirmId = SelectedId;
 	ConfirmFocus = 0;
-	HitLayer = ConfirmLayerIndex;
+	HitLayer = LockerConfirmLayerIndex;
 	ConfirmLayer->SetVisibility(ESlateVisibility::HitTestInvisible);
 	RefreshConfirm();
 	RefreshFocus();
@@ -953,7 +930,7 @@ void USupplyLockerPage::OpenConfirm(ESharedLockerAction InAction)
 	if (FSupplyAnimator* Animator = GetAnimator())
 	{
 		TWeakObjectPtr<UWidget> Target = ConfirmDialog.Get();
-		Animator->Play(ConfirmTrack, 0.f, .16f, [Target](float T)
+		Animator->Play(LockerConfirmTrack, 0.f, .16f, [Target](float T)
 		{
 			if (UWidget* Widget = Target.Get())
 			{
@@ -972,7 +949,7 @@ void USupplyLockerPage::CancelConfirm()
 {
 	if (FSupplyAnimator* Animator = GetAnimator())
 	{
-		Animator->Finish(ConfirmTrack);
+		Animator->Finish(LockerConfirmTrack);
 	}
 	bConfirmOpen = false;
 	HitLayer = 0;
@@ -1097,7 +1074,7 @@ void USupplyLockerPage::SetCategory(int32 InCategory, bool bAnimate)
 	{
 		// .rows.changing: Y 7→0, opacity .6→1, 140ms snap
 		TWeakObjectPtr<UWidget> Target = RowsFrame.Get();
-		Animator->Play(ListTrack, 0.f, .14f, [Target](float T)
+		Animator->Play(LockerListTrack, 0.f, .14f, [Target](float T)
 		{
 			if (UWidget* Widget = Target.Get())
 			{
@@ -1148,7 +1125,7 @@ void USupplyLockerPage::SetArea(EArea InArea)
 				if (FSupplyAnimator* Animator = GetAnimator())
 				{
 					TWeakObjectPtr<UWidget> CursorMark = Row.Cursor.Get();
-					Animator->Play(CursorTrack, 0.f, .1f, [CursorMark](float T)
+					Animator->Play(LockerCursorTrack, 0.f, .1f, [CursorMark](float T)
 					{
 						if (UWidget* Widget = CursorMark.Get())
 						{
@@ -1200,7 +1177,7 @@ void USupplyLockerPage::Reconcile()
 		if (FSupplyAnimator* Animator = GetAnimator())
 		{
 			TWeakObjectPtr<USupplyLockerPage> WeakThis = this;
-			Animator->Play(StoredTrack, 0.f, .4f, [WeakThis](float T)
+			Animator->Play(LockerStoredTrack, 0.f, .4f, [WeakThis](float T)
 			{
 				USupplyLockerPage* Page = WeakThis.Get();
 				if (!Page)
@@ -1594,7 +1571,7 @@ void USupplyLockerPage::PlayDetailChange()
 	}
 	// .detail.changing: 글 X -8→0 / opacity .65→1 130ms, 도해 Y 14→0 / opacity .35→1 160ms
 	TWeakObjectPtr<UWidget> Copy = DetailCopy.Get();
-	Animator->Play(DetailTrack, 0.f, .13f, [Copy](float T)
+	Animator->Play(LockerDetailTrack, 0.f, .13f, [Copy](float T)
 	{
 		if (UWidget* Widget = Copy.Get())
 		{
@@ -1604,7 +1581,7 @@ void USupplyLockerPage::PlayDetailChange()
 		}
 	});
 	TWeakObjectPtr<UWidget> ArtMotion = Art ? Art->GetMotionTarget() : nullptr;
-	Animator->Play(ArtTrack, 0.f, .16f, [ArtMotion](float T)
+	Animator->Play(LockerArtTrack, 0.f, .16f, [ArtMotion](float T)
 	{
 		if (UWidget* Widget = ArtMotion.Get())
 		{

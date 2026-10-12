@@ -1,5 +1,6 @@
 ﻿#include "Interaction/ShopStation.h"
 
+#include "Components/PrimitiveComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Core/GoHomePlayerController.h"
 #include "Core/LobbyGameState.h"
@@ -27,9 +28,32 @@ AShopStation::AShopStation()
 	}
 }
 
+void AShopStation::BeginPlay()
+{
+	Super::BeginPlay();
+
+	// 탐사 맵: 조준 트레이스(Visibility)에 안 걸리게 해서 프롬프트·외곽선 자체가 안 뜨게 한다(CanInteract는 서버 재검증용).
+	// 클라 BeginPlay는 GameState 복제 후(HasBegunPlay)라 판정이 가능하다.
+	if (!IsInLobby())
+	{
+		TArray<UPrimitiveComponent*> Primitives;
+		GetComponents<UPrimitiveComponent>(Primitives);
+		for (UPrimitiveComponent* Primitive : Primitives)
+		{
+			Primitive->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
+		}
+	}
+}
+
+bool AShopStation::IsInLobby() const
+{
+	const UWorld* World = GetWorld();
+	return World && Cast<ALobbyGameState>(World->GetGameState()) != nullptr;
+}
+
 bool AShopStation::CanInteract(APawn* InstigatorPawn) const
 {
-	if (!InstigatorPawn)
+	if (!InstigatorPawn || !IsInLobby())
 	{
 		return false;
 	}
@@ -50,15 +74,8 @@ void AShopStation::OnInteract(APawn* InstigatorPawn)
 		return;
 	}
 
-	// 로비: 보급 화면(메인 분기 → 상점 / 조회 전용 보관함). 탐사의 상점 진입 정책은 supply-ui-4에서 정리 — 그때까지 기존 상점 BP.
-	if (GetWorld() && Cast<ALobbyGameState>(GetWorld()->GetGameState()))
-	{
-		PlayerController->Client_OpenSupplyScreen(ESupplyEntry::LobbyHub);
-	}
-	else
-	{
-		PlayerController->Client_OpenShop();
-	}
+	// 보급 화면(메인 분기 → 상점 / 조회 전용 보관함). 탐사에서는 CanInteract가 막는다.
+	PlayerController->Client_OpenSupplyScreen(ESupplyEntry::LobbyHub);
 }
 
 FText AShopStation::GetInteractionPromptText_Implementation() const

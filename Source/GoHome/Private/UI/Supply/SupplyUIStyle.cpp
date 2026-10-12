@@ -329,4 +329,27 @@ namespace SupplyUI
 			SizeSlot->SetVerticalAlignment(V);
 		}
 	}
+
+	FText Dash()
+	{
+		return FText::FromString(TEXT("—"));
+	}
+
+	UBorder* Rule(const FBuilder& B, const FLinearColor& Color, float Thickness)
+	{
+		return B.Fill(Color, FMargin(0.f, Thickness * .5f));
+	}
+
+	UBorder* VRule(const FBuilder& B, const FLinearColor& Color, float Thickness)
+	{
+		return B.Fill(Color, FMargin(Thickness * .5f, 0.f));
+	}
+
+	void ShowIf(UWidget* Widget, bool bShow)
+	{
+		if (Widget)
+		{
+			Widget->SetVisibility(bShow ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
+		}
+	}
 }
