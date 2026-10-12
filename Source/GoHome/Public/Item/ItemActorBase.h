@@ -48,6 +48,10 @@ public:
 
 	bool IsSharedLockerItem() const { return bSharedLockerItem; }
 
+	// 보관함에서 꺼낸 상품 ID(복제). 클라 보급 화면이 "내 소지(반납 가능)" 수량을 자기 핫바에서 세는 데 쓴다.
+	void SetSharedLockerProductId(FName InProductId) { SharedLockerProductId = InProductId; }
+	FName GetSharedLockerProductId() const { return SharedLockerProductId; }
+
 	// 파손 반영된 현재 가치. 납품 정산 시 ItemData->Value대신 이 값을 사용해야 함.
 	UFUNCTION(BlueprintCallable, Category = "Item")
 	float GetCurrentValue() const;
@@ -202,6 +206,9 @@ private:
 	// 스폰시 바닥 위치.
 	void SnapToGround();
 
+	// 손에 붙인 직후 호출. 메시에 "Grip" 소켓이 있으면 그 소켓이 손 소켓과 겹치도록 위치/회전 보정(없으면 피벗 그대로).
+	void AlignGripToHand();
+
 	void BeginSinkOrRise();
 	FTimerHandle SinkOrRiseTimerHandle;
 
@@ -255,5 +262,8 @@ private:
 	int32 DamageStencilValue = 3;
 
 	bool bSharedLockerItem = false;
+
+	UPROPERTY(Replicated)
+	FName SharedLockerProductId = NAME_None;
 
 };

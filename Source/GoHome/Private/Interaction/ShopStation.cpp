@@ -1,7 +1,9 @@
 ﻿#include "Interaction/ShopStation.h"
 
+#include "Components/PrimitiveComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Core/GoHomePlayerController.h"
+#include "Core/LobbyGameState.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/Pawn.h"
 #include "UObject/ConstructorHelpers.h"
@@ -26,9 +28,32 @@ AShopStation::AShopStation()
 	}
 }
 
+void AShopStation::BeginPlay()
+{
+	Super::BeginPlay();
+
+	// 탐사 맵: 조준 트레이스(Visibility)에 안 걸리게 해서 프롬프트·외곽선 자체가 안 뜨게 한다(CanInteract는 서버 재검증용).
+	// 클라 BeginPlay는 GameState 복제 후(HasBegunPlay)라 판정이 가능하다.
+	if (!IsInLobby())
+	{
+		TArray<UPrimitiveComponent*> Primitives;
+		GetComponents<UPrimitiveComponent>(Primitives);
+		for (UPrimitiveComponent* Primitive : Primitives)
+		{
+			Primitive->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
+		}
+	}
+}
+
+bool AShopStation::IsInLobby() const
+{
+	const UWorld* World = GetWorld();
+	return World && Cast<ALobbyGameState>(World->GetGameState()) != nullptr;
+}
+
 bool AShopStation::CanInteract(APawn* InstigatorPawn) const
 {
-	if (!InstigatorPawn)
+	if (!InstigatorPawn || !IsInLobby())
 	{
 		return false;
 	}
@@ -43,12 +68,14 @@ void AShopStation::OnInteract(APawn* InstigatorPawn)
 		return;
 	}
 
-	// 다음 단계에서 상호작용한 플레이어에게 상점 UI를 열도록 연결한다.
-	if (AGoHomePlayerController* PlayerController =
-		Cast<AGoHomePlayerController>(InstigatorPawn->GetController()))
+	AGoHomePlayerController* PlayerController = Cast<AGoHomePlayerController>(InstigatorPawn->GetController());
+	if (!PlayerController)
 	{
-		PlayerController->Client_OpenShop();
+		return;
 	}
+
+	// 보급 화면(메인 분기 → 상점 / 조회 전용 보관함). 탐사에서는 CanInteract가 막는다.
+	PlayerController->Client_OpenSupplyScreen(ESupplyEntry::LobbyHub);
 }
 
 FText AShopStation::GetInteractionPromptText_Implementation() const

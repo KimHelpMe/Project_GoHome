@@ -75,6 +75,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Shared Locker")
 	const TArray<FSharedLockerViewEntry>& GetSharedLockerItems() const { return SharedLockerItems; }
 
+	// 서버 전용. 이번 라운드 팀 구매 누적(상점 "남은 구매" 표시용). 보관함 미러와 같은 시점(RefreshLockerView)에 싣는다.
+	void SetRoundShopPurchases(const TArray<FItemShopRoundPurchase>& InPurchases);
+
+	// 이번 라운드에 팀이 산 수량(없으면 0). 서버 검증은 세이브 기준 — 이건 표시용 미러다.
+	int32 GetRoundShopPurchaseQuantity(FName ProductId) const;
+
 	UFUNCTION(BlueprintPure, Category = "Expedition")
 	int32 GetCurrentRound() const { return CurrentRound; }
 
@@ -136,6 +142,10 @@ protected:
 	// 잠수정 공유 보관함 표시 미러(세이브 + 런타임 꺼냄 장부가 서버 SoT). 팀원 전원이 같은 수량을 본다.
 	UPROPERTY(ReplicatedUsing = OnRep_SharedLockerItems, BlueprintReadOnly, Category = "Shared Locker", meta = (AllowPrivateAccess = "true"))
 	TArray<FSharedLockerViewEntry> SharedLockerItems;
+
+	// 상점 라운드 구매 누적 미러. 바뀌면 보관함과 같은 OnSharedLockerChanged로 알린다.
+	UPROPERTY(ReplicatedUsing = OnRep_SharedLockerItems, BlueprintReadOnly, Category = "Shared Locker", meta = (AllowPrivateAccess = "true"))
+	TArray<FItemShopRoundPurchase> RoundShopPurchases;
 
 private:
 	UPROPERTY()

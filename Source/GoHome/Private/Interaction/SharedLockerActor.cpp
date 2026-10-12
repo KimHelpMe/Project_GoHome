@@ -2,6 +2,7 @@
 
 #include "Components/StaticMeshComponent.h"
 #include "Core/GoHomePlayerController.h"
+#include "Core/LobbyGameState.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/Pawn.h"
 #include "UObject/ConstructorHelpers.h"
@@ -38,10 +39,13 @@ void ASharedLockerActor::OnInteract(APawn* InstigatorPawn)
 		return;
 	}
 
+	// 같은 상자가 맵 단계로 역할을 바꾼다(사용자 결정 2026-10-12): 로비 = 보급 메인 분기(상점 / 조회 전용 보관함),
+	// 탐사 = 아이템 박스(보관함 꺼내기·넣기 직행). 로비 조회 전용은 UI 규칙 — 서버 꺼내기·넣기 검증은 그대로.
 	if (AGoHomePlayerController* PlayerController =
 		Cast<AGoHomePlayerController>(InstigatorPawn->GetController()))
 	{
-		PlayerController->Client_OpenSharedLocker();
+		const bool bLobby = GetWorld() && Cast<ALobbyGameState>(GetWorld()->GetGameState());
+		PlayerController->Client_OpenSupplyScreen(bLobby ? ESupplyEntry::LobbyHub : ESupplyEntry::ExpeditionLocker);
 	}
 }
 

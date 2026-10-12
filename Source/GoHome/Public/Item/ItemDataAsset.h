@@ -51,7 +51,7 @@ public:
 	// 01문서 4절 수치가 기본값 - 감산형: 파손마다 -30%p, 40%에서 하한.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item",
 		meta = (ToolTip = "낙하/충돌 속도가 이 값(cm/s) 이상이면 파손 판정"))
-	float BreakVelocityThreshold = 500.f;
+	float BreakVelocityThreshold = 1000.f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item",
 		meta = (ToolTip = "파손 1회당 잔존가치 비율에서 차감되는 값 (0.3 = -30%p, 감산형)", 

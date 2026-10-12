@@ -78,6 +78,7 @@ public:
 
 	// 이번 라운드 팀 구매 수량
 	int32 GetRoundPurchaseQuantity(FName ProductId) const;
+	const TArray<FItemShopRoundPurchase>& GetRoundShopPurchases() const;
 
 	void SetRoundPurchaseQuantity(FName ProductId, int32 Quantity);
 

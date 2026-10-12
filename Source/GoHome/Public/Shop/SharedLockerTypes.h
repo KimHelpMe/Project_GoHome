@@ -52,6 +52,21 @@ struct GOHOME_API FSharedLockerViewEntry
 	int32 OwnedQuantity = 0;
 };
 
+// 라운드별 팀 구매 수량(MaxPurchasesPerRun 검증·상점 남은 구매 표시). 정산마다 비운다.
+// 세이브(GoHomeSaveGame)와 GameState 복제 미러가 같이 쓰므로 가벼운 이 헤더에 둔다.
+USTRUCT(BlueprintType)
+struct GOHOME_API FItemShopRoundPurchase
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(BlueprintReadOnly, Category = "Shop")
+	FName ProductId = NAME_None;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Shop")
+	int32 Quantity = 0;
+};
+
 UENUM(BlueprintType)
 enum class ESharedLockerAction : uint8
 {

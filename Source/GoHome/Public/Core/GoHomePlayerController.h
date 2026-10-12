@@ -6,7 +6,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Core/HudNoticeTypes.h"
 #include "Core/PauseMenuBackend.h"
-#include "Core/SharedLockerBackend.h"
+#include "Core/SupplyScreenBackend.h"
 #include "Data/FSettlementResult.h"
 #include "Shop/ItemShopTypes.h"
 #include "GoHomePlayerController.generated.h"
@@ -19,23 +19,32 @@ class UUserWidget;
  *
  */
 UCLASS()
-class GOHOME_API AGoHomePlayerController : public APlayerController, public IPauseMenuBackend, public ISharedLockerBackend
+class GOHOME_API AGoHomePlayerController : public APlayerController, public IPauseMenuBackend, public ISupplyScreenBackend
 {
 	GENERATED_BODY()
 
 public:
-	// ISharedLockerBackend
-	virtual void RequestLockerWithdraw(FName ProductId) override;
-	virtual void RequestLockerDeposit(FName ProductId) override;
-	virtual void RequestCloseSharedLocker() override;
-	virtual FSharedLockerResultEvent& OnSharedLockerResult() override { return SharedLockerResultEvent; }
+	// ISupplyScreenBackend
+	virtual ESupplyEntry GetSupplyEntry() const override { return SupplyEntry; }
+	virtual void RequestCloseSupplyScreen() override;
+	virtual const UItemShopCatalogDataAsset* GetShopCatalog() const override;
+	virtual bool RequestShopPurchase(FName ProductId, int32 Quantity) override;
+	virtual bool IsShopPurchasePending() const override { return PendingPurchaseProduct != NAME_None; }
+	virtual FSupplyPurchaseResultEvent& OnSupplyPurchaseResult() override { return SupplyPurchaseResultEvent; }
+	virtual bool RequestLockerTransfer(ESharedLockerAction Action, FName ProductId) override;
+	virtual bool IsLockerRequestPending() const override { return bLockerRequestPending; }
+	virtual FSharedLockerResultEvent& OnSupplyLockerResult() override { return SharedLockerResultEvent; }
+	virtual int32 GetHeldLockerQuantity(FName ProductId) const override;
 
-	UFUNCTION(BlueprintPure, Category = "UI|Shared Locker")
-	bool IsSharedLockerOpen() const { return SharedLockerWidget != nullptr; }
+	UFUNCTION(BlueprintPure, Category = "UI|Supply")
+	bool IsSupplyScreenOpen() const { return SupplyScreen != nullptr; }
 
-	// 서버(ASharedLockerActor::OnInteract) → 상호작용한 플레이어 화면에 보관함 UI를 연다.
+	// 보급 화면(분기·상점·보관함) Modal을 연다. 로컬 컨트롤러 전용 — 서버 오브젝트는 Client_OpenSupplyScreen.
+	UFUNCTION(BlueprintCallable, Category = "UI|Supply")
+	void OpenSupplyScreen(ESupplyEntry Entry);
+
 	UFUNCTION(Client, Reliable)
-	void Client_OpenSharedLocker();
+	void Client_OpenSupplyScreen(ESupplyEntry Entry);
 
 	// IPauseMenuBackend
 	virtual EPauseSessionRole GetSessionRole() const override;
@@ -107,7 +116,7 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Item Shop")
 	void OnShopPurchaseResult(const FItemShopPurchaseResult& Result);
 
-	// 공유 보관함 — UI는 ISharedLockerBackend로만 부른다. 서버 검증은 UItemShopSubsystem.
+	// 공유 보관함 — UI는 ISupplyScreenBackend::RequestLockerTransfer로만 부른다. 서버 검증은 UItemShopSubsystem.
 	UFUNCTION(Server, Reliable)
 	void Server_RequestLockerWithdraw(FName ProductId);
 
@@ -158,12 +167,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	int32 HudNoticeFeedZOrder = 1;
 
-	// 잠수정 공유 보관함 Modal(USharedLockerWidget 부모 WBP). 비어 있으면 보관함 상호작용 시 아무 것도 안 열린다.
-	UPROPERTY(EditDefaultsOnly, Category = "UI|Shared Locker")
-	TSubclassOf<UUserWidget> SharedLockerWidgetClass;
+	// 보급 화면 Modal 클래스. 기본값은 C++ USupplyScreenWidget(트리를 C++이 만든다) — WBP 없이도 열린다.
+	UPROPERTY(EditDefaultsOnly, Category = "UI|Supply")
+	TSoftClassPtr<UUserWidget> SupplyScreenClass = TSoftClassPtr<UUserWidget>(FSoftClassPath(TEXT("/Script/GoHome.SupplyScreenWidget")));
 
-	UPROPERTY(EditDefaultsOnly, Category = "UI|Shared Locker")
-	int32 SharedLockerZOrder = 50;
+	// 전체 화면 Modal — 탐사 HUD(WBP_HUD, BP가 ZOrder 100으로 추가: 조준점 포함)보다 위.
+	// 열려 있는 동안 커서가 켜져 시스템 메뉴는 열리지 않으므로 그보다 높아도 겹치지 않는다.
+	UPROPERTY(EditDefaultsOnly, Category = "UI|Supply")
+	int32 SupplyScreenZOrder = 110;
 
 private:
 	// 로컬 컨트롤러에서 현재 월드의 GameState 로 탐사 레벨 여부를 판정해 Ready/Teardown 을 엣지에서 1회씩 쏜다.
@@ -217,13 +228,23 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UUserWidget> PauseMenu;
 
-	// --- 공유 보관함 UI ---
-	void OpenSharedLocker();
-	void CloseSharedLocker(bool bRestoreInput);
+	// --- 보급 화면 ---
+	void CloseSupplyScreen(bool bRestoreInput);
 
 	UPROPERTY(Transient)
-	TObjectPtr<UUserWidget> SharedLockerWidget;
+	TObjectPtr<UUserWidget> SupplyScreen;
 
+	ESupplyEntry SupplyEntry = ESupplyEntry::LobbyHub;
+
+	// 보급 화면 구매 요청(한 번에 하나). 결과가 오면 비운다.
+	FName PendingPurchaseProduct = NAME_None;
+	int32 PendingPurchaseQuantity = 0;
+	FSupplyPurchaseResultEvent SupplyPurchaseResultEvent;
+
+	// 보관함 꺼내기/넣기 요청 진행 중(결과 RPC가 오면 해제). 화면을 닫았다 열어도 유지.
+	bool bLockerRequestPending = false;
+
+	// 보관함 꺼내기/넣기 결과(Client_SharedLockerResult → 보급 화면)
 	FSharedLockerResultEvent SharedLockerResultEvent;
 
 	TOptional<EPauseLeaveTarget> PendingLeaveTarget;

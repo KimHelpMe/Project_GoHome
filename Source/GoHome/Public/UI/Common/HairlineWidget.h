@@ -21,6 +21,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Hairline")
 	void SetLineColor(const FLinearColor& InColor);
 
+	UFUNCTION(BlueprintCallable, Category = "Hairline")
+	void SetOrientation(EOrientation InOrientation);
+
 	virtual void SynchronizeProperties() override;
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
 

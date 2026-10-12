@@ -25,6 +25,8 @@
 #include "Upgrade/EquipmentUpgradeSubsystem.h"
 
 #include "Shop/ItemShopSubsystem.h"
+#include "Interaction/InventoryComponent.h"
+#include "Item/ItemActorBase.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPauseMenu, Log, All);
 
@@ -83,10 +85,10 @@ void AGoHomePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		PauseMenu->RemoveFromParent();
 		PauseMenu = nullptr;
 	}
-	if (SharedLockerWidget)
+	if (SupplyScreen)
 	{
-		SharedLockerWidget->RemoveFromParent();
-		SharedLockerWidget = nullptr;
+		SupplyScreen->RemoveFromParent();
+		SupplyScreen = nullptr;
 	}
 	Super::EndPlay(EndPlayReason);
 }
@@ -108,10 +110,10 @@ void AGoHomePlayerController::SetPawn(APawn* InPawn)
 	RefreshExplorationHUD();
 	RefreshProgressHUD();
 
-	// 폰이 바뀌면(사망 후 관전 등) 이전 폰 기준으로 연 보관함은 닫는다.
-	if (IsLocalController() && SharedLockerWidget)
+	// 폰이 바뀌면(사망 후 관전 등) 이전 폰 기준으로 연 보급 화면(보관함 내 소지 수량 등)은 닫는다.
+	if (IsLocalController() && SupplyScreen)
 	{
-		CloseSharedLocker(true);
+		CloseSupplyScreen(true);
 	}
 }
 
@@ -156,9 +158,9 @@ void AGoHomePlayerController::HandleGameStateSet(AGameStateBase* /*NewGameState*
 	{
 		ClosePauseMenu();
 	}
-	if (SharedLockerWidget)
+	if (SupplyScreen)
 	{
-		CloseSharedLocker(true);
+		CloseSupplyScreen(true);
 	}
 	RefreshExplorationHUD();
 	RefreshProgressHUD();
@@ -365,71 +367,17 @@ void AGoHomePlayerController::Server_RequestShopPurchase_Implementation(
 
 void AGoHomePlayerController::Client_ShopPurchaseResult_Implementation(const FItemShopPurchaseResult& Result)
 {
+	// 보급 화면 요청이었다면 상품·수량을 붙여 알린다(서버 결과에는 상품이 없다).
+	const FName ProductId = PendingPurchaseProduct;
+	const int32 Quantity = PendingPurchaseQuantity;
+	PendingPurchaseProduct = NAME_None;
+	PendingPurchaseQuantity = 0;
+	SupplyPurchaseResultEvent.Broadcast(Result, ProductId, Quantity);
+
 	OnShopPurchaseResult(Result);
 }
 
 // --- 잠수정 공유 보관함 ---
-
-void AGoHomePlayerController::Client_OpenSharedLocker_Implementation()
-{
-	OpenSharedLocker();
-}
-
-void AGoHomePlayerController::OpenSharedLocker()
-{
-	if (!IsLocalController() || !SharedLockerWidgetClass || SharedLockerWidget || PauseMenu)
-	{
-		return;
-	}
-
-	SharedLockerWidget = CreateWidget<UUserWidget>(this, SharedLockerWidgetClass);
-	if (!SharedLockerWidget)
-	{
-		return;
-	}
-	SharedLockerWidget->AddToViewport(SharedLockerZOrder);
-
-	// 열린 동안은 이동하지 않는다(UIOnly). Escape는 위젯이 받아 RequestCloseSharedLocker로 닫는다 — 커서가 켜져 있어
-	// 인게임 시스템 메뉴는 열리지 않는다(CanOpenPauseMenu).
-	FlushPressedKeys();
-	FInputModeUIOnly InputMode;
-	InputMode.SetWidgetToFocus(SharedLockerWidget->TakeWidget());
-	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-	SetInputMode(InputMode);
-	bShowMouseCursor = true;
-}
-
-void AGoHomePlayerController::CloseSharedLocker(bool bRestoreInput)
-{
-	if (!SharedLockerWidget)
-	{
-		return;
-	}
-
-	SharedLockerWidget->RemoveFromParent();
-	SharedLockerWidget = nullptr;
-
-	if (bRestoreInput)
-	{
-		SetInputMode(FInputModeGameOnly());
-		bShowMouseCursor = false;
-	}
-}
-
-void AGoHomePlayerController::RequestCloseSharedLocker()
-{
-	CloseSharedLocker(true);
-}
-
-void AGoHomePlayerController::RequestLockerWithdraw(FName ProductId)
-{
-	Server_RequestLockerWithdraw(ProductId);
-}
-
-void AGoHomePlayerController::RequestLockerDeposit(FName ProductId)
-{
-	Server_RequestLockerDeposit(ProductId);
-}
 
 void AGoHomePlayerController::Server_RequestLockerWithdraw_Implementation(FName ProductId)
 {
@@ -459,8 +407,146 @@ void AGoHomePlayerController::Server_RequestLockerDeposit_Implementation(FName P
 
 void AGoHomePlayerController::Client_SharedLockerResult_Implementation(const FSharedLockerResult& Result)
 {
+	bLockerRequestPending = false;
 	SharedLockerResultEvent.Broadcast(Result);
 }
+
+bool AGoHomePlayerController::RequestLockerTransfer(ESharedLockerAction Action, FName ProductId)
+{
+	if (bLockerRequestPending || ProductId == NAME_None)
+	{
+		return false;
+	}
+	bLockerRequestPending = true;
+	if (Action == ESharedLockerAction::Withdraw)
+	{
+		Server_RequestLockerWithdraw(ProductId);
+	}
+	else
+	{
+		Server_RequestLockerDeposit(ProductId);
+	}
+	return true;
+}
+
+int32 AGoHomePlayerController::GetHeldLockerQuantity(FName ProductId) const
+{
+	const APawn* MyPawn = GetPawn();
+	const UInventoryComponent* Inventory = MyPawn ? MyPawn->FindComponentByClass<UInventoryComponent>() : nullptr;
+	if (!Inventory || ProductId == NAME_None)
+	{
+		return 0;
+	}
+	int32 Count = 0;
+	for (int32 Slot = 0; Slot < Inventory->GetInventorySlotCount(); ++Slot)
+	{
+		const AItemActorBase* Item = Inventory->GetItemInSlot(Slot);
+		Count += Item && Item->GetSharedLockerProductId() == ProductId ? 1 : 0;
+	}
+	return Count;
+}
+
+// --- 보급 화면(로비 메인 분기·상점·팀 보관함) ---
+
+void AGoHomePlayerController::Client_OpenSupplyScreen_Implementation(ESupplyEntry Entry)
+{
+	OpenSupplyScreen(Entry);
+}
+
+void AGoHomePlayerController::OpenSupplyScreen(ESupplyEntry Entry)
+{
+	if (!IsLocalController() || SupplyScreen || PauseMenu)
+	{
+		return;
+	}
+
+	UClass* WidgetClass = SupplyScreenClass.LoadSynchronous();
+	if (!WidgetClass)
+	{
+		return;
+	}
+
+	// 화면이 NativeConstruct에서 진입 경로를 묻는다(GetSupplyEntry) — 생성 전에 정해 둔다.
+	SupplyEntry = Entry;
+	SupplyScreen = CreateWidget<UUserWidget>(this, WidgetClass);
+	if (!SupplyScreen)
+	{
+		return;
+	}
+	SupplyScreen->AddToViewport(SupplyScreenZOrder);
+
+	// Modal 규칙: UIOnly + 커서. 커서가 켜져 있으면 인게임 시스템 메뉴는 열리지 않는다(CanOpenPauseMenu).
+	FlushPressedKeys();
+	FInputModeUIOnly InputMode;
+	InputMode.SetWidgetToFocus(SupplyScreen->TakeWidget());
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	SetInputMode(InputMode);
+	bShowMouseCursor = true;
+}
+
+void AGoHomePlayerController::CloseSupplyScreen(bool bRestoreInput)
+{
+	if (!SupplyScreen)
+	{
+		return;
+	}
+
+	SupplyScreen->RemoveFromParent();
+	SupplyScreen = nullptr;
+
+	if (bRestoreInput)
+	{
+		FlushPressedKeys();
+		SetInputMode(FInputModeGameOnly());
+		bShowMouseCursor = false;
+	}
+}
+
+void AGoHomePlayerController::RequestCloseSupplyScreen()
+{
+	CloseSupplyScreen(true);
+}
+
+const UItemShopCatalogDataAsset* AGoHomePlayerController::GetShopCatalog() const
+{
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UItemShopSubsystem* ShopSubsystem = GameInstance ? GameInstance->GetSubsystem<UItemShopSubsystem>() : nullptr;
+	return ShopSubsystem ? ShopSubsystem->GetCatalog() : nullptr;
+}
+
+bool AGoHomePlayerController::RequestShopPurchase(FName ProductId, int32 Quantity)
+{
+	if (IsShopPurchasePending() || ProductId == NAME_None || Quantity <= 0)
+	{
+		return false;
+	}
+
+	PendingPurchaseProduct = ProductId;
+	PendingPurchaseQuantity = Quantity;
+
+	FItemShopPurchaseRequest Request;
+	FItemShopCartLine& Line = Request.Lines.AddDefaulted_GetRef();
+	Line.ProductId = ProductId;
+	Line.Quantity = Quantity;
+	Server_RequestShopPurchase(Request);
+	return true;
+}
+
+#if !UE_BUILD_SHIPPING
+// 오브젝트 배선 전 화면 확인용: GoHome.Supply.Open [lobby|expedition]
+static FAutoConsoleCommandWithWorldAndArgs GSupplyOpenCommand(
+	TEXT("GoHome.Supply.Open"),
+	TEXT("보급 화면을 연다. 인자: lobby(기본, 메인 분기) | expedition(탐사 아이템 박스 보관함)."),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+	{
+		AGoHomePlayerController* PC = World ? Cast<AGoHomePlayerController>(World->GetFirstPlayerController()) : nullptr;
+		if (PC)
+		{
+			const bool bExpedition = Args.Num() > 0 && Args[0].Equals(TEXT("expedition"), ESearchCase::IgnoreCase);
+			PC->OpenSupplyScreen(bExpedition ? ESupplyEntry::ExpeditionLocker : ESupplyEntry::LobbyHub);
+		}
+	}));
+#endif
 
 // 상점 열기
 void AGoHomePlayerController::Client_OpenShop_Implementation()
@@ -625,8 +711,8 @@ void AGoHomePlayerController::HandleSettlementReadyForPause(const FSettlementRes
 		DismissPauseMenuWithoutInputRestore();
 	}
 
-	// 보관함도 같은 이유로 걷어낸다(입력 모드는 정산 화면 몫).
-	CloseSharedLocker(false);
+	// 보급 화면(탐사 보관함)도 같은 이유로 걷어낸다(입력 모드는 정산 화면 몫).
+	CloseSupplyScreen(false);
 
 	// 이동 키를 누른 채 정산이 UIOnly로 입력을 가져가면 키 뗌이 위젯으로 가서 눌림 상태가 남는다 — 로비 복귀 후에도 계속 움직임.
 	FlushPressedKeys();
