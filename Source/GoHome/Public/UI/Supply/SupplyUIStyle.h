@@ -120,5 +120,6 @@ namespace SupplyUI
 	// 가로/세로 줄(CSS border). 1px은 UHairlineWidget — DPI 배율 < 1에서 1px 채움 막대는 픽셀 중심 사이에 끼면 통째로 사라진다
 	GOHOME_API UWidget* Rule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f);
 	GOHOME_API UWidget* VRule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f);
-	GOHOME_API void ShowIf(UWidget* Widget, bool bShow);	// 보이면 HitTestInvisible, 아니면 Hidden(자리 유지)
+	GOHOME_API void ShowIf(UWidget* Widget, bool bShow);
+	GOHOME_API void SetRingColor(UWidget* Ring, const FLinearColor& Color);	// FBuilder::Ring 네 변 색 바꾸기(채움 막대·헤어라인 둘 다)	// 보이면 HitTestInvisible, 아니면 Hidden(자리 유지)
 }

@@ -357,6 +357,23 @@ namespace SupplyUI
 		return Thickness <= 1.f ? Hairline(B, Color, Orient_Vertical) : B.Fill(Color, FMargin(Thickness * .5f, 0.f));
 	}
 
+	void SetRingColor(UWidget* Ring, const FLinearColor& Color)
+	{
+		UPanelWidget* Edges = Cast<UPanelWidget>(Ring);
+		for (int32 Index = 0; Edges && Index < Edges->GetChildrenCount(); ++Index)
+		{
+			UWidget* Edge = Edges->GetChildAt(Index);
+			if (UBorder* Bar = Cast<UBorder>(Edge))
+			{
+				Bar->SetBrushColor(Color);
+			}
+			else if (UHairlineWidget* Line = Cast<UHairlineWidget>(Edge))
+			{
+				Line->SetLineColor(Color);
+			}
+		}
+	}
+
 	void ShowIf(UWidget* Widget, bool bShow)
 	{
 		if (Widget)

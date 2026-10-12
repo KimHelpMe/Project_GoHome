@@ -1036,16 +1036,7 @@ void USupplyLockerPage::RefreshTransfer()
 			Text->SetColorAndOpacity(FSlateColor(TextColor));
 		}
 		Button.Edge->SetVisibility(bEdge ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
-		if (UPanelWidget* EdgePanel = Cast<UPanelWidget>(Button.Edge))
-		{
-			for (int32 Index = 0; Index < EdgePanel->GetChildrenCount(); ++Index)
-			{
-				if (UBorder* Bar = Cast<UBorder>(EdgePanel->GetChildAt(Index)))
-				{
-					Bar->SetBrushColor(EdgeColor);
-				}
-			}
-		}
+		SetRingColor(Button.Edge, EdgeColor);
 	};
 	Paint(WithdrawButton, ESharedLockerAction::Withdraw, true);
 	Paint(DepositButton, ESharedLockerAction::Deposit, false);
@@ -1068,16 +1059,7 @@ void USupplyLockerPage::RefreshConfirm()
 	const bool bEnabled = CanTransfer(ConfirmAction, ConfirmId);
 	CommitButton.Face->SetBrushColor(bEnabled ? Ink() : Hex(0xc5c7bd));
 	CommitButton.Text->SetColorAndOpacity(FSlateColor(bEnabled ? Paper() : Hex(0x535951)));
-	if (UPanelWidget* EdgePanel = Cast<UPanelWidget>(CommitButton.Edge))
-	{
-		for (int32 Index = 0; Index < EdgePanel->GetChildrenCount(); ++Index)
-		{
-			if (UBorder* Bar = Cast<UBorder>(EdgePanel->GetChildAt(Index)))
-			{
-				Bar->SetBrushColor(bEnabled ? Ink() : Hex(0x535951));
-			}
-		}
-	}
+	SetRingColor(CommitButton.Edge, bEnabled ? Ink() : Hex(0x535951));
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
