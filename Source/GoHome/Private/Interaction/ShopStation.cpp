@@ -2,6 +2,7 @@
 
 #include "Components/StaticMeshComponent.h"
 #include "Core/GoHomePlayerController.h"
+#include "Core/LobbyGameState.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/Pawn.h"
 #include "UObject/ConstructorHelpers.h"
@@ -43,9 +44,18 @@ void AShopStation::OnInteract(APawn* InstigatorPawn)
 		return;
 	}
 
-	// 다음 단계에서 상호작용한 플레이어에게 상점 UI를 열도록 연결한다.
-	if (AGoHomePlayerController* PlayerController =
-		Cast<AGoHomePlayerController>(InstigatorPawn->GetController()))
+	AGoHomePlayerController* PlayerController = Cast<AGoHomePlayerController>(InstigatorPawn->GetController());
+	if (!PlayerController)
+	{
+		return;
+	}
+
+	// 로비: 보급 화면(메인 분기 → 상점 / 조회 전용 보관함). 탐사의 상점 진입 정책은 supply-ui-4에서 정리 — 그때까지 기존 상점 BP.
+	if (GetWorld() && Cast<ALobbyGameState>(GetWorld()->GetGameState()))
+	{
+		PlayerController->Client_OpenSupplyScreen(ESupplyEntry::LobbyHub);
+	}
+	else
 	{
 		PlayerController->Client_OpenShop();
 	}

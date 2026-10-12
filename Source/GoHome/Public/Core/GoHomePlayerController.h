@@ -37,6 +37,10 @@ public:
 	// ISupplyScreenBackend
 	virtual ESupplyEntry GetSupplyEntry() const override { return SupplyEntry; }
 	virtual void RequestCloseSupplyScreen() override;
+	virtual const UItemShopCatalogDataAsset* GetShopCatalog() const override;
+	virtual bool RequestShopPurchase(FName ProductId, int32 Quantity) override;
+	virtual bool IsShopPurchasePending() const override { return PendingPurchaseProduct != NAME_None; }
+	virtual FSupplyPurchaseResultEvent& OnSupplyPurchaseResult() override { return SupplyPurchaseResultEvent; }
 
 	UFUNCTION(BlueprintPure, Category = "UI|Supply")
 	bool IsSupplyScreenOpen() const { return SupplyScreen != nullptr; }
@@ -246,6 +250,11 @@ private:
 	TObjectPtr<UUserWidget> SupplyScreen;
 
 	ESupplyEntry SupplyEntry = ESupplyEntry::LobbyHub;
+
+	// 보급 화면 구매 요청(한 번에 하나). 결과가 오면 비운다.
+	FName PendingPurchaseProduct = NAME_None;
+	int32 PendingPurchaseQuantity = 0;
+	FSupplyPurchaseResultEvent SupplyPurchaseResultEvent;
 
 	// --- 공유 보관함 UI ---
 	void OpenSharedLocker();

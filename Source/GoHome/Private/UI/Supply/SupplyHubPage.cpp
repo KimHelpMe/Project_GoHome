@@ -137,14 +137,7 @@ UWidget* USupplyHubPage::BuildDestination(const FBuilder& B, int32 Index, const 
 	Dest.Texts = { NumberText, TitleText, CaptionText, Arrow };
 
 	// button:focus outline 3px lime, offset 4px
-	UBorder* Outline = B.Box();
-	FSlateBrush OutlineBrush;
-	OutlineBrush.DrawAs = ESlateBrushDrawType::RoundedBox;
-	OutlineBrush.TintColor = FSlateColor(FLinearColor::Transparent);
-	OutlineBrush.OutlineSettings = FSlateBrushOutlineSettings(FVector4(0.f, 0.f, 0.f, 0.f), FSlateColor(Lime()), 3.f);
-	OutlineBrush.OutlineSettings.RoundingType = ESlateBrushRoundingType::FixedRadius;
-	Outline->SetBrush(OutlineBrush);
-	Outline->SetVisibility(ESlateVisibility::HitTestInvisible);
+	UWidget* Outline = B.Ring(Lime(), 3.f);
 	Dest.Outline = Outline;
 	AddOverlay(Card, Outline, HAlign_Fill, VAlign_Fill, FMargin(-7.f));
 

@@ -70,7 +70,14 @@ namespace SupplyUI
 	 * CSS 줄 상자 재현: 줄 높이(LineHeightPx, 음수면 normal)마다 줄 간격을 맞추고, 첫 기준선이 시안 글꼴의 기준선과 같은 높이에
 	 * 오도록 텍스트를 옮긴다. 대체 글꼴의 실제 Slate 지표(FontMeasure)를 읽어 계산한다 — 폰트를 바꾼 뒤 호출할 것.
 	 */
-	GOHOME_API void Typeset(UTextBlock* TextWidget, ERef Ref, float LineHeightPx = -1.f);
+	// BaselinePx >= 0 이면 첫 기준선 위치(줄 상자 위에서부터)를 직접 지정 — 크기가 다른 글자가 한 줄을 공유할 때(CSS 공통 기준선).
+	GOHOME_API void Typeset(UTextBlock* TextWidget, ERef Ref, float LineHeightPx = -1.f, float BaselinePx = -1.f);
+
+	// CSS 기준선 위치(줄 상자 위에서부터): (LH - (A+D)px)/2 + A·px
+	GOHOME_API float CssBaseline(float CssPx, ERef Ref, float LineHeightPx = -1.f);
+
+	// 시안 #rrggbb + alpha 위에 배경을 얹은 결과색(sRGB 합성) — 브라우저 반투명 결과를 불투명 색으로 고정할 때.
+	GOHOME_API FLinearColor MixSRGB(uint32 Over, float Alpha, uint32 Under);
 
 	/** CssPx: CSS font-size. LetterSpacingEm: CSS letter-spacing(em). bItalic: 합성 이탤릭. */
 	GOHOME_API FSlateFontInfo Font(EFace Face, float CssPx, float LetterSpacingEm = 0.f, bool bItalic = false);
@@ -91,6 +98,11 @@ namespace SupplyUI
 		UBorder* Box(const FMargin& Padding = FMargin(0.f)) const;	// 투명 컨테이너(Border = 패딩+정렬)
 		UTextBlock* Text(const FText& Value, const FSlateFontInfo& InFont, const FLinearColor& Color) const;
 		UWidget* Spacer(float Width, float Height) const;
+
+		// 테두리만(안쪽 채움 없음). CSS outline/inset box-shadow 재현용 — 슬롯 패딩으로 offset을 준다.
+		// 네 변을 단색 막대로 그린다: RoundedBox 브러시의 외곽선(OutlineSettings)은 부모 RenderOpacity를 따르지 않아
+		// 페이드 아웃(스윕 잔상 등) 중에도 그대로 남는다(2026-10-12 확인).
+		UWidget* Ring(const FLinearColor& Color, float Width) const;
 
 		// Typeset 후 그 텍스트를 돌려준다(조립 체인용)
 		UTextBlock* LineBox(UTextBlock* TextWidget, float LineHeightPx = -1.f, ERef Ref = ERef::Malgun) const;

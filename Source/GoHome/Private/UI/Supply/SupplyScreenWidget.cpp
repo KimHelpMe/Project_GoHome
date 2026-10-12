@@ -1,6 +1,7 @@
 #include "UI/Supply/SupplyScreenWidget.h"
 
 #include "Blueprint/WidgetTree.h"
+#include "Components/Border.h"
 #include "Components/Overlay.h"
 #include "Components/OverlaySlot.h"
 #include "Components/TextBlock.h"
@@ -64,6 +65,9 @@ void USupplyScreenWidget::NativeOnInitialized()
 	Root->SetClipping(EWidgetClipping::ClipToBounds);
 	WidgetTree->RootWidget = Root;
 
+	Backdrop = B.Fill(SupplyUI::Ink());
+	SupplyUI::AddFill(Root, Backdrop);
+
 	PageLayer = B.Overlay();
 	SupplyUI::AddFill(Root, PageLayer);
 
@@ -120,6 +124,10 @@ void USupplyScreenWidget::Start(ESupplyEntry Entry)
 {
 	Animator.CancelAll();
 	Animator.bReducedMotion = bReducedMotion;
+	if (Backdrop)
+	{
+		Backdrop->SetRenderOpacity(1.f);
+	}
 
 	ESupplyPage FirstPage = Entry == ESupplyEntry::ExpeditionLocker ? ESupplyPage::Locker : ESupplyPage::Hub;
 	if (!GetPage(FirstPage))
@@ -271,15 +279,20 @@ void USupplyScreenWidget::RequestClose()
 	SkipDecorations();
 
 	TWeakObjectPtr<USupplyPageBase> Weak = GetCurrentPage();
+	TWeakObjectPtr<UWidget> WeakBackdrop = Backdrop.Get();
 	TWeakObjectPtr<USupplyScreenWidget> WeakThis = this;
-	// .exit: Y 0→8, opacity 1→0, 140ms ease-in
-	Animator.Play(CloseTrack, 0.f, .14f, [Weak](float T)
+	// .exit: Y 0→8, opacity 1→0, 140ms ease-in — 닫을 때만 바탕도 같이 걷혀 게임 화면으로 돌아간다
+	Animator.Play(CloseTrack, 0.f, .14f, [Weak, WeakBackdrop](float T)
 	{
+		const float E = FSupplyEase::EaseIn().Eval(T);
 		if (USupplyPageBase* Page = Weak.Get())
 		{
-			const float E = FSupplyEase::EaseIn().Eval(T);
 			Page->SetRenderOpacity(1.f - E);
 			Page->SetRenderTranslation(FVector2D(0.f, 8.f * E));
+		}
+		if (UWidget* Fade = WeakBackdrop.Get())
+		{
+			Fade->SetRenderOpacity(1.f - E);
 		}
 	}, [WeakThis]()
 	{

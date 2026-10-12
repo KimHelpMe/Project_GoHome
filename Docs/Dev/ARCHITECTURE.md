@@ -178,6 +178,11 @@ decisions:
       `SaveVersion` 0 세이브는 로드 시 `MigrateSaveGame`이 옛 `ItemShopPurchaseStates`의 보유 수량을 상품별로 합산해 보관함으로 옮긴다(카탈로그에 없는 상품은 버림).
   - name: 보관함 꺼내기 서버 검증
     detail: 꺼내기/넣기 RPC마다 서버가 게임 단계(로비/탐사), 요청 폰이 `ASharedLockerActor::UseRadius` 안인지, 보관 수량·빈 핫바 슬롯을 다시 확인한다. 지급은 `AItemActorBase::ServerGrantToPawn`(서브클래스 `OnInteract` 재정의 우회 — 회복 캡슐이 꺼내자마자 쓰이지 않게).
+  - name: 상점 표시 데이터
+    detail: |
+      라운드 구매 누적은 `AGoHomeGameState::RoundShopPurchases`(복제 미러, `OnSharedLockerChanged`로 같이 알림)로 클라에 보낸다 — 상점 "이번 라운드 남은 구매 N개" 표시용. 서버 검증은 여전히 세이브 기준이고 미러는 `RefreshLockerView`·GameState BeginPlay 시점에만 갱신.
+      상점·보관함에 보일 이름/설명/평면 도해는 `FItemShopProduct::ShopDisplayName·ShopDescription·ShopArt`(비면 ItemData.DisplayName/ProductId·설명 없음·물음표). `ItemData.DisplayName`은 다른 화면이 쓰는 영문 이름이라 덮지 않는다.
+      구매 결과(`FItemShopPurchaseResult`)에는 상품이 없어 요청자 PC가 진행 중 요청(상품·수량, 한 번에 하나)을 기억했다가 결과에 붙여 화면에 알린다(`ISupplyScreenBackend::OnSupplyPurchaseResult`).
 ```
 
 ### Item

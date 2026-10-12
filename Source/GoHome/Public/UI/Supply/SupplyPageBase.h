@@ -63,7 +63,8 @@ protected:
 	// 위젯 트리를 만들고 루트를 돌려준다. Masthead/Footer/PagePadding을 채워야 스윕 띠가 맞는다.
 	virtual UWidget* BuildPage(const SupplyUI::FBuilder& B) { return nullptr; }
 
-	void AddHitTarget(UWidget* Target, TFunction<void()> OnClick);
+	// Layer: 지금 입력을 받는 층(HitLayer)과 같은 대상만 클릭된다 — 확인 패널이 뜨면 층을 올려 배경 클릭을 막는다.
+	void AddHitTarget(UWidget* Target, TFunction<void()> OnClick, int32 Layer = 0);
 	FSupplyAnimator* GetAnimator() const;
 	USupplyScreenWidget* GetHost() const { return Host.Get(); }
 
@@ -84,11 +85,14 @@ protected:
 
 	FMargin PagePadding;
 
+	int32 HitLayer = 0;
+
 private:
 	struct FHitTarget
 	{
 		TWeakObjectPtr<UWidget> Widget;
 		TFunction<void()> OnClick;
+		int32 Layer = 0;
 	};
 
 	TArray<FHitTarget> HitTargets;

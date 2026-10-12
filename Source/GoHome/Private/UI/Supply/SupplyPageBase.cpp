@@ -30,7 +30,7 @@ bool USupplyPageBase::HandleClick(const FVector2D& ScreenPosition)
 	for (int32 Index = HitTargets.Num() - 1; Index >= 0; --Index)
 	{
 		UWidget* Widget = HitTargets[Index].Widget.Get();
-		if (!Widget || !Widget->IsVisible())
+		if (!Widget || !Widget->IsVisible() || HitTargets[Index].Layer != HitLayer)
 		{
 			continue;
 		}
@@ -58,9 +58,9 @@ void USupplyPageBase::GetWipeBand(float& OutTop, float& OutBottom) const
 	}
 }
 
-void USupplyPageBase::AddHitTarget(UWidget* Target, TFunction<void()> OnClick)
+void USupplyPageBase::AddHitTarget(UWidget* Target, TFunction<void()> OnClick, int32 Layer)
 {
-	HitTargets.Add({ Target, MoveTemp(OnClick) });
+	HitTargets.Add({ Target, MoveTemp(OnClick), Layer });
 }
 
 FSupplyAnimator* USupplyPageBase::GetAnimator() const

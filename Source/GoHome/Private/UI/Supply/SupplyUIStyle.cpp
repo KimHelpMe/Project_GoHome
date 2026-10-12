@@ -114,7 +114,27 @@ namespace SupplyUI
 		return FMath::RoundToFloat((Ascent + Descent) * CssPx);
 	}
 
-	void Typeset(UTextBlock* TextWidget, ERef Ref, float LineHeightPx)
+	float CssBaseline(float CssPx, ERef Ref, float LineHeightPx)
+	{
+		float Ascent = 0.f;
+		float Descent = 0.f;
+		RefMetrics(Ref, Ascent, Descent);
+		const float LineHeight = LineHeightPx > 0.f ? LineHeightPx : NormalLineHeight(CssPx, Ref);
+		return (LineHeight - (Ascent + Descent) * CssPx) * .5f + Ascent * CssPx;
+	}
+
+	FLinearColor MixSRGB(uint32 Over, float Alpha, uint32 Under)
+	{
+		auto Channel = [Alpha](uint32 A, uint32 B, int32 Shift)
+		{
+			const float Top = (A >> Shift) & 0xff;
+			const float Bottom = (B >> Shift) & 0xff;
+			return static_cast<uint8>(FMath::RoundToInt(Top * Alpha + Bottom * (1.f - Alpha)));
+		};
+		return FLinearColor::FromSRGBColor(FColor(Channel(Over, Under, 16), Channel(Over, Under, 8), Channel(Over, Under, 0)));
+	}
+
+	void Typeset(UTextBlock* TextWidget, ERef Ref, float LineHeightPx, float BaselinePx)
 	{
 		if (!TextWidget)
 		{
@@ -122,9 +142,6 @@ namespace SupplyUI
 		}
 		const FSlateFontInfo FontInfo = TextWidget->GetFont();
 		const float CssPx = FontInfo.Size / 0.75f;
-		float Ascent = 0.f;
-		float Descent = 0.f;
-		RefMetrics(Ref, Ascent, Descent);
 		const float LineHeight = LineHeightPx > 0.f ? LineHeightPx : NormalLineHeight(CssPx, Ref);
 
 		// Slate 줄: 글리프는 줄 맨 위에서 시작하고 높이×LineHeightPercentage 만큼 내려간다(TextLayout.cpp).
@@ -142,9 +159,8 @@ namespace SupplyUI
 		}
 
 		TextWidget->SetLineHeightPercentage(LineHeight / SlateHeight);
-		const float CssBaseline = (LineHeight - (Ascent + Descent) * CssPx) * .5f + Ascent * CssPx;
-		const float SlateBaseline = SlateHeight - SlateDescent;
-		TextWidget->SetRenderTranslation(FVector2D(0.f, CssBaseline - SlateBaseline));
+		const float Baseline = BaselinePx >= 0.f ? BaselinePx : CssBaseline(CssPx, Ref, LineHeight);
+		TextWidget->SetRenderTranslation(FVector2D(0.f, Baseline - (SlateHeight - SlateDescent)));
 	}
 
 	FSlateFontInfo Font(EFace Face, float CssPx, float LetterSpacingEm, bool bItalic)
@@ -234,6 +250,18 @@ namespace SupplyUI
 	{
 		Typeset(TextWidget, Ref, LineHeightPx);
 		return TextWidget;
+	}
+
+	UWidget* FBuilder::Ring(const FLinearColor& Color, float Width) const
+	{
+		UOverlay* RingOverlay = Overlay();
+		const float Half = Width * .5f;
+		AddOverlay(RingOverlay, Fill(Color, FMargin(0.f, Half)), HAlign_Fill, VAlign_Top);
+		AddOverlay(RingOverlay, Fill(Color, FMargin(0.f, Half)), HAlign_Fill, VAlign_Bottom);
+		AddOverlay(RingOverlay, Fill(Color, FMargin(Half, 0.f)), HAlign_Left, VAlign_Fill);
+		AddOverlay(RingOverlay, Fill(Color, FMargin(Half, 0.f)), HAlign_Right, VAlign_Fill);
+		RingOverlay->SetVisibility(ESlateVisibility::HitTestInvisible);
+		return RingOverlay;
 	}
 
 	UOverlaySlot* AddFill(UOverlay* Parent, UWidget* Child)

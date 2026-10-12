@@ -46,6 +46,20 @@ enum class EItemShopResult : uint8
 	TooFarFromLocker
 };
 
+// 보급 상점 상세의 평면 장비 도해(시안 PRESSURE INDEX의 .equipment[data-art]). 최종 아이콘이 아니라 상점 표시용 그림.
+UENUM(BlueprintType)
+enum class EItemShopArt : uint8
+{
+	Unknown,
+	Hammer,
+	Sonar,
+	Capsule,
+	Oxygen,
+	Remote,
+	Harpoon,
+	Lamp
+};
+
 // 상품 하나의 구조
 USTRUCT(BlueprintType)
 struct GOHOME_API FItemShopProduct
@@ -95,6 +109,18 @@ public:
 	// 팀이 동시에 보유할 수 있는 최대 수량(보관함 안 + 꺼내 간 것). 0 이하면 제한 없음.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Shop", meta = (ToolTip = "팀 전체 보유 상한. 0 이하면 제한 없음."))
 	int32 MaxOwnedQuantity = 0;
+
+	// --- 보급 상점·보관함 화면 표시용(서버 로직은 읽지 않음) ---
+
+	// 상점·보관함에 보일 이름. 비면 ItemData.DisplayName, 그것도 없으면 ProductId.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Shop|Display")
+	FText ShopDisplayName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Shop|Display", meta = (MultiLine = true))
+	FText ShopDescription;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Shop|Display")
+	EItemShopArt ShopArt = EItemShopArt::Unknown;
 
 	// [미사용] 공유 보관함 전환 후 플레이어별 소유가 없어져 서버가 읽지 않는다. 기존 상점 위젯의 Break 핀 호환용으로만 남김.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Shop", meta = (ToolTip = "사용 안 함 — 팀 보유 상한은 MaxOwnedQuantity"))
@@ -155,20 +181,6 @@ public:
 	// 현재 실제로 보유한 수량
 	UPROPERTY(BlueprintReadWrite, Category = "Shop")
 	int32 OwnedQuantity = 0;
-};
-
-// 라운드별 팀 구매 수량(MaxPurchasesPerRun 검증용). 정산마다 비운다.
-USTRUCT(BlueprintType)
-struct GOHOME_API FItemShopRoundPurchase
-{
-	GENERATED_BODY()
-
-public:
-	UPROPERTY(BlueprintReadOnly, Category = "Shop")
-	FName ProductId = NAME_None;
-
-	UPROPERTY(BlueprintReadOnly, Category = "Shop")
-	int32 Quantity = 0;
 };
 
 // 보관함 꺼내기/넣기 결과 (서버 → 요청한 클라이언트). 수량 자체는 GameState 복제 미러로 따로 온다.

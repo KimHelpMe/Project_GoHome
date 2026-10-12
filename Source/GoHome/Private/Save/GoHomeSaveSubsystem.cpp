@@ -449,6 +449,12 @@ bool UGoHomeSaveSubsystem::SetLockerOwnedQuantity(FName ProductId, EItemShopItem
 	return true;
 }
 
+const TArray<FItemShopRoundPurchase>& UGoHomeSaveSubsystem::GetRoundShopPurchases() const
+{
+	static const TArray<FItemShopRoundPurchase> Empty;
+	return SaveGame ? SaveGame->RoundShopPurchases : Empty;
+}
+
 int32 UGoHomeSaveSubsystem::GetRoundPurchaseQuantity(FName ProductId) const
 {
 	if (!SaveGame)

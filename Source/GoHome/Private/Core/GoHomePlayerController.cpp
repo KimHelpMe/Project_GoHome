@@ -374,6 +374,13 @@ void AGoHomePlayerController::Server_RequestShopPurchase_Implementation(
 
 void AGoHomePlayerController::Client_ShopPurchaseResult_Implementation(const FItemShopPurchaseResult& Result)
 {
+	// 보급 화면 요청이었다면 상품·수량을 붙여 알린다(서버 결과에는 상품이 없다).
+	const FName ProductId = PendingPurchaseProduct;
+	const int32 Quantity = PendingPurchaseQuantity;
+	PendingPurchaseProduct = NAME_None;
+	PendingPurchaseQuantity = 0;
+	SupplyPurchaseResultEvent.Broadcast(Result, ProductId, Quantity);
+
 	OnShopPurchaseResult(Result);
 }
 
@@ -530,6 +537,31 @@ void AGoHomePlayerController::CloseSupplyScreen(bool bRestoreInput)
 void AGoHomePlayerController::RequestCloseSupplyScreen()
 {
 	CloseSupplyScreen(true);
+}
+
+const UItemShopCatalogDataAsset* AGoHomePlayerController::GetShopCatalog() const
+{
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UItemShopSubsystem* ShopSubsystem = GameInstance ? GameInstance->GetSubsystem<UItemShopSubsystem>() : nullptr;
+	return ShopSubsystem ? ShopSubsystem->GetCatalog() : nullptr;
+}
+
+bool AGoHomePlayerController::RequestShopPurchase(FName ProductId, int32 Quantity)
+{
+	if (IsShopPurchasePending() || ProductId == NAME_None || Quantity <= 0)
+	{
+		return false;
+	}
+
+	PendingPurchaseProduct = ProductId;
+	PendingPurchaseQuantity = Quantity;
+
+	FItemShopPurchaseRequest Request;
+	FItemShopCartLine& Line = Request.Lines.AddDefaulted_GetRef();
+	Line.ProductId = ProductId;
+	Line.Quantity = Quantity;
+	Server_RequestShopPurchase(Request);
+	return true;
 }
 
 #if !UE_BUILD_SHIPPING

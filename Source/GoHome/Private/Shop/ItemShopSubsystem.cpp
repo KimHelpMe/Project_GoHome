@@ -395,6 +395,10 @@ void UItemShopSubsystem::RefreshLockerView()
 	if (AGoHomeGameState* GameState = World->GetGameState<AGoHomeGameState>())
 	{
 		GameState->SetSharedLockerItems(BuildLockerView());
+		if (const UGoHomeSaveSubsystem* SaveSubsystem = GetSaveSubsystem())
+		{
+			GameState->SetRoundShopPurchases(SaveSubsystem->GetRoundShopPurchases());
+		}
 	}
 }
 

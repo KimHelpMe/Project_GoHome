@@ -65,6 +65,10 @@ private:
 	void HandleGhostReleased(UWidget* Ghost);
 	void PlayArrive(USupplyPageBase* Page, bool bBack);
 
+	// 페이지 아래 잉크 바탕 — 진입 페이지가 반투명(.35→1)인 동안 게임 화면·HUD가 비치지 않게(시안 body 배경)
+	UPROPERTY(Transient)
+	TObjectPtr<UWidget> Backdrop;
+
 	UPROPERTY(Transient)
 	TObjectPtr<UOverlay> PageLayer;
 
