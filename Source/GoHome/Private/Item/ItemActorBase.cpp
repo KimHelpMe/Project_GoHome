@@ -4,6 +4,8 @@
 #include "Item/ItemDataAsset.h"
 #include "Net/UnrealNetwork.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "Engine/StaticMeshSocket.h"
 #include "AI/NoiseType.h"
 #include "TimerManager.h"
 #include "Interaction/InventoryComponent.h"
@@ -14,6 +16,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundBase.h"
 #include "Sound/SoundAttenuation.h"
+
 
 AItemActorBase::AItemActorBase()
 {
@@ -251,6 +254,7 @@ void AItemActorBase::UpdateAttachment(APawn* OldHoldingPawn)
 		if (AGoHomeCharacter* Character = Cast<AGoHomeCharacter>(HoldingPawn))
 		{
 			Character->AttachItemToRightHand(MeshComponent);
+			AlignGripToHand(); // 피벗이 아니라 Grip 소켓 기준으로 손에 쥐어지게 보정.
 		}
 	}
 
@@ -670,4 +674,25 @@ int32 AItemActorBase::GetNoiseStageCount() const
 {
 	// 최대 반경이 Large 경계 이하면 "Large 진입 = 최대" 라 단계가 하나 줄어든다
 	return (ItemData && ItemData->MaxNoiseRadius > ItemNotice::LargeNoiseRadius) ? 3 : 2;
+}
+
+void AItemActorBase::AlignGripToHand()
+{
+	static const FName GripSocketName(TEXT("Grip"));
+
+	const UStaticMesh* StaticMesh = MeshComponent->GetStaticMesh();
+	const UStaticMeshSocket* GripSocket = StaticMesh ? StaticMesh->FindSocket(GripSocketName) : nullptr;
+	const USceneComponent* HandParent = MeshComponent->GetAttachParent();
+	if (!GripSocket || !HandParent) return; // Grip 소켓이 없는 메시는 기존처럼 피벗 기준.
+
+	// 소켓 위치는 메시 원본 크기 기준이라 아이템 스케일(ItemData->Scale)을 곱해야 실제 거리와 맞음.
+	const FTransform GripLocal(GripSocket->RelativeRotation,
+		GripSocket->RelativeLocation * MeshComponent->GetComponentScale());
+
+	// Grip(월드) = GripLocal * 아이템(월드) 이 손 소켓(월드)과 같아지도록 -> 아이템(월드) = GripLocal^-1 * 손 소켓(월드).
+	const FTransform HandWorld = HandParent->GetSocketTransform(MeshComponent->GetAttachSocketName());
+	const FTransform ItemWorld = GripLocal.Inverse() * HandWorld;
+
+	// 손 소켓에 붙어 있는 상태라 월드로 지정해도 상대 위치로 저장됨 -> 이후 손 애니메이션을 그대로 따라감.
+	MeshComponent->SetWorldLocationAndRotation(ItemWorld.GetLocation(), ItemWorld.GetRotation());
 }

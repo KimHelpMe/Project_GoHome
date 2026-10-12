@@ -206,6 +206,9 @@ private:
 	// 스폰시 바닥 위치.
 	void SnapToGround();
 
+	// 손에 붙인 직후 호출. 메시에 "Grip" 소켓이 있으면 그 소켓이 손 소켓과 겹치도록 위치/회전 보정(없으면 피벗 그대로).
+	void AlignGripToHand();
+
 	void BeginSinkOrRise();
 	FTimerHandle SinkOrRiseTimerHandle;
 
