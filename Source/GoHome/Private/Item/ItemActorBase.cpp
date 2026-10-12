@@ -357,6 +357,7 @@ void AItemActorBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(AItemActorBase, bIsActiveHeld);
 	DOREPLIFETIME(AItemActorBase, ItemData);
 	DOREPLIFETIME(AItemActorBase, bHasBeenPickedUp);
+	DOREPLIFETIME(AItemActorBase, SharedLockerProductId);
 }
 
 void AItemActorBase::NotifyHit(UPrimitiveComponent* MyComp,

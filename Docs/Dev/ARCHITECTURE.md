@@ -183,6 +183,11 @@ decisions:
       라운드 구매 누적은 `AGoHomeGameState::RoundShopPurchases`(복제 미러, `OnSharedLockerChanged`로 같이 알림)로 클라에 보낸다 — 상점 "이번 라운드 남은 구매 N개" 표시용. 서버 검증은 여전히 세이브 기준이고 미러는 `RefreshLockerView`·GameState BeginPlay 시점에만 갱신.
       상점·보관함에 보일 이름/설명/평면 도해는 `FItemShopProduct::ShopDisplayName·ShopDescription·ShopArt`(비면 ItemData.DisplayName/ProductId·설명 없음·물음표). `ItemData.DisplayName`은 다른 화면이 쓰는 영문 이름이라 덮지 않는다.
       구매 결과(`FItemShopPurchaseResult`)에는 상품이 없어 요청자 PC가 진행 중 요청(상품·수량, 한 번에 하나)을 기억했다가 결과에 붙여 화면에 알린다(`ISupplyScreenBackend::OnSupplyPurchaseResult`).
+  - name: 보관함 상자 역할 · 내 소지 수량
+    detail: |
+      `ASharedLockerActor` 하나가 맵 단계로 역할을 바꾼다(사용자 결정 2026-10-12): 로비 = 보급 메인 분기(상점 / 조회 전용 보관함), 탐사 = 아이템 박스(보관함 꺼내기·넣기 직행). 로비 "조회 전용"은 UI 규칙만 — 서버 꺼내기·넣기 검증(위 절)은 로비도 그대로 허용한다(사용자 결정). 동작이 갈려 문제가 생기면 오브젝트를 분리하고, 분리 시 상점 오브젝트는 보급 상점 화면을 연다.
+      "내 소지(넣기 가능)" = 내 핫바에 있는, 보관함에서 꺼낸 같은 상품 수. 꺼낼 때 `AItemActorBase::SharedLockerProductId`(복제)를 찍고 클라가 자기 인벤토리에서 센다 — 서버 `TryDepositToLocker`가 받는 대상(Checkouts 장부 + 요청자 핫바)과 같은 집합. 팀 반출(`Owned − Stored`)로 추정하지 않는다.
+      꺼내기·넣기 요청은 한 번에 하나(`ISupplyScreenBackend::RequestLockerTransfer`, PC가 결과 RPC까지 pending 보존 — 화면을 닫았다 열어도 유지).
 ```
 
 ### Item

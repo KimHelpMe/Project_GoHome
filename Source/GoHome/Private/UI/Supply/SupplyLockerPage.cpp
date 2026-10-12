@@ -12,8 +12,10 @@
 #include "Components/Spacer.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
+#include "Components/VerticalBoxSlot.h"
 #include "Core/GoHomeGameState.h"
 #include "Core/SupplyScreenBackend.h"
+#include "Interaction/InventoryComponent.h"
 #include "Item/ItemDataAsset.h"
 #include "Shop/ItemShopCatalogDataAsset.h"
 #include "UI/Supply/SupplyEquipmentArt.h"
@@ -32,6 +34,8 @@ namespace
 	const FName ArtTrack(TEXT("Locker.Art"));
 	const FName CursorTrack(TEXT("Locker.Cursor"));
 	const FName StoredTrack(TEXT("Locker.Stored"));
+	const FName ConfirmTrack(TEXT("Locker.Confirm"));
+	constexpr int32 ConfirmLayerIndex = 1;
 
 	FText Dash()
 	{
@@ -111,6 +115,10 @@ UWidget* USupplyLockerPage::BuildPage(const FBuilder& B)
 
 	Footer = BuildFooter(B);
 	AddV(Column, Footer);
+
+	ConfirmLayer = BuildConfirm(B);
+	AddFill(Root, ConfirmLayer);
+	ConfirmLayer->SetVisibility(ESlateVisibility::Collapsed);
 	return Root;
 }
 
@@ -328,14 +336,18 @@ UWidget* USupplyLockerPage::BuildDetail(const FBuilder& B)
 	AddV(QuantityBlock, Rule(B, Line()));
 	AddV(Copy, QuantityBlock, FMargin(0.f, 18.f, 0.f, 14.f));
 
+	// #transferControls(탐사만) — .quantities margin-bottom 14 바로 아래
+	TransferBlock = BuildTransfer(B);
+	AddV(Copy, TransferBlock);
+
 	// .action-note: 11px/1.5, min-height 33
 	ActionNoteText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 11.f), Muted()), 16.5f);
 	ActionNoteText->SetAutoWrapText(true);
 	USizeBox* NoteBox = B.Size();
 	NoteBox->SetMinDesiredHeight(33.f);
 	NoteBox->AddChild(ActionNoteText);
-	// 로비에선 위 .quantities margin-bottom 14와 .action-note margin-top 10이 겹쳐(마진 상쇄) 14만 남는다
-	AddV(Copy, NoteBox);
+	// 로비에선 위 .quantities margin-bottom 14와 .action-note margin-top 10이 겹쳐(마진 상쇄) 14만 남는다 — 탐사는 버튼 뒤 10
+	NoteSlot = AddV(Copy, NoteBox);
 	AddV(Detail, Copy, FMargin(0.f, 22.f, 0.f, 0.f));
 	return Detail;
 }
@@ -479,12 +491,159 @@ UWidget* USupplyLockerPage::BuildRow(const FBuilder& B)
 	{
 		if (Rows.IsValidIndex(RowIndex) && Rows[RowIndex].ProductId != NAME_None)
 		{
-			// 로비 행 클릭은 선택만(별도 진입 없음)
+			// 로비 행 클릭은 선택만, 탐사는 상세 조작으로
 			Select(Rows[RowIndex].ProductId);
-			SetArea(EArea::List);
+			SetArea(bExpedition ? EArea::Detail : EArea::List);
 		}
 	});
 	return Root;
+}
+
+UWidget* USupplyLockerPage::BuildTransfer(const FBuilder& B)
+{
+	UVerticalBox* Block = B.VBox();
+
+	// .action-head: 03 / 장비 조작 ↔ 1개씩 (10px 800 .1em, 상세 포커스면 라임), margin-bottom 8
+	UHorizontalBox* Head = B.HBox();
+	UTextBlock* ZoneLeft = B.LineBox(B.Text(LOCTEXT("ZoneLeft", "03 / 장비 조작"), Font(EFace::Bold, 10.f, .1f), Muted()));
+	UTextBlock* ZoneRight = B.LineBox(B.Text(LOCTEXT("ZoneRight", "1개씩"), Font(EFace::Bold, 10.f, .1f), Muted()));
+	ZoneTags = { ZoneLeft, ZoneRight };
+	AddH(Head, ZoneLeft, FMargin(0.f), VAlign_Center, 1.f);
+	AddH(Head, ZoneRight, FMargin(0.f), VAlign_Center);
+	AddV(Block, Head, FMargin(0.f, 0.f, 0.f, 8.f));
+
+	// .actions: gap 8, .action padding 13 14, min-height 48, 14px 900
+	UHorizontalBox* Actions = B.HBox();
+	auto MakeAction = [&](FActionWidgets& Button, const FText& Label, const TCHAR* Arrow, ESharedLockerAction InAction, bool bFirst)
+	{
+		USizeBox* Size = B.Size();
+		Size->SetMinDesiredHeight(48.f);
+		UOverlay* Card = B.Overlay();
+		Size->AddChild(Card);
+		UBorder* Face = B.Fill(Paper(), FMargin(14.f, 13.f));
+		UHorizontalBox* Row = B.HBox();
+		UTextBlock* LabelText = B.LineBox(B.Text(Label, Font(EFace::Bold, 14.f), Ink()));
+		UTextBlock* ArrowText = B.LineBox(B.Text(FText::FromString(Arrow), Font(EFace::Bold, 14.f), Ink()));
+		AddH(Row, LabelText, FMargin(0.f), VAlign_Center, 1.f);
+		AddH(Row, ArrowText, FMargin(8.f, 0.f, 0.f, 0.f), VAlign_Center);
+		Face->SetContent(Row);
+		AddFill(Card, Face);
+		UWidget* Edge = B.Ring(Paper(), 1.f);
+		AddFill(Card, Edge);
+		UWidget* Ring = B.Ring(Lime(), 3.f);
+		AddOverlay(Card, Ring, HAlign_Fill, VAlign_Fill, FMargin(-7.f));
+		Ring->SetVisibility(ESlateVisibility::Hidden);
+		// .action:focus:before ▶ left -17 top 14
+		UTextBlock* Mark = B.LineBox(B.Text(FText::FromString(TEXT("▶")), Font(EFace::Regular, 14.f), Lime()));
+		Mark->SetVisibility(ESlateVisibility::Hidden);
+		UBorder* MarkHolder = B.Box();
+		MarkHolder->SetContent(Mark);
+		AddOverlay(Card, MarkHolder, HAlign_Left, VAlign_Top, FMargin(-17.f, 14.f, 0.f, 0.f));
+		Button.Root = Size;
+		Button.Face = Face;
+		Button.Edge = Edge;
+		Button.FocusRing = Ring;
+		Button.Cursor = Mark;
+		Button.Texts = { LabelText, ArrowText };
+		AddH(Actions, Size, FMargin(bFirst ? 0.f : 8.f, 0.f, 0.f, 0.f), VAlign_Fill, 1.f);
+		AddHitTarget(Size, [this, InAction]()
+		{
+			if (bExpedition)
+			{
+				SetAction(InAction);
+				SetArea(EArea::Detail);
+				OpenConfirm(InAction);
+			}
+		});
+	};
+	MakeAction(WithdrawButton, LOCTEXT("Withdraw", "꺼내기"), TEXT("↙"), ESharedLockerAction::Withdraw, true);
+	MakeAction(DepositButton, LOCTEXT("Deposit", "넣기"), TEXT("↗"), ESharedLockerAction::Deposit, false);
+	AddV(Block, Actions);
+	return Block;
+}
+
+UWidget* USupplyLockerPage::BuildConfirm(const FBuilder& B)
+{
+	// .layer #030817d9 + .dialog: 540, 종이색, border 4 ink, box-shadow 12px 12px 0 blue, padding 28
+	UOverlay* Layer = B.Overlay();
+	AddFill(Layer, B.Fill(Hex(0x030817, 0xd9 / 255.f)));
+	USizeBox* Width = B.Size(540.f);
+	AddOverlay(Layer, Width, HAlign_Center, VAlign_Center);
+	UOverlay* Card = B.Overlay();
+	Card->SetRenderTransformPivot(FVector2D(.5f, .5f));
+	ConfirmDialog = Card;
+	Width->AddChild(Card);
+	UBorder* Shadow = B.Fill(Blue());
+	Shadow->SetRenderTranslation(FVector2D(12.f, 12.f));
+	AddFill(Card, Shadow);
+	UBorder* Frame = B.Fill(Ink(), FMargin(4.f));
+	AddFill(Card, Frame);
+	UBorder* Sheet = B.Fill(Paper(), FMargin(28.f));
+	Frame->SetContent(Sheet);
+	UVerticalBox* Column = B.VBox();
+	Sheet->SetContent(Column);
+
+	// .dialog p 규칙이 .micro를 14px/1.7로 덮는다(시안 그대로)
+	AddV(Column, B.LineBox(B.Text(LOCTEXT("ConfirmMicro", "CREW EQUIPMENT / TRANSFER"), Font(EFace::Bold, 14.f, .18f), Hex(0x475165)), 23.8f, ERef::Segoe));
+	ConfirmTitleText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Bold, 40.f, -.05f), Ink()), 48.f);
+	AddV(Column, ConfirmTitleText, FMargin(0.f, 11.f));
+	ConfirmDescriptionText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 14.f), Ink()), 23.8f);
+	AddV(Column, ConfirmDescriptionText);
+
+	// .dialog-count: margin 21 0, padding 12 0, border-block 2px ink, 12px / strong 30px
+	UVerticalBox* Count = B.VBox();
+	AddV(Count, Rule(B, Ink(), 2.f));
+	UHorizontalBox* CountRow = B.HBox();
+	ConfirmItemText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 12.f), Ink()));
+	AddH(CountRow, ConfirmItemText, FMargin(0.f), VAlign_Center, 1.f);
+	AddH(CountRow, B.LineBox(B.Text(FText::FromString(TEXT("× 1")), Font(EFace::Bold, 30.f), Ink())), FMargin(0.f), VAlign_Center);
+	AddV(Count, CountRow, FMargin(0.f, 12.f));
+	AddV(Count, Rule(B, Ink(), 2.f));
+	AddV(Column, Count, FMargin(0.f, 21.f));
+
+	ConfirmReasonText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 12.f), Hex(0x6e3019)), 20.4f);
+	ConfirmReasonText->SetAutoWrapText(true);
+	USizeBox* ReasonBox = B.Size();
+	ReasonBox->SetMinDesiredHeight(20.f);
+	ReasonBox->AddChild(ConfirmReasonText);
+	AddV(Column, ReasonBox);
+
+	// .dialog-actions: gap 10, mt 20 — 취소 / 요청 확인(ink)
+	UHorizontalBox* Actions = B.HBox();
+	auto MakeButton = [&](FDialogButton& Button, const FText& Label, bool bCommit, int32 Index)
+	{
+		USizeBox* Size = B.Size(-1.f, 52.f);
+		UOverlay* ButtonCard = B.Overlay();
+		Size->AddChild(ButtonCard);
+		Button.Face = B.Fill(bCommit ? Ink() : FLinearColor::Transparent);
+		AddFill(ButtonCard, Button.Face);
+		Button.Edge = B.Ring(Ink(), 2.f);
+		AddFill(ButtonCard, Button.Edge);
+		Button.Text = B.LineBox(B.Text(Label, Font(EFace::Bold, 15.f), bCommit ? Paper() : Ink()));
+		AddOverlay(ButtonCard, Button.Text, HAlign_Center, VAlign_Center);
+		UWidget* Ring = B.Ring(Blue(), 3.f);
+		AddOverlay(ButtonCard, Ring, HAlign_Fill, VAlign_Fill, FMargin(-6.f));
+		Ring->SetVisibility(ESlateVisibility::Hidden);
+		Button.FocusRing = Ring;
+		Button.Root = Size;
+		AddH(Actions, Size, FMargin(Index == 0 ? 0.f : 10.f, 0.f, 0.f, 0.f), VAlign_Fill, 1.f);
+		AddHitTarget(Size, [this, Index]()
+		{
+			ConfirmFocus = Index;
+			if (Index == 0)
+			{
+				CancelConfirm();
+			}
+			else
+			{
+				CommitConfirm();
+			}
+		}, ConfirmLayerIndex);
+	};
+	MakeButton(CancelButton, LOCTEXT("Cancel", "취소"), false, 0);
+	MakeButton(CommitButton, LOCTEXT("Commit", "요청 확인"), true, 1);
+	AddV(Column, Actions, FMargin(0.f, 20.f, 0.f, 0.f));
+	return Layer;
 }
 
 UWidget* USupplyLockerPage::BuildFooter(const FBuilder& B)
@@ -586,6 +745,13 @@ void USupplyLockerPage::OnPageShown(bool bBack, FName FocusHint)
 	bExpedition = Backend && Backend->GetSupplyEntry() == ESupplyEntry::ExpeditionLocker;
 	ViewContextText->SetText(bExpedition ? LOCTEXT("ContextExpedition", "탐사 · 아이템 박스") : LOCTEXT("ContextLobby", "로비 · 조회 전용"));
 
+	TransferBlock->SetVisibility(bExpedition ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+	NoteSlot->SetPadding(FMargin(0.f, bExpedition ? 10.f : 0.f, 0.f, 0.f));
+	Action = ESharedLockerAction::Withdraw;
+	bConfirmOpen = false;
+	HitLayer = 0;
+	ConfirmLayer->SetVisibility(ESlateVisibility::Collapsed);
+
 	BindSources();
 	Entries = BoundGameState.IsValid() ? BoundGameState->GetSharedLockerItems() : TArray<FSharedLockerViewEntry>();
 
@@ -601,6 +767,10 @@ void USupplyLockerPage::OnPageShown(bool bBack, FName FocusHint)
 	{
 		SetStatus(LOCTEXT("StatusLoading", "공유 상태를 불러오는 중입니다."), false);
 	}
+	else if (IsPending())
+	{
+		SetStatus(LOCTEXT("StatusPendingOpen", "이전 요청의 결과를 기다리는 중입니다."), false);
+	}
 	else
 	{
 		SetStatus(LOCTEXT("StatusReady", "팀의 장비가 여기에 있습니다."), false);
@@ -613,7 +783,7 @@ void USupplyLockerPage::OnPageHidden()
 	UnbindSources();
 	if (FSupplyAnimator* Animator = GetAnimator())
 	{
-		for (const FName& Track : { ListTrack, DetailTrack, ArtTrack, CursorTrack, StoredTrack })
+		for (const FName& Track : { ListTrack, DetailTrack, ArtTrack, CursorTrack, StoredTrack, ConfirmTrack })
 		{
 			Animator->Finish(Track);
 		}
@@ -634,6 +804,20 @@ void USupplyLockerPage::BindSources()
 		BoundGameState = GameState;
 		GameState->OnSharedLockerChanged.AddUniqueDynamic(this, &USupplyLockerPage::HandleLockerChanged);
 	}
+	// 내 소지(반납 가능) 수량은 내 폰 핫바가 바뀔 때 다시 센다
+	if (APawn* OwnerPawn = GetOwningPlayerPawn())
+	{
+		if (UInventoryComponent* Inventory = OwnerPawn->FindComponentByClass<UInventoryComponent>())
+		{
+			BoundInventory = Inventory;
+			Inventory->OnInventoryChanged.AddUniqueDynamic(this, &USupplyLockerPage::HandleInventoryChanged);
+		}
+	}
+	USupplyScreenWidget* Screen = GetHost();
+	if (ISupplyScreenBackend* Backend = Screen ? Screen->GetBackend() : nullptr)
+	{
+		LockerResultHandle = Backend->OnSupplyLockerResult().AddUObject(this, &USupplyLockerPage::HandleLockerResult);
+	}
 }
 
 void USupplyLockerPage::UnbindSources()
@@ -643,11 +827,250 @@ void USupplyLockerPage::UnbindSources()
 		GameState->OnSharedLockerChanged.RemoveDynamic(this, &USupplyLockerPage::HandleLockerChanged);
 	}
 	BoundGameState.Reset();
+	if (UInventoryComponent* Inventory = BoundInventory.Get())
+	{
+		Inventory->OnInventoryChanged.RemoveDynamic(this, &USupplyLockerPage::HandleInventoryChanged);
+	}
+	BoundInventory.Reset();
+	USupplyScreenWidget* Screen = GetHost();
+	if (ISupplyScreenBackend* Backend = Screen ? Screen->GetBackend() : nullptr)
+	{
+		Backend->OnSupplyLockerResult().Remove(LockerResultHandle);
+	}
+	LockerResultHandle.Reset();
 }
 
 void USupplyLockerPage::HandleLockerChanged()
 {
 	Reconcile();
+}
+
+void USupplyLockerPage::HandleInventoryChanged()
+{
+	RefreshDetail(false);
+	RefreshFocus();
+}
+
+void USupplyLockerPage::HandleLockerResult(const FSharedLockerResult& Result)
+{
+	// 결과 문구는 수량 스냅샷과 별개 이벤트 — 포커스는 빼앗지 않는다
+	if (Result.Result == EItemShopResult::Success)
+	{
+		SetStatus(Result.Action == ESharedLockerAction::Withdraw ? LOCTEXT("Withdrawn", "아이템 1개를 꺼냈습니다.") : LOCTEXT("Deposited", "아이템 1개를 넣었습니다."), false);
+	}
+	else
+	{
+		SetStatus(Result.Message.IsEmpty() ? LOCTEXT("RequestFailed", "요청을 처리하지 못했습니다. 잠시 후 다시 요청해 주세요.") : Result.Message, true);
+	}
+	RefreshDetail(false);
+	RefreshConfirm();
+	RefreshFocus();
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 탐사 조작
+
+int32 USupplyLockerPage::GetHeld(FName ProductId) const
+{
+	const USupplyScreenWidget* Screen = GetHost();
+	const ISupplyScreenBackend* Backend = Screen ? Screen->GetBackend() : nullptr;
+	return Backend ? Backend->GetHeldLockerQuantity(ProductId) : 0;
+}
+
+bool USupplyLockerPage::IsPending() const
+{
+	const USupplyScreenWidget* Screen = GetHost();
+	const ISupplyScreenBackend* Backend = Screen ? Screen->GetBackend() : nullptr;
+	return Backend && Backend->IsLockerRequestPending();
+}
+
+bool USupplyLockerPage::CanTransfer(ESharedLockerAction InAction, FName ProductId) const
+{
+	const FSharedLockerViewEntry* Entry = FindEntry(ProductId);
+	if (!bExpedition || !Entry || !BoundGameState.IsValid() || IsPending())
+	{
+		return false;
+	}
+	return InAction == ESharedLockerAction::Withdraw ? Entry->StoredQuantity > 0 : GetHeld(ProductId) > 0;
+}
+
+FText USupplyLockerPage::GetTransferReason(ESharedLockerAction InAction, FName ProductId) const
+{
+	const FSharedLockerViewEntry* Entry = FindEntry(ProductId);
+	if (!BoundGameState.IsValid())
+	{
+		return LOCTEXT("ReasonLoading", "공유 상태를 확인 중입니다.");
+	}
+	if (IsPending())
+	{
+		return LOCTEXT("ReasonPending", "요청 결과를 기다리는 중입니다.");
+	}
+	if (!Entry)
+	{
+		return LOCTEXT("ReasonNone", "선택한 아이템이 없습니다.");
+	}
+	if (InAction == ESharedLockerAction::Withdraw && Entry->StoredQuantity == 0)
+	{
+		return LOCTEXT("ReasonEmpty", "모두 꺼낸 상태입니다. 보관 수량이 없습니다.");
+	}
+	if (InAction == ESharedLockerAction::Deposit && GetHeld(ProductId) <= 0)
+	{
+		return LOCTEXT("ReasonNotHeld", "내가 보관함에서 꺼내 든 같은 아이템이 없습니다. 탐사 중 획득한 아이템의 보관은 별도 규칙입니다.");
+	}
+	return InAction == ESharedLockerAction::Deposit
+		? LOCTEXT("ReasonDeposit", "내가 보관함에서 꺼내 든 같은 아이템 1개를 반납합니다.")
+		: LOCTEXT("ReasonWithdraw", "아이템 1개를 빈 핫바 슬롯으로 꺼냅니다.");
+}
+
+void USupplyLockerPage::SetAction(ESharedLockerAction InAction)
+{
+	Action = InAction;
+	RefreshDetail(false);
+	RefreshFocus();
+}
+
+void USupplyLockerPage::OpenConfirm(ESharedLockerAction InAction)
+{
+	Action = InAction;
+	if (!CanTransfer(InAction, SelectedId))
+	{
+		// 비활성 동작도 포커스는 받아 사유를 읽게 한다 — 요청만 막는다
+		SetStatus(GetTransferReason(InAction, SelectedId), true);
+		RefreshDetail(false);
+		RefreshFocus();
+		return;
+	}
+	bConfirmOpen = true;
+	ConfirmAction = InAction;
+	ConfirmId = SelectedId;
+	ConfirmFocus = 0;
+	HitLayer = ConfirmLayerIndex;
+	ConfirmLayer->SetVisibility(ESlateVisibility::HitTestInvisible);
+	RefreshConfirm();
+	RefreshFocus();
+
+	// .dialog.enter confirm-in: Y 12→0, Angle -2→0, opacity .4→1, 160ms snap
+	if (FSupplyAnimator* Animator = GetAnimator())
+	{
+		TWeakObjectPtr<UWidget> Target = ConfirmDialog.Get();
+		Animator->Play(ConfirmTrack, 0.f, .16f, [Target](float T)
+		{
+			if (UWidget* Widget = Target.Get())
+			{
+				const float E = FSupplyEase::Snap().Eval(T);
+				FWidgetTransform Transform;
+				Transform.Translation = FVector2D(0.f, 12.f * (1.f - E));
+				Transform.Angle = -2.f * (1.f - E);
+				Widget->SetRenderTransform(Transform);
+				Widget->SetRenderOpacity(FMath::Lerp(.4f, 1.f, E));
+			}
+		});
+	}
+}
+
+void USupplyLockerPage::CancelConfirm()
+{
+	if (FSupplyAnimator* Animator = GetAnimator())
+	{
+		Animator->Finish(ConfirmTrack);
+	}
+	bConfirmOpen = false;
+	HitLayer = 0;
+	ConfirmLayer->SetVisibility(ESlateVisibility::Collapsed);
+	SetArea(EArea::Detail);
+}
+
+void USupplyLockerPage::CommitConfirm()
+{
+	if (!bConfirmOpen || !CanTransfer(ConfirmAction, ConfirmId))
+	{
+		SetStatus(LOCTEXT("Changed", "상태가 변경되어 요청할 수 없습니다."), true);
+		RefreshConfirm();
+		return;
+	}
+	const ESharedLockerAction RequestAction = ConfirmAction;
+	const FName RequestId = ConfirmId;
+	CancelConfirm();
+
+	// 리슨 호스트는 결과가 요청 호출 안에서 돌아오므로 "처리 중" 문구를 먼저 쓴다
+	SetStatus(LOCTEXT("Processing", "요청을 처리 중입니다. 목록 탐색은 계속할 수 있습니다."), false);
+	SetArea(EArea::List);
+	USupplyScreenWidget* Screen = GetHost();
+	ISupplyScreenBackend* Backend = Screen ? Screen->GetBackend() : nullptr;
+	if (!Backend || !Backend->RequestLockerTransfer(RequestAction, RequestId))
+	{
+		SetStatus(LOCTEXT("ReasonPending", "요청 결과를 기다리는 중입니다."), true);
+	}
+	RefreshDetail(false);
+	RefreshFocus();
+}
+
+void USupplyLockerPage::RefreshTransfer()
+{
+	const bool bReady = FindEntry(SelectedId) != nullptr;
+	auto Paint = [this, bReady](FActionWidgets& Button, ESharedLockerAction InAction, bool bPrimary)
+	{
+		const bool bEnabled = CanTransfer(InAction, SelectedId);
+		FLinearColor Back = bPrimary ? Paper() : Deep();
+		FLinearColor TextColor = bPrimary ? Ink() : Paper();
+		bool bEdge = !bPrimary;
+		FLinearColor EdgeColor = Paper();
+		if (!bEnabled)
+		{
+			// [aria-disabled]: #1a293d / #91a0b7, 1px #42536d
+			Back = Hex(0x1a293d);
+			TextColor = Hex(0x91a0b7);
+			bEdge = true;
+			EdgeColor = Hex(0x42536d);
+		}
+		Button.Face->SetBrushColor(Back);
+		for (UTextBlock* Text : Button.Texts)
+		{
+			Text->SetColorAndOpacity(FSlateColor(TextColor));
+		}
+		Button.Edge->SetVisibility(bEdge ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
+		if (UPanelWidget* EdgePanel = Cast<UPanelWidget>(Button.Edge))
+		{
+			for (int32 Index = 0; Index < EdgePanel->GetChildrenCount(); ++Index)
+			{
+				if (UBorder* Bar = Cast<UBorder>(EdgePanel->GetChildAt(Index)))
+				{
+					Bar->SetBrushColor(EdgeColor);
+				}
+			}
+		}
+	};
+	Paint(WithdrawButton, ESharedLockerAction::Withdraw, true);
+	Paint(DepositButton, ESharedLockerAction::Deposit, false);
+}
+
+void USupplyLockerPage::RefreshConfirm()
+{
+	if (!bConfirmOpen)
+	{
+		return;
+	}
+	const bool bWithdraw = ConfirmAction == ESharedLockerAction::Withdraw;
+	const FSharedLockerViewEntry* Entry = FindEntry(ConfirmId);
+	ConfirmTitleText->SetText(bWithdraw ? LOCTEXT("ConfirmWithdraw", "장비를 꺼낼까요?") : LOCTEXT("ConfirmDeposit", "장비를 넣을까요?"));
+	ConfirmDescriptionText->SetText(bWithdraw ? LOCTEXT("ConfirmWithdrawDesc", "공유 보관함 → 내 핫바") : LOCTEXT("ConfirmDepositDesc", "내 핫바 → 공유 보관함"));
+	ConfirmItemText->SetText(Entry ? GetEntryName(*Entry) : LOCTEXT("Gone", "사라진 아이템"));
+	ConfirmReasonText->SetText(GetTransferReason(ConfirmAction, ConfirmId));
+
+	// 요청 확인 비활성: #c5c7bd / #535951 (dashed는 실선 대체)
+	const bool bEnabled = CanTransfer(ConfirmAction, ConfirmId);
+	CommitButton.Face->SetBrushColor(bEnabled ? Ink() : Hex(0xc5c7bd));
+	CommitButton.Text->SetColorAndOpacity(FSlateColor(bEnabled ? Paper() : Hex(0x535951)));
+	if (UPanelWidget* EdgePanel = Cast<UPanelWidget>(CommitButton.Edge))
+	{
+		for (int32 Index = 0; Index < EdgePanel->GetChildrenCount(); ++Index)
+		{
+			if (UBorder* Bar = Cast<UBorder>(EdgePanel->GetChildAt(Index)))
+			{
+				Bar->SetBrushColor(bEnabled ? Ink() : Hex(0x535951));
+			}
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -704,7 +1127,11 @@ void USupplyLockerPage::Select(FName ProductId)
 
 void USupplyLockerPage::SetArea(EArea InArea)
 {
-	if (InArea == EArea::List && !FindEntry(SelectedId))
+	if (InArea == EArea::Detail && !bExpedition)
+	{
+		InArea = EArea::List;	// 로비 상세는 포커스 대상이 아니다
+	}
+	if ((InArea == EArea::List || InArea == EArea::Detail) && !FindEntry(SelectedId))
 	{
 		InArea = EArea::Category;
 	}
@@ -755,7 +1182,16 @@ void USupplyLockerPage::Reconcile()
 	}
 	const bool bRemoved = OldId != NAME_None && OldId != SelectedId;
 
+	// 확인 중 대상이 사라지면 확인을 닫는다(다른 항목으로 요청을 옮기지 않음). 수량만 바뀌면 문구·허용 여부만 갱신.
+	if (bConfirmOpen && !FindEntry(ConfirmId))
+	{
+		bConfirmOpen = false;
+		HitLayer = 0;
+		ConfirmLayer->SetVisibility(ESlateVisibility::Collapsed);
+	}
+
 	RefreshAll(bRemoved);
+	RefreshConfirm();
 
 	const FSharedLockerViewEntry* NewEntry = FindEntry(SelectedId);
 	if (!bRemoved && NewEntry && OldStored != INDEX_NONE && NewEntry->StoredQuantity != OldStored)
@@ -789,9 +1225,13 @@ void USupplyLockerPage::Reconcile()
 			: LOCTEXT("RemovedCategory", "선택한 항목이 목록에서 사라졌습니다. 분류로 돌아갑니다."), false);
 		SetArea(SelectedId != NAME_None ? EArea::List : EArea::Category);
 	}
-	else
+	else if (!bConfirmOpen)
 	{
 		SetArea(Area);
+	}
+	else
+	{
+		RefreshFocus();
 	}
 }
 
@@ -824,17 +1264,59 @@ void USupplyLockerPage::SetStatus(const FText& Message, bool bError)
 
 void USupplyLockerPage::HandleInput(ESupplyInput Input)
 {
+	if (bConfirmOpen)
+	{
+		// 확인: 좌우·Tab = 취소/요청 확인, Enter = 현재 버튼(초기 취소)
+		switch (Input)
+		{
+		case ESupplyInput::Left:
+		case ESupplyInput::Right:
+		case ESupplyInput::TabNext:
+		case ESupplyInput::TabPrev:
+			ConfirmFocus = 1 - ConfirmFocus;
+			RefreshFocus();
+			break;
+		case ESupplyInput::Accept:
+			if (ConfirmFocus == 0)
+			{
+				CancelConfirm();
+			}
+			else
+			{
+				CommitConfirm();
+			}
+			break;
+		default:
+			break;
+		}
+		return;
+	}
+
 	if (Input == ESupplyInput::TabNext || Input == ESupplyInput::TabPrev)
 	{
-		// 선택 분류 → 선택 행 → 나가기
-		TArray<EArea> Stops = { EArea::Category };
+		// 선택 분류 → 선택 행 → (탐사) 꺼내기 → 넣기 → 나가기
+		struct FStop
+		{
+			EArea Area;
+			ESharedLockerAction Action;
+		};
+		TArray<FStop> Stops = { { EArea::Category, Action } };
 		if (FindEntry(SelectedId))
 		{
-			Stops.Add(EArea::List);
+			Stops.Add({ EArea::List, Action });
+			if (bExpedition)
+			{
+				Stops.Add({ EArea::Detail, ESharedLockerAction::Withdraw });
+				Stops.Add({ EArea::Detail, ESharedLockerAction::Deposit });
+			}
 		}
-		Stops.Add(EArea::Utility);
-		const int32 Current = FMath::Max(0, Stops.IndexOfByKey(Area));
-		SetArea(Stops[(Current + (Input == ESupplyInput::TabNext ? 1 : -1) + Stops.Num()) % Stops.Num()]);
+		Stops.Add({ EArea::Utility, Action });
+		int32 Current = Stops.IndexOfByPredicate([this](const FStop& Stop) { return Stop.Area == Area && (Area != EArea::Detail || Stop.Action == Action); });
+		Current = FMath::Max(0, Current);
+		const FStop& Next = Stops[(Current + (Input == ESupplyInput::TabNext ? 1 : -1) + Stops.Num()) % Stops.Num()];
+		Action = Next.Action;
+		SetArea(Next.Area);
+		RefreshDetail(false);
 		return;
 	}
 
@@ -874,7 +1356,25 @@ void USupplyLockerPage::HandleInput(ESupplyInput Input)
 				SetArea(EArea::List);
 			}
 		}
-		// 로비: Enter/A는 소비만 하고 동작 없음(조회 전용). 탐사 상세 조작은 supply-ui-4.
+		else if (bExpedition && (Input == ESupplyInput::Left || Input == ESupplyInput::Accept))
+		{
+			// 탐사: 왼쪽 / Enter = 상세 조작. 로비는 Enter를 소비만 한다(조회 전용).
+			SetArea(EArea::Detail);
+		}
+		break;
+	case EArea::Detail:
+		if (Input == ESupplyInput::Left || Input == ESupplyInput::Right)
+		{
+			SetAction(Action == ESharedLockerAction::Withdraw ? ESharedLockerAction::Deposit : ESharedLockerAction::Withdraw);
+		}
+		else if (Input == ESupplyInput::Up)
+		{
+			SetArea(EArea::List);
+		}
+		else if (Input == ESupplyInput::Accept)
+		{
+			OpenConfirm(Action);
+		}
 		break;
 	case EArea::Utility:
 		if (Input == ESupplyInput::Accept)
@@ -887,9 +1387,17 @@ void USupplyLockerPage::HandleInput(ESupplyInput Input)
 
 void USupplyLockerPage::HandleBack()
 {
-	// 로비: 목록 → 분류 → 메인 분기 / 탐사: 목록 → 분류 → 닫기
+	// 탐사: 확인 → 상세 → 목록 → 분류 → 닫힘 / 로비: 목록 → 분류 → 메인 분기
+	if (bConfirmOpen)
+	{
+		CancelConfirm();
+		return;
+	}
 	switch (Area)
 	{
+	case EArea::Detail:
+		SetArea(EArea::List);
+		break;
 	case EArea::List:
 		SetArea(EArea::Category);
 		break;
@@ -1057,15 +1565,19 @@ void USupplyLockerPage::RefreshDetail(bool bChanged)
 		OwnedText->SetText(Dash());
 		ArtIndexText->SetText(FText::FromString(TEXT("00")));
 	}
-	// 개인 소지(반납 가능) 수량은 클라 데이터 계약이 아직 없다 — supply-ui-4
-	HeldText->SetText(Dash());
+	// 내 소지 = 내 핫바에 있는, 보관함에서 꺼낸 같은 상품(넣기 가능 수)
+	HeldText->SetText(Entry ? FText::AsNumber(GetHeld(Entry->ProductId)) : Dash());
 
 	// 로비 조회 전용은 첫 칸도 기본 글자색(시안 .readonly)
 	StoredText->SetColorAndOpacity(FSlateColor(bExpedition ? Lime() : Paper()));
 	StoredBlock->SetBrushColor(FLinearColor::Transparent);
 	StoredLabel->SetColorAndOpacity(FSlateColor(Muted()));
 
-	ActionNoteText->SetText(bExpedition ? FText::GetEmpty() : LOCTEXT("ReadOnlyNote", "조회 전용 · 장비는 탐사 맵의 아이템 박스에서 꺼낼 수 있습니다."));
+	ActionNoteText->SetText(bExpedition ? GetTransferReason(Action, SelectedId) : LOCTEXT("ReadOnlyNote", "조회 전용 · 장비는 탐사 맵의 아이템 박스에서 꺼낼 수 있습니다."));
+	if (bExpedition)
+	{
+		RefreshTransfer();
+	}
 
 	if (bChanged)
 	{
@@ -1116,7 +1628,20 @@ void USupplyLockerPage::RefreshFocus()
 		ShowIf(Row.Ring, bFocused);
 		ShowIf(Row.Cursor, bFocused);
 	}
-	ShowIf(ExitRing, Area == EArea::Utility);
+	ShowIf(ExitRing, !bConfirmOpen && Area == EArea::Utility);
+
+	// 탐사 상세: 선택 동작에 ▶ + 라임 외곽선, 상세에 포커스가 있으면 구역 표식 라임
+	const bool bDetail = !bConfirmOpen && Area == EArea::Detail;
+	ShowIf(WithdrawButton.FocusRing, bDetail && Action == ESharedLockerAction::Withdraw);
+	ShowIf(WithdrawButton.Cursor, bDetail && Action == ESharedLockerAction::Withdraw);
+	ShowIf(DepositButton.FocusRing, bDetail && Action == ESharedLockerAction::Deposit);
+	ShowIf(DepositButton.Cursor, bDetail && Action == ESharedLockerAction::Deposit);
+	for (UTextBlock* Tag : ZoneTags)
+	{
+		Tag->SetColorAndOpacity(FSlateColor(bDetail || bConfirmOpen ? Lime() : Muted()));
+	}
+	ShowIf(CancelButton.FocusRing, bConfirmOpen && ConfirmFocus == 0);
+	ShowIf(CommitButton.FocusRing, bConfirmOpen && ConfirmFocus == 1);
 
 	// .help: kbd 칩 + 설명(gap 20)
 	TArray<TPair<FText, FText>> Hints;
@@ -1129,9 +1654,18 @@ void USupplyLockerPage::RefreshFocus()
 			{ FText::FromString(TEXT("Esc")), bExpedition ? LOCTEXT("HintClose", "닫기") : LOCTEXT("HintHub", "메인 분기") } };
 		break;
 	case EArea::List:
+		Hints = { { FText::FromString(TEXT("↑ ↓")), LOCTEXT("HintSelect", "선택") } };
+		if (bExpedition)
+		{
+			Hints.Add({ FText::FromString(TEXT("← / Enter")), LOCTEXT("HintDetail", "상세·조작") });
+		}
+		Hints.Add({ FText::FromString(TEXT("Esc")), LOCTEXT("HintToCategory", "분류") });
+		break;
+	case EArea::Detail:
 		Hints = {
-			{ FText::FromString(TEXT("↑ ↓")), LOCTEXT("HintSelect", "선택") },
-			{ FText::FromString(TEXT("Esc")), LOCTEXT("HintToCategory", "분류") } };
+			{ FText::FromString(TEXT("← →")), LOCTEXT("HintActions", "꺼내기 / 넣기") },
+			{ FText::FromString(TEXT("Enter")), LOCTEXT("HintConfirm", "선택 동작 확인") },
+			{ FText::FromString(TEXT("Esc")), LOCTEXT("HintToList", "목록") } };
 		break;
 	default:
 		Hints = {

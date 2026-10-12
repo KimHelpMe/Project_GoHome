@@ -25,6 +25,8 @@
 #include "Upgrade/EquipmentUpgradeSubsystem.h"
 
 #include "Shop/ItemShopSubsystem.h"
+#include "Interaction/InventoryComponent.h"
+#include "Item/ItemActorBase.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPauseMenu, Log, All);
 
@@ -475,7 +477,43 @@ void AGoHomePlayerController::Server_RequestLockerDeposit_Implementation(FName P
 
 void AGoHomePlayerController::Client_SharedLockerResult_Implementation(const FSharedLockerResult& Result)
 {
+	bLockerRequestPending = false;
 	SharedLockerResultEvent.Broadcast(Result);
+}
+
+bool AGoHomePlayerController::RequestLockerTransfer(ESharedLockerAction Action, FName ProductId)
+{
+	if (bLockerRequestPending || ProductId == NAME_None)
+	{
+		return false;
+	}
+	bLockerRequestPending = true;
+	if (Action == ESharedLockerAction::Withdraw)
+	{
+		Server_RequestLockerWithdraw(ProductId);
+	}
+	else
+	{
+		Server_RequestLockerDeposit(ProductId);
+	}
+	return true;
+}
+
+int32 AGoHomePlayerController::GetHeldLockerQuantity(FName ProductId) const
+{
+	const APawn* MyPawn = GetPawn();
+	const UInventoryComponent* Inventory = MyPawn ? MyPawn->FindComponentByClass<UInventoryComponent>() : nullptr;
+	if (!Inventory || ProductId == NAME_None)
+	{
+		return 0;
+	}
+	int32 Count = 0;
+	for (int32 Slot = 0; Slot < Inventory->GetInventorySlotCount(); ++Slot)
+	{
+		const AItemActorBase* Item = Inventory->GetItemInSlot(Slot);
+		Count += Item && Item->GetSharedLockerProductId() == ProductId ? 1 : 0;
+	}
+	return Count;
 }
 
 // --- 보급 화면(로비 메인 분기·상점·팀 보관함) ---

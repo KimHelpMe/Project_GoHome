@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
+#include "Core/SharedLockerBackend.h"
 #include "Shop/ItemShopTypes.h"
 #include "SupplyScreenBackend.generated.h"
 
@@ -47,4 +48,13 @@ public:
 	// 요청 소유는 화면보다 오래 사는 구현체 — 닫았다 다시 열어도 진행 중이면 새 요청을 막는다.
 	virtual bool IsShopPurchasePending() const = 0;
 	virtual FSupplyPurchaseResultEvent& OnSupplyPurchaseResult() = 0;
+
+	// --- 탐사 보관함(아이템 박스) ---
+	// 1개 꺼내기/넣기 요청. 진행 중인 요청이 있으면 무시하고 false. 서버가 다시 검증한다.
+	virtual bool RequestLockerTransfer(ESharedLockerAction Action, FName ProductId) = 0;
+	virtual bool IsLockerRequestPending() const = 0;
+	virtual FSharedLockerResultEvent& OnSupplyLockerResult() = 0;
+
+	// 이 플레이어 핫바에 있는, 보관함에서 꺼낸 같은 상품 수(넣기 가능 수 — 서버 TryDepositToLocker와 같은 기준)
+	virtual int32 GetHeldLockerQuantity(FName ProductId) const = 0;
 };

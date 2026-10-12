@@ -41,6 +41,10 @@ public:
 	virtual bool RequestShopPurchase(FName ProductId, int32 Quantity) override;
 	virtual bool IsShopPurchasePending() const override { return PendingPurchaseProduct != NAME_None; }
 	virtual FSupplyPurchaseResultEvent& OnSupplyPurchaseResult() override { return SupplyPurchaseResultEvent; }
+	virtual bool RequestLockerTransfer(ESharedLockerAction Action, FName ProductId) override;
+	virtual bool IsLockerRequestPending() const override { return bLockerRequestPending; }
+	virtual FSharedLockerResultEvent& OnSupplyLockerResult() override { return SharedLockerResultEvent; }
+	virtual int32 GetHeldLockerQuantity(FName ProductId) const override;
 
 	UFUNCTION(BlueprintPure, Category = "UI|Supply")
 	bool IsSupplyScreenOpen() const { return SupplyScreen != nullptr; }
@@ -188,8 +192,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "UI|Supply")
 	TSoftClassPtr<UUserWidget> SupplyScreenClass = TSoftClassPtr<UUserWidget>(FSoftClassPath(TEXT("/Script/GoHome.SupplyScreenWidget")));
 
+	// 전체 화면 Modal — 탐사 HUD(WBP_HUD, BP가 ZOrder 100으로 추가: 조준점 포함)보다 위.
+	// 열려 있는 동안 커서가 켜져 시스템 메뉴는 열리지 않으므로 그보다 높아도 겹치지 않는다.
 	UPROPERTY(EditDefaultsOnly, Category = "UI|Supply")
-	int32 SupplyScreenZOrder = 50;
+	int32 SupplyScreenZOrder = 110;
 
 private:
 	// 로컬 컨트롤러에서 현재 월드의 GameState 로 탐사 레벨 여부를 판정해 Ready/Teardown 을 엣지에서 1회씩 쏜다.
@@ -255,6 +261,9 @@ private:
 	FName PendingPurchaseProduct = NAME_None;
 	int32 PendingPurchaseQuantity = 0;
 	FSupplyPurchaseResultEvent SupplyPurchaseResultEvent;
+
+	// 보관함 꺼내기/넣기 요청 진행 중(결과 RPC가 오면 해제). 화면을 닫았다 열어도 유지.
+	bool bLockerRequestPending = false;
 
 	// --- 공유 보관함 UI ---
 	void OpenSharedLocker();
