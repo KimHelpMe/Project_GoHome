@@ -42,6 +42,7 @@ void AGoHomeGameState::BeginPlay()
 	{
 		SetSharedLockerItems(ShopSubsystem->BuildLockerView());
 	}
+	SetRoundShopPurchases(SaveSubsystem->GetRoundShopPurchases());
 }
 
 void AGoHomeGameState::SetSharedLockerItems(const TArray<FSharedLockerViewEntry>& InItems)
@@ -55,6 +56,24 @@ void AGoHomeGameState::SetSharedLockerItems(const TArray<FSharedLockerViewEntry>
 
 	// 리슨 서버 호스트는 OnRep이 불리지 않으므로 서버에서 직접 브로드캐스트
 	OnSharedLockerChanged.Broadcast();
+}
+
+void AGoHomeGameState::SetRoundShopPurchases(const TArray<FItemShopRoundPurchase>& InPurchases)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	RoundShopPurchases = InPurchases;
+	OnSharedLockerChanged.Broadcast();
+}
+
+int32 AGoHomeGameState::GetRoundShopPurchaseQuantity(FName ProductId) const
+{
+	const FItemShopRoundPurchase* Entry = RoundShopPurchases.FindByPredicate(
+		[ProductId](const FItemShopRoundPurchase& It) { return It.ProductId == ProductId; });
+	return Entry ? Entry->Quantity : 0;
 }
 
 void AGoHomeGameState::OnRep_SharedLockerItems()
@@ -172,6 +191,7 @@ void AGoHomeGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(AGoHomeGameState, NextCheckPointRound);
 	DOREPLIFETIME(AGoHomeGameState, NextCheckPointQuota);
 	DOREPLIFETIME(AGoHomeGameState, SharedLockerItems);
+	DOREPLIFETIME(AGoHomeGameState, RoundShopPurchases);
 }
 
 void AGoHomeGameState::OnRep_State()

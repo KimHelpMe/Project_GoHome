@@ -5,6 +5,7 @@
 #include "Core/ExpeditionState.h"
 #include "Core/Actors/Submarine.h"
 #include "Save/GoHomeSaveSubsystem.h"
+#include "HAL/IConsoleManager.h"
 #include "Interaction/InventoryComponent.h"
 #include "Interaction/SharedLockerActor.h"
 #include "Item/ItemActorBase.h"
@@ -395,6 +396,10 @@ void UItemShopSubsystem::RefreshLockerView()
 	if (AGoHomeGameState* GameState = World->GetGameState<AGoHomeGameState>())
 	{
 		GameState->SetSharedLockerItems(BuildLockerView());
+		if (const UGoHomeSaveSubsystem* SaveSubsystem = GetSaveSubsystem())
+		{
+			GameState->SetRoundShopPurchases(SaveSubsystem->GetRoundShopPurchases());
+		}
 	}
 }
 
@@ -553,6 +558,7 @@ bool UItemShopSubsystem::TryWithdrawFromLocker(
 
 	SpawnedItem->ItemData = Product->ItemData;
 	SpawnedItem->SetSharedLockerItem(true);
+	SpawnedItem->SetSharedLockerProductId(ProductId);
 	SpawnedItem->FinishSpawning(SpawnTransform);
 
 	// 회복 아이템의 OnInteract(즉시 회복)를 타지 않도록 기본 픽업 경로로 직접 지급한다.
@@ -778,3 +784,29 @@ void UItemShopSubsystem::ResolveCheckoutsForRoundEnd()
 	UE_LOG(LogTemp, Log, TEXT("[ItemShop] Locker round end. Returned: %d, Lost/Consumed: %d"),
 		ReturnedCount, LostCount);
 }
+
+#if !UE_BUILD_SHIPPING
+// 보급 화면 시험용: GoHome.Supply.GrantLocker <ProductId> <팀 보유 수량> — 서버(호스트) 세이브의 보관함 보유량을 바로 정한다.
+static FAutoConsoleCommandWithWorldAndArgs GSupplyGrantLockerCommand(
+	TEXT("GoHome.Supply.GrantLocker"),
+	TEXT("개발용: 공유 보관함 팀 보유 수량을 지정한다. 인자: <ProductId> <수량>. 서버에서만 동작."),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+	{
+		UGameInstance* GameInstance = World ? World->GetGameInstance() : nullptr;
+		UItemShopSubsystem* Shop = GameInstance ? GameInstance->GetSubsystem<UItemShopSubsystem>() : nullptr;
+		UGoHomeSaveSubsystem* Save = GameInstance ? GameInstance->GetSubsystem<UGoHomeSaveSubsystem>() : nullptr;
+		if (!Shop || !Save || Args.Num() < 2 || World->GetNetMode() == NM_Client)
+		{
+			return;
+		}
+		const FName ProductId(*Args[0]);
+		const FItemShopProduct* Product = Shop->FindProduct(ProductId);
+		if (!Product)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[ItemShop] GrantLocker: unknown product %s"), *Args[0]);
+			return;
+		}
+		Save->SetLockerOwnedQuantity(ProductId, Product->Lifetime, FCString::Atoi(*Args[1]));
+		Shop->RefreshLockerView();
+	}));
+#endif

@@ -31,7 +31,7 @@
 | 레이어 | 예 | 성격 |
 |---|---|---|
 | HUD | 산소·나침반(`WBP_Compass`)·HP·무게·상호작용 프롬프트(`WBP_InteractionPrompt`)·위험 비네트(`WBP_DangerVignette`)·인벤토리(`WBP_InventorySlots`)·제한시간·할당량 | 상시, 게임플레이 위. 표시 전용 |
-| Modal | 존 선택(`WBP_ZoneSelect`), 강화 상점, 잠수정 보관함(`WBP_SharedLocker`), 인게임 시스템 메뉴(`WBP_PauseMenu`) | 게임 위, 입력 잡음. 확정은 Server RPC. **열 때 `bShowMouseCursor`를 켜고 닫을 때 끈다** — 인게임 메뉴는 커서가 켜져 있으면 다른 Modal이 Escape를 소유한 것으로 보고 열리지 않는다(`AGoHomePlayerController::CanOpenPauseMenu`) |
+| Modal | 존 선택(`WBP_ZoneSelect`), 강화 상점, 보급 화면(`USupplyScreenWidget` — 상점·팀 보관함·탐사 아이템 박스, WBP 없음), 인게임 시스템 메뉴(`WBP_PauseMenu`) | 게임 위, 입력 잡음. 확정은 Server RPC. **열 때 `bShowMouseCursor`를 켜고 닫을 때 끈다** — 인게임 메뉴는 커서가 켜져 있으면 다른 Modal이 Escape를 소유한 것으로 보고 열리지 않는다(`AGoHomePlayerController::CanOpenPauseMenu`) |
 | Fullscreen / Sequence | 정산·게임오버·엔딩(`WBP_Settlement` 계열), 타이틀(`WBP_Title`), 로딩(`WBP_Loading`) | 게임 가림. 자체 enter/exit 연출. 동시에 하나만 |
 | System | 세션 진입(`WBP_SessionEntry`), 연결 끊김/에러 | 최상단 |
 
@@ -45,7 +45,7 @@
 | HUD 묶음 | HUD | BP PlayerController | 탐사 레벨 Possess 후 / 레벨 전환 | GameState 복제 필드 / 컴포넌트 델리게이트 |
 | 존 선택 | Modal | 존 셀렉트 모니터 또는 PlayerController | 상호작용 트리거 / 확정·취소 | Zone DataAsset |
 | 타이틀 (`UTitleScreenWidget` 부모 WBP) | Fullscreen | `ATitlePlayerController`(C++, `TitleScreenClass`) | 로컬 BeginPlay 생성 / 로비·세션 트래블 시 파괴 | `ITitleBackend`(컨트롤러가 구현 — 검색 스냅샷·세이브 요약·Host/Join 결과) |
-| 잠수정 보관함 (`USharedLockerWidget` 부모 `WBP_SharedLocker`, 행 `WBP_SharedLockerRow`) | Modal | `AGoHomePlayerController`(C++, `SharedLockerWidgetClass`) | `ASharedLockerActor` 상호작용 → `Client_OpenSharedLocker`(UIOnly·커서 on) / 닫기·Escape·폰 변경·월드 교체·정산 시작 시 파괴 | `AGoHomeGameState::SharedLockerItems`(복제, `OnSharedLockerChanged`) + 카탈로그 표시명/아이콘. 꺼내기/넣기는 `ISharedLockerBackend` 요청, 결과 문구는 `OnSharedLockerResult` |
+| 보급 화면 (`USupplyScreenWidget`, 페이지 `USupplyPageBase` 파생 — 트리까지 C++, WBP 없음) | Modal | `AGoHomePlayerController`(C++, `SupplyScreenClass`) | 로비 상점 단말·보관함 상자 → `Client_OpenSupplyScreen(LobbyHub)`, 탐사 보관함 상자 → `ExpeditionLocker`(UIOnly·커서 on) / 닫기·Escape·폰 변경·월드 교체·정산 시작 시 파괴 | `AGoHomeGameState::SharedLockerItems`·`RoundShopPurchases`(복제, `OnSharedLockerChanged`) + 카탈로그 `ShopDisplayName/ShopDescription/ShopArt`. 구매·꺼내기·넣기는 `ISupplyScreenBackend` 요청, 결과는 `OnSupplyPurchaseResult`/`OnSupplyLockerResult` |
 | 우측 알림 피드 (`UHudNoticeFeedWidget` 부모 `WBP_HudNoticeFeed`, 행 `WBP_HudNoticeRow`) | HUD | `AGoHomePlayerController`(C++, `HudNoticeFeedClass`) | 진행도 HUD 와 같이 로비·탐사 GameState 마다 (재)생성 / 월드 교체·EndPlay 시 파괴. 사망·폰 없음이면 비우고 숨김 | `UHudNoticeSubsystem::OnNoticePushed`(LocalPlayer) ← 서버 `Client_PushHudNotice`. 본인 알림만 |
 | 인게임 시스템 메뉴 (`UPauseMenuWidget` 부모 `WBP_PauseMenu`) | Modal | `AGoHomePlayerController`(C++, `PauseMenuClass`) | 로비·탐사에서 Escape/게임패드 Start로 생성(UIOnly, 로컬 입력만 — 세션은 멈추지 않음) / 닫힘 연출 끝·나가기 성공·월드 교체 시 파괴 | `IPauseMenuBackend`(컨트롤러가 구현 — 역할(호스트/참가자)·복귀·나가기 요청·실패 이벤트). 설정 화면은 타이틀과 같은 `UTitleSettingsPanel` 클래스(레이아웃만 `WBP_PauseSettingsPanel`) |
 
