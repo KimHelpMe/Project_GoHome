@@ -72,6 +72,8 @@ Docs/Dev/UI/<screen>/
 
 `motion.md`에는 “부드럽게” 같은 표현 대신 다음을 적는다.
 
+효과 후보와 조합 방식을 찾을 때는 [UI_MOTION_CATALOG.md](UI_MOTION_CATALOG.md)의 의미 패턴과 레시피를 참고한다. 카탈로그는 후보 탐색용이며, 실제 재생 시점과 조합은 해당 `prototype.html`에서 확인한 뒤 화면 계약에 적는다.
+
 | 전환 | 시작 → 끝 | 시간 | easing | 입력/중단 규칙 | Unreal 소유자 |
 |---|---|---:|---|---|---|
 | 예: Modal Open | opacity 0→1, scale 0.96→1 | 180ms | ease-out | 끝날 때까지 뒤 UI 입력 차단 | 위젯 UMG Animation |
