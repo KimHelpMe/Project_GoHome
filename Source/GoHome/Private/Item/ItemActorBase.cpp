@@ -12,6 +12,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Components/AudioComponent.h"
 #include "Player/GoHomeCharacter.h"
+#include "Core/AnnouncerComponent.h"
 #include "Core/HudNoticeSubsystem.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundBase.h"
@@ -203,6 +204,9 @@ bool AItemActorBase::ServerGrantToPawn(APawn* InstigatorPawn)
 
 	if (!Inventory->TryAddItem(this)) return false;
 
+	// 놓았다 다시 집는 것으로 아나운서가 반복하지 않게 물체별 최초 획득만 센다
+	const bool bFirstGrab = !bHasBeenPickedUp;
+
 	bIsBeingClaimed = true;
 	bHasBeenPickedUp = true;
 	HoldingPawn = InstigatorPawn;
@@ -224,6 +228,11 @@ bool AItemActorBase::ServerGrantToPawn(APawn* InstigatorPawn)
 		Notice.Subtitle = FText::Format(NSLOCTEXT("ItemNotice", "PickedUpValue", "가치 {0}"),
 			FText::AsNumber(FMath::RoundToInt(GetCurrentValue())));
 		SendHolderNotice(Notice);
+
+		if (bFirstGrab)
+		{
+			UAnnouncerComponent::SendToPawnOwner(InstigatorPawn, EAnnouncerEvent::Artifact);
+		}
 	}
 
 	return true;

@@ -17,6 +17,7 @@ class UEquipmentUpgradeDataAsset;
 class AGameStateBase;
 class UUserWidget;
 class USpectateComponent;
+class UAnnouncerComponent;
 
 /**
  *
@@ -196,6 +197,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	int32 ItemInspectZOrder = 2;
 
+	// 아나운서(UAnnouncerWidget — 트리까지 C++). 탐사 월드에서만 알림 피드와 같은 시점에 (재)생성한다. 관전 중에도 유지(팀 시간 안내).
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSoftClassPtr<UUserWidget> AnnouncerClass = TSoftClassPtr<UUserWidget>(FSoftClassPath(TEXT("/Script/GoHome.AnnouncerWidget")));
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	int32 AnnouncerZOrder = 3;
+
 	// 보급 화면 Modal 클래스. 기본값은 C++ USupplyScreenWidget(트리를 C++이 만든다) — WBP 없이도 열린다.
 	UPROPERTY(EditDefaultsOnly, Category = "UI|Supply")
 	TSoftClassPtr<UUserWidget> SupplyScreenClass = TSoftClassPtr<UUserWidget>(FSoftClassPath(TEXT("/Script/GoHome.SupplyScreenWidget")));
@@ -232,6 +240,10 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Spectate")
 	TObjectPtr<USpectateComponent> SpectateComponent;
 
+	// 아나운서 사건 수신·큐·표시 데이터(서버: 개인 사건 발화 간격, 로컬: 팀 진행 판정·대기열)
+	UPROPERTY(VisibleAnywhere, Category = "Announcer")
+	TObjectPtr<UAnnouncerComponent> AnnouncerComponent;
+
 	UPROPERTY(Transient)
 	TObjectPtr<UUserWidget> ProgressHUD;
 
@@ -240,6 +252,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UUserWidget> ItemInspect;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UUserWidget> Announcer;
 
 	// ProgressHUD 가 생성될 때의 GameState — 다르면(새 월드) 다시 만든다
 	TWeakObjectPtr<AGameStateBase> ProgressHUDGameState;

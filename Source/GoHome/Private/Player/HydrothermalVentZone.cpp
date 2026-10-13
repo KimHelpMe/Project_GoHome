@@ -9,6 +9,7 @@
 #include "NiagaraComponent.h"
 #include "NiagaraSystem.h"
 #include "Net/UnrealNetwork.h"
+#include "Core/AnnouncerComponent.h"
 
 AHydrothermalVentZone::AHydrothermalVentZone()
 {
@@ -94,6 +95,12 @@ void AHydrothermalVentZone::OnEffectAreaBeginOverlap(UPrimitiveComponent* Overla
 	// 이미 분출이 진행 중인 와중에 뛰어든 캐릭터도 즉시 감속이 걸려야 한다
 	ApplyBrakingOverride(OtherCharacter, VentState == EVentState::Erupting);
 
+	// 이미 예고·분출 중인 영역에 들어온 플레이어에게도 경고(서버 판정, 재입장 간격은 아나운서가 거른다)
+	if (HasAuthority() && VentState != EVentState::Idle)
+	{
+		UAnnouncerComponent::SendToPawnOwner(OtherCharacter, EAnnouncerEvent::VentWarning, GetFName());
+	}
+
 	OnCharacterEnteredZone(OtherCharacter);
 }
 
@@ -114,6 +121,12 @@ void AHydrothermalVentZone::OnEffectAreaEndOverlap(UPrimitiveComponent* Overlapp
 
 	// 존을 나가면 무조건 원래 감속값으로 복원
 	ApplyBrakingOverride(OtherCharacter, false);
+
+	// 영역을 벗어나면 남은 분출 경고를 지운다
+	if (HasAuthority())
+	{
+		UAnnouncerComponent::CancelForPawnOwner(OtherCharacter, GetFName());
+	}
 
 	OnCharacterExitedZone(OtherCharacter);
 }
@@ -216,6 +229,22 @@ void AHydrothermalVentZone::SetVentState(EVentState NewState)
 
 	// OnRep_VentState는 클라이언트에서만 불리므로, 서버도 연출을 반영하려면 여기서 직접 호출해야 한다
 	OnVentStateChanged();
+
+	// 아나운서: 예고 진입 때 영역 안 플레이어에게 1회, 분출이 끝나면 취소. 서버 상태 전이에서만 발행(OnRep/VFX 경로 아님)
+	if (HasAuthority() && (NewState == EVentState::Warning || NewState == EVentState::Idle))
+	{
+		for (ACharacter* Character : OverlappingCharacters)
+		{
+			if (NewState == EVentState::Warning)
+			{
+				UAnnouncerComponent::SendToPawnOwner(Character, EAnnouncerEvent::VentWarning, GetFName());
+			}
+			else
+			{
+				UAnnouncerComponent::CancelForPawnOwner(Character, GetFName());
+			}
+		}
+	}
 }
 
 void AHydrothermalVentZone::OnRep_VentState()

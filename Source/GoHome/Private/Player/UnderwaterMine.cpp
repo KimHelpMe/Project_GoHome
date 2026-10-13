@@ -9,6 +9,7 @@
 #include "NiagaraFunctionLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
+#include "Core/AnnouncerComponent.h"
 
 AUnderwaterMine::AUnderwaterMine()
 {
@@ -70,6 +71,21 @@ void AUnderwaterMine::ArmMine()
     State = EMineState::Warning;
     HandleStateChanged();
 
+    // Announce to living players inside the blast radius at arm time (one line per mine)
+    TArray<AActor*> IgnoreActors;
+    TArray<AActor*> InRange;
+    UKismetSystemLibrary::SphereOverlapActors(this, GetActorLocation(), ExplosionRadius,
+        TArray<TEnumAsByte<EObjectTypeQuery>>{ UEngineTypes::ConvertToObjectType(ECC_Pawn) },
+        ACharacter::StaticClass(), IgnoreActors, InRange);
+    for (AActor* Actor : InRange)
+    {
+        if (APawn* Pawn = Cast<APawn>(Actor); Pawn && Pawn->IsPlayerControlled())
+        {
+            UAnnouncerComponent::SendToPawnOwner(Pawn, EAnnouncerEvent::MineArmed, GetFName());
+            WarnedPawns.Add(Pawn);
+        }
+    }
+
     GetWorldTimerManager().SetTimer(DetonationTimerHandle, this, &AUnderwaterMine::Detonate, WarningDuration, false);
 }
 
@@ -91,6 +107,13 @@ void AUnderwaterMine::Detonate()
 
     State = EMineState::Detonated;
     HandleStateChanged();
+
+    // The warning is moot once it has gone off
+    for (const TWeakObjectPtr<APawn>& Pawn : WarnedPawns)
+    {
+        UAnnouncerComponent::CancelForPawnOwner(Pawn.Get(), GetFName());
+    }
+    WarnedPawns.Reset();
 
     SetLifeSpan(5.f);
 }

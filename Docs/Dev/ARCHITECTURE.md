@@ -281,6 +281,14 @@ decisions:
     detail: |
       줍기 사거리 안 바닥 아이템을 조준하면 대상 주변에 패널 5개(이름·가치·무게·등급·정보)를 리더 라인으로 잇는다(Pack item-inspect A안). 트리거는 소유 폰 `UInteractionComponent::OnInteractableTargetChanged`, 대상은 `AItemActorBase` + `CanInteract`(=미확보, 복제)일 때만. 위치는 매 프레임 메시 바운드 투영으로 다시 계산하고 브래킷·선·레티클은 NativePaint. 생성은 알림 피드와 같은 `RefreshProgressHUD`(`ItemInspectClass`), 관전 중엔 `HiddenHUDClasses`.
       등급(`EItemGrade`)·설명은 `UItemDataAsset` 표시 전용 필드(가치 구간 자동 계산 아님 — 게임 규칙엔 안 씀). 가치가 패널에 나오므로 줍기 프롬프트는 `줍기`만.
+  - name: 아나운서 (Core/UAnnouncerComponent + UI/HUD/UAnnouncerWidget) — 위젯 트리까지 C++
+    detail: |
+      탐사 보조 AI 부이가 우측 상단 통신 컷인(660×184, right 24 / top 48)으로 상황을 한 줄씩 안내한다(확정 시안 vitals-announcer). 흐름·큐·수명은 `AGoHomePlayerController`가 생성자에서 붙이는 `UAnnouncerComponent`, 위젯은 `IAnnouncerBackend` 스냅샷만 보고 등장·퇴장(180ms, Y -8→0)만 소유. 생성은 `RefreshProgressHUD`(`AnnouncerClass`, 탐사 월드만), 관전 중에도 유지(`HiddenHUDClasses`에 넣지 않는다 — 팀 시간 안내).
+      판정 위치를 사건 성격으로 나눈다. 팀 진행(시작·귀환·제한시간 60/30/10)과 본인 산소 단계(현재/최대 비율, 더 위험한 구간 진입 때만, 0.30 위로 회복하면 재무장)는 각 클라가 복제 상태(`ExplorationGameState` 마감시각·`UDockingDoorComponent` 열림→닫힘 엣지·`UOxygenComponent`)로 판정한다. 개인 사건(유물 최초 획득·피해·열수 예고·기뢰 작동)은 서버가 판정 지점에서 `UAnnouncerComponent::SendToPawnOwner`/`CancelForPawnOwner` → 컴포넌트 Client RPC로 그 플레이어에게만 보낸다(알림 피드와 같은 경로, 서버 쪽 발화 간격·탐사당 첫 유물은 컴포넌트가 거른다). 피해는 `UHealthComponent::OnDamageTaken`(서버 네이티브 델리게이트)을 컴포넌트가 직접 구독 — 질식·열수·잠수정 즉사·치명타는 다른 안내가 맡아 제외, DamageType 없음 + AI 가해자만 "공격"으로 분류.
+      반려: 계획안의 "모든 사건을 서버가 판정해 RPC + 클라 준비 핸드셰이크(Server_AnnouncerReady/ContextId)" — 팀 진행 사건은 이미 복제되는 상태에서 결정적으로 나오므로 RPC·준비 확인 없이도 늦은 접속(무장 시점 이전 단계 미재생)·리슨 호스트 이중 재생 문제가 생기지 않는다. 반려: 표시용 대사를 GameState/알림 피드 문구 파싱으로 띄우기.
+      큐: 한 번에 1줄 + 대기 최대 3, 우선순위(100 임박 위험·80 위협·60 임무·20 획득) 높은 쪽이 즉시 끊고(끊긴 쪽 재생 안 함), 같은 100끼리는 만료가 빠른 쪽이 먼저, 같은 Key/사건은 갱신, TTL 지난 대기는 버림. 사망 시 개인·생존자 범위를 지우고 팀 시간 안내만 남김, 정산/실패 진입·월드 전환 시 전부 비움. 대사·신호색·정책은 `AnnouncerCatalog`(C++ LOCTEXT).
+      밑판(패싯 패널 그라데이션·마스크·BUI 탭·신호선·초상 계기창·초상 그림자)은 텍스트 아래에 깔려야 해서 자식 `UAnnouncerPlate`의 NativePaint가 정점 색 메시로 그린다(UUserWidget::NativePaint는 자식 위에 그려짐). 정점 메시는 텍스처 리소스 핸들이 필요해 `T_Announcer_White`를 쓴다(FCoreStyle WhiteBrush는 색 브러시라 핸들 없음). 초상 `T_Announcer_BUI`, 폴더 `/Game/GoHome/UI/Announcer`는 DirectoriesToAlwaysCook. 시안 mono는 JetBrains Mono Bold(FF_JBMono_Bold), 미설치 브라우저가 그린 Consolas 폭에 맞춰 자간 -0.05em 보정.
+      입력 없이 확인: 비Shipping 콘솔 `GoHome.Announcer.Debug <Start|Return|Time60|Time30|Time10|O2Low|O2Crit|FirstArtifact|Artifact|Attacked|Damaged|Vent|Mine|Clear>`, `GoHome.Announcer.DebugBurst`(선점·대기·만료), 로그 `log LogAnnouncer Verbose`. 몬스터 공격 "예고"는 실제 몬스터 BP의 공격 시작부 연결이 필요해 아직 없음(공격 피해 후 안내만).
   - name: 정산 진행도 레일 데이터
     detail: |
       정산표/엔딩의 자금 관문 레일은 전 노드 위치·목표가 필요하나 FExpeditionProgress는 다음 관문 하나만 싣는다.
@@ -347,6 +355,7 @@ known_gaps:
 | `AGoHomeGameState::Fail(EFailReason)` | Core (`GoHomeGameState.h`) | 서버 전용 얇은 포워더 — `HasAuthority` 가드 후 `GetAuthGameMode<AExplorationGameMode>()->HandleFail(Reason)`. 콜러는 AI 도킹문 위협만 남음(미구현) — 타임오버는 `AExplorationGameMode`가 `TimeLimitTimer`로 `HandleFail`을 직접 부른다 |
 | 공유 보관함 | Shop (`UItemShopSubsystem`) → Core 미러 | 저장은 `UGoHomeSaveSubsystem`(`SharedLockerItems`), 표시는 `AGoHomeGameState::SharedLockerItems`/`OnSharedLockerChanged`, 요청은 `ISupplyScreenBackend`(Core) → `AGoHomePlayerController` 서버 RPC, 상호작용 진입은 `ASharedLockerActor`(Interaction). 상세 Shop 절 |
 | HUD 알림(`FHudNotice`) | Core (`HudNoticeTypes.h`, `UHudNoticeSubsystem`) | Item·Interaction(서버 판정 지점에서 `UHudNoticeSubsystem::SendToPawnOwner`) → `AGoHomePlayerController::Client_PushHudNotice` → `UHudNoticeFeedWidget`(UI). 상세 UI 절 "우측 알림 피드" |
+| 아나운서 사건(`EAnnouncerEvent`) | Core (`AnnouncerTypes.h`, `UAnnouncerComponent`) | Item(`ServerGrantToPawn` 유물)·Player(`AHydrothermalVentZone`·`AUnderwaterMine`)가 서버에서 `UAnnouncerComponent::SendToPawnOwner`/`CancelForPawnOwner`, 피해는 `UHealthComponent::OnDamageTaken` 구독 → 컴포넌트 Client RPC → `IAnnouncerBackend` → `UAnnouncerWidget`(UI). 상세 UI 절 "아나운서" |
 | 정산/납품 값 흐름 | Interaction → Core → Save | Interaction(딜리버리 존 진입 시 `AddDeliveredValue` 호출), Core(`AGoHomeGameState::AddDeliveredValue` → `SaveSubsystem::AccumulateDeliveredValue` 포워드, 구현됨), Save(스키마·로직 O) |
 
 ## 공유 헤더 규칙

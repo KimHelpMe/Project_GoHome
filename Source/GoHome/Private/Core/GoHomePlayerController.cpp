@@ -12,6 +12,7 @@
 
 #include "Core/SessionSubsystem.h"
 #include "Core/SpectateComponent.h"
+#include "Core/AnnouncerComponent.h"
 #include "Core/GoHomeGameUserSettings.h"
 #include "Camera/CameraComponent.h"
 
@@ -45,6 +46,7 @@ static TAutoConsoleVariable<int32> CVarPauseSimulateLeaveFailure(
 AGoHomePlayerController::AGoHomePlayerController()
 {
 	SpectateComponent = CreateDefaultSubobject<USpectateComponent>(TEXT("SpectateComponent"));
+	AnnouncerComponent = CreateDefaultSubobject<UAnnouncerComponent>(TEXT("AnnouncerComponent"));
 }
 
 const FSpectateView& AGoHomePlayerController::GetSpectateView() const
@@ -91,6 +93,11 @@ void AGoHomePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	{
 		ItemInspect->RemoveFromParent();
 		ItemInspect = nullptr;
+	}
+	if (Announcer)
+	{
+		Announcer->RemoveFromParent();
+		Announcer = nullptr;
 	}
 	if (UGoHomeGameUserSettings* Settings = UGoHomeGameUserSettings::Get())
 	{
@@ -205,6 +212,11 @@ void AGoHomePlayerController::HandleGameStateSet(AGameStateBase* /*NewGameState*
 	{
 		SpectateComponent->ResetSpectate();
 	}
+	// 이전 월드의 대사·대기열·판정 기록은 새 월드로 가져가지 않는다
+	if (AnnouncerComponent && IsLocalController())
+	{
+		AnnouncerComponent->ResetForNewWorld();
+	}
 	// 새 월드의 로비 GameState는 다음 열기/요청 때 다시 묶는다. 이전 월드 요청은 버린다.
 	BoundLobbyGameState.Reset();
 	PendingDestination = NAME_None;
@@ -279,6 +291,23 @@ void AGoHomePlayerController::RefreshProgressHUD()
 		if (ItemInspect)
 		{
 			ItemInspect->AddToViewport(ItemInspectZOrder);
+		}
+	}
+
+	if (Announcer)
+	{
+		Announcer->RemoveFromParent();
+		Announcer = nullptr;
+	}
+	if (Cast<AExplorationGameState>(GameState))
+	{
+		if (UClass* AnnouncerWidgetClass = AnnouncerClass.LoadSynchronous())
+		{
+			Announcer = CreateWidget<UUserWidget>(this, AnnouncerWidgetClass);
+			if (Announcer)
+			{
+				Announcer->AddToViewport(AnnouncerZOrder);
+			}
 		}
 	}
 }

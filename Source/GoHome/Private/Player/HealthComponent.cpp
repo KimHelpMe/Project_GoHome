@@ -45,6 +45,7 @@ void UHealthComponent::ApplyDamage_Implementation(float Amount, AActor* Instigat
 	if (!FMath::IsNearlyEqual(HP, OldHP))
 	{
 		BroadcastHPChanged();
+		OnDamageTaken.Broadcast(OldHP - HP, Instigator, DamageType, HP <= 0.f);
 	}
 
 	// 0 이하면 죽음

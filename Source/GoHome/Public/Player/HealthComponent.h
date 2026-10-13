@@ -10,6 +10,8 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDeathDynamic);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHPChanged, float, CurrentHP, float, MaxHP);
+// 서버 전용: 실제로 HP 가 깎인 피해 1건(감소량·가해자·피해 종류·치명 여부). 대사 판단은 구독자(아나운서) 몫
+DECLARE_MULTICAST_DELEGATE_FourParams(FOnDamageTaken, float /*Amount*/, AActor* /*Instigator*/, FName /*DamageType*/, bool /*bLethal*/);
 
 /**
  * IDamageable을 구현해 "누가 데미지를 주는지" 몰라도 되게 한다.
@@ -37,6 +39,8 @@ public:
 	// HP UI는 이 이벤트를 구독해서 텍스트를 갱신한다.
 	UPROPERTY(BlueprintAssignable, Category = "Health")
 	FOnHPChanged OnHPChanged;
+
+	FOnDamageTaken OnDamageTaken;
 
 	virtual void ApplyDamage_Implementation(float Amount, AActor* Instigator, FName DamageType) override;
 

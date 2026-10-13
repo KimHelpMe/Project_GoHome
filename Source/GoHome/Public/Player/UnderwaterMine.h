@@ -71,6 +71,9 @@ protected:
 
     FTimerHandle DetonationTimerHandle;
 
+    // Players told about this mine when it armed (server) - cleared on detonation
+    TArray<TWeakObjectPtr<APawn>> WarnedPawns;
+
     float WarningStartTime = 0.f;
 
     UPROPERTY(BlueprintReadOnly, Category = "Mine")
