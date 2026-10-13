@@ -173,8 +173,12 @@ UWidget* USupplyShopPage::BuildCatalog(const FBuilder& B)
 	// .shop-title: 900 italic clamp(46px,6vw,88px)/.95, margin 4 0 18
 	// 압축: 52px, margin-bottom 12
 	const float NextDivePx = Css(88.f, 52.f);
-	UTextBlock* Title = B.Text(LOCTEXT("NextDive", "NEXT DIVE."), Font(EFace::Display, NextDivePx, -.065f, true), Paper());
-	AddV(Catalog, B.LineBox(Title, NextDivePx * .95f, ERef::ArialBlack), FMargin(0.f, 4.f, 0.f, Css(18.f, 12.f)));
+	// "DIVE."만 라임 — 같은 글꼴 두 조각을 한 줄에 이어 붙인다
+	const FSlateFontInfo NextDiveFont = Font(EFace::Display, NextDivePx, -.065f, true);
+	UHorizontalBox* Title = B.HBox();
+	AddH(Title, B.LineBox(B.Text(LOCTEXT("NextDiveA", "NEXT "), NextDiveFont, Paper()), NextDivePx * .95f, ERef::ArialBlack), FMargin(0.f), VAlign_Top);
+	AddH(Title, B.LineBox(B.Text(LOCTEXT("NextDiveB", "DIVE."), NextDiveFont, Lime()), NextDivePx * .95f, ERef::ArialBlack), FMargin(0.f), VAlign_Top);
+	AddV(Catalog, Title, FMargin(0.f, 4.f, 0.f, Css(18.f, 12.f)), HAlign_Left);
 
 	// .shop-filters: gap 4, padding-bottom 12, border-bottom 1px line
 	UHorizontalBox* FilterRow = B.HBox();
