@@ -123,4 +123,13 @@ namespace SupplyUI
 	GOHOME_API UWidget* VRule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f);
 	GOHOME_API void ShowIf(UWidget* Widget, bool bShow);	// 보이면 HitTestInvisible, 아니면 Hidden(자리 유지)
 	GOHOME_API void SetRingColor(UWidget* Ring, const FLinearColor& Color);	// FBuilder::Ring 네 변 색 바꾸기(채움 막대·헤어라인 둘 다)	// 보이면 HitTestInvisible, 아니면 Hidden(자리 유지)
+
+	// 하단 키 안내 한 항목: 같은 동작의 키들(칩을 "/"로 잇는다) + 설명. 키 "Space"·"Enter"는 ␣·↵ 모양을 그리고 "Esc"는 칩 없이 굵은 글자.
+	struct FKeyHint
+	{
+		TArray<FString> Keys;
+		FText Label;
+	};
+	// Box를 비우고 항목들을 다시 채운다(항목 사이 20, 칩→설명 6)
+	GOHOME_API void FillKeyHints(const FBuilder& B, UHorizontalBox* Box, const TArray<FKeyHint>& Hints, float LabelPx);
 }

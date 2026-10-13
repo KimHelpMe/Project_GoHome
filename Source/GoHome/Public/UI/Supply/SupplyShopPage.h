@@ -11,6 +11,7 @@ class UOverlay;
 class UScrollBox;
 class USizeBox;
 class USupplyEquipmentArt;
+class UHorizontalBox;
 class UTextBlock;
 class UVerticalBox;
 
@@ -173,7 +174,7 @@ private:
 	TObjectPtr<UTextBlock> StatusText;
 
 	UPROPERTY(Transient)
-	TObjectPtr<UTextBlock> HintText;
+	TObjectPtr<UHorizontalBox> HintBox;
 
 	UPROPERTY(Transient)
 	TObjectPtr<USizeBox> RowsFrame;

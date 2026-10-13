@@ -1668,54 +1668,40 @@ void USupplyLockerPage::RefreshFocus()
 	ShowIf(CommitButton.FocusRing, bConfirmOpen && ConfirmFocus == 1);
 
 	// .help: kbd 칩 + 설명(gap 20)
-	TArray<TPair<FText, FText>> Hints;
+	const FString Enter = TEXT("Enter");
+	TArray<FKeyHint> Hints;
 	switch (Area)
 	{
 	case EArea::Category:
 		Hints = {
-			{ FText::FromString(TEXT("← →")), LOCTEXT("HintCategory", "분류") },
-			{ FText::FromString(TEXT("↓ / Enter")), LOCTEXT("HintToList", "목록") },
-			{ FText::FromString(TEXT("Esc")), bExpedition ? LOCTEXT("HintClose", "닫기") : LOCTEXT("HintHub", "메인 분기") } };
+			{ { TEXT("AD"), TEXT("← →") }, LOCTEXT("HintCategory", "분류") },
+			{ { TEXT("S"), TEXT("↓"), TEXT("Space"), Enter }, LOCTEXT("HintToList", "목록") },
+			{ { TEXT("Esc") }, bExpedition ? LOCTEXT("HintClose", "닫기") : LOCTEXT("HintHub", "메인 분기") } };
 		break;
 	case EArea::List:
-		Hints = { { FText::FromString(TEXT("↑ ↓")), LOCTEXT("HintSelect", "선택") } };
+		Hints = { { { TEXT("WS"), TEXT("↑↓") }, LOCTEXT("HintSelect", "선택") } };
 		if (bExpedition)
 		{
-			Hints.Add({ FText::FromString(TEXT("← / Enter")), LOCTEXT("HintDetail", "상세·조작") });
+			Hints.Add({ { TEXT("A"), TEXT("←"), TEXT("Space"), Enter }, LOCTEXT("HintDetail", "상세·조작") });
 		}
-		Hints.Add({ FText::FromString(TEXT("Esc")), LOCTEXT("HintToCategory", "분류") });
+		Hints.Add({ { TEXT("Esc") }, LOCTEXT("HintToCategory", "분류") });
 		break;
 	case EArea::Detail:
 		Hints = {
-			{ FText::FromString(TEXT("← →")), LOCTEXT("HintActions", "꺼내기 / 넣기") },
-			{ FText::FromString(TEXT("Enter")), LOCTEXT("HintConfirm", "선택 동작 확인") },
-			{ FText::FromString(TEXT("Esc")), LOCTEXT("HintToList", "목록") } };
+			{ { TEXT("AD"), TEXT("← →") }, LOCTEXT("HintActions", "꺼내기 / 넣기") },
+			{ { TEXT("Space"), Enter }, LOCTEXT("HintConfirm", "선택 동작 확인") },
+			{ { TEXT("Esc") }, LOCTEXT("HintToList", "목록") } };
 		break;
 	default:
 		Hints = {
-			{ FText::FromString(TEXT("Enter")), LOCTEXT("HintRun", "실행") },
-			{ FText::FromString(TEXT("Esc")), LOCTEXT("HintPrev", "이전 단계") } };
+			{ { TEXT("Space"), Enter }, LOCTEXT("HintRun", "실행") },
+			{ { TEXT("Esc") }, LOCTEXT("HintPrev", "이전 단계") } };
 		break;
 	}
 
-	if (HelpBox && WidgetTree)
+	if (WidgetTree)
 	{
-		HelpBox->ClearChildren();
-		const FBuilder B(WidgetTree);
-		for (int32 Index = 0; Index < Hints.Num(); ++Index)
-		{
-			// kbd: 800 11px, border 1px #7b8aa0, box-shadow 0 2px 0 #48556a, padding 2 5, margin-right 6
-			UOverlay* Chip = B.Overlay();
-			UBorder* ChipShadow = B.Fill(Hex(0x48556a));
-			ChipShadow->SetRenderTranslation(FVector2D(0.f, 2.f));
-			AddFill(Chip, ChipShadow);
-			AddFill(Chip, B.Fill(Ink()));
-			AddFill(Chip, B.Ring(Hex(0x7b8aa0), 1.f));
-			AddOverlay(Chip, B.LineBox(B.Text(Hints[Index].Key, Font(EFace::ExtraBold, 11.f), Paper()), -1.f, ERef::Segoe), HAlign_Fill, VAlign_Fill, FMargin(6.f, 3.f));
-			AddH(HelpBox, Chip, FMargin(Index == 0 ? 0.f : 20.f, 0.f, 6.f, 0.f), VAlign_Center);
-			AddH(HelpBox, B.LineBox(B.Text(Hints[Index].Value, Font(EFace::Regular, Css(12.f, 11.f)), Muted())), FMargin(0.f), VAlign_Center);
-		}
+		FillKeyHints(FBuilder(WidgetTree), HelpBox, Hints, Css(12.f, 11.f));
 	}
 }
-
 #undef LOCTEXT_NAMESPACE

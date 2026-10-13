@@ -396,4 +396,75 @@ namespace SupplyUI
 			Widget->SetVisibility(bShow ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
 		}
 	}
+
+	namespace
+	{
+		// kbd: 800 11px, border 1px #7b8aa0, box-shadow 0 2px 0 #48556a, padding 2 5
+		UWidget* KeyChip(const FBuilder& B, const FString& Key)
+		{
+			UOverlay* Chip = B.Overlay();
+			UBorder* ChipShadow = B.Fill(Hex(0x48556a));
+			ChipShadow->SetRenderTranslation(FVector2D(0.f, 2.f));
+			AddFill(Chip, ChipShadow);
+			AddFill(Chip, B.Fill(Ink()));
+			AddFill(Chip, B.Ring(Hex(0x7b8aa0), 1.f));
+			if (Key == TEXT("Space"))
+			{
+				// ␣: 밑변 + 양끝 짧은 세로 — 글리프 대신 그린다(대체 글꼴에 없을 수 있음)
+				UOverlay* Bracket = B.Overlay();
+				AddOverlay(Bracket, Rule(B, Paper()), HAlign_Fill, VAlign_Bottom);
+				for (EHorizontalAlignment Side : { HAlign_Left, HAlign_Right })
+				{
+					USizeBox* Tick = B.Size(-1.f, 4.f);
+					Tick->AddChild(VRule(B, Paper()));
+					AddOverlay(Bracket, Tick, Side, VAlign_Bottom);
+				}
+				USizeBox* Shape = B.Size(22.f, 9.f);
+				Shape->AddChild(Bracket);
+				AddOverlay(Chip, Shape, HAlign_Center, VAlign_Center, FMargin(6.f, 4.f));
+			}
+			else if (Key == TEXT("Enter"))
+			{
+				// ↵: 대체 글꼴에 글리프가 없어 ← 글자 오른끝에 위로 올라가는 세로 획을 얹는다
+				UHorizontalBox* Glyph = B.HBox();
+				AddH(Glyph, B.LineBox(B.Text(FText::FromString(TEXT("←")), Font(EFace::ExtraBold, 11.f), Paper()), -1.f, ERef::Segoe), FMargin(0.f), VAlign_Center);
+				USizeBox* Stem = B.Size(-1.f, 4.5f);
+				Stem->AddChild(VRule(B, Paper()));
+				AddH(Glyph, Stem, FMargin(-3.f, 2.f, 1.f, 0.f), VAlign_Top);	// 글리프 오른쪽 여백만큼 당겨 화살대 끝에 붙인다
+				AddOverlay(Chip, Glyph, HAlign_Fill, VAlign_Fill, FMargin(6.f, 3.f));
+			}
+			else
+			{
+				AddOverlay(Chip, B.LineBox(B.Text(FText::FromString(Key), Font(EFace::ExtraBold, 11.f), Paper()), -1.f, ERef::Segoe), HAlign_Fill, VAlign_Fill, FMargin(6.f, 3.f));
+			}
+			return Chip;
+		}
+	}
+
+	void FillKeyHints(const FBuilder& B, UHorizontalBox* Box, const TArray<FKeyHint>& Hints, float LabelPx)
+	{
+		if (!Box)
+		{
+			return;
+		}
+		Box->ClearChildren();
+		for (int32 Index = 0; Index < Hints.Num(); ++Index)
+		{
+			const FKeyHint& Hint = Hints[Index];
+			for (int32 KeyIndex = 0; KeyIndex < Hint.Keys.Num(); ++KeyIndex)
+			{
+				const FString& Key = Hint.Keys[KeyIndex];
+				const float Left = KeyIndex > 0 ? 0.f : (Index == 0 ? 0.f : 20.f);
+				if (KeyIndex > 0)
+				{
+					AddH(Box, B.LineBox(B.Text(FText::FromString(TEXT("/")), Font(EFace::Regular, LabelPx), Muted())), FMargin(6.f, 0.f), VAlign_Center);
+				}
+				UWidget* KeyWidget = Key == TEXT("Esc")
+					? static_cast<UWidget*>(B.LineBox(B.Text(FText::FromString(Key), Font(EFace::ExtraBold, LabelPx), Paper()), -1.f, ERef::Segoe))
+					: KeyChip(B, Key);
+				AddH(Box, KeyWidget, FMargin(Left, 0.f, 0.f, 0.f), VAlign_Center);
+			}
+			AddH(Box, B.LineBox(B.Text(Hint.Label, Font(EFace::Regular, LabelPx), Muted())), FMargin(6.f, 0.f, 0.f, 0.f), VAlign_Center);
+		}
+	}
 }

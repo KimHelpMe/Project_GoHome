@@ -80,7 +80,12 @@ UWidget* USupplyHubPage::BuildPage(const FBuilder& B)
 	// 시안 하단 줄 높이 26(오른쪽 시험 도구 버튼 높이) — 버튼은 옮기지 않지만 배치는 유지한다
 	USizeBox* Foot = B.Size(-1.f, 26.f);
 	Footer = Foot;
-	SetContent(Foot, B.LineBox(B.Text(LOCTEXT("Hint", "↑ ↓ 선택　 Enter 진입　 Esc 닫기"), Font(EFace::Regular, 12.f), Muted())), HAlign_Left, VAlign_Top);
+	UHorizontalBox* Hints = B.HBox();
+	FillKeyHints(B, Hints, {
+		{ { TEXT("WS"), TEXT("↑↓") }, LOCTEXT("HintSelect", "선택") },
+		{ { TEXT("Space"), TEXT("Enter") }, LOCTEXT("HintEnter", "진입") },
+		{ { TEXT("Esc") }, LOCTEXT("HintClose", "닫기") } }, 12.f);
+	SetContent(Foot, Hints, HAlign_Left, VAlign_Top);
 	AddV(Column, Foot);
 
 	SetFocused(0);
