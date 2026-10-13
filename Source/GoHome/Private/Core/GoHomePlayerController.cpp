@@ -99,6 +99,11 @@ void AGoHomePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		Announcer->RemoveFromParent();
 		Announcer = nullptr;
 	}
+	if (Vitals)
+	{
+		Vitals->RemoveFromParent();
+		Vitals = nullptr;
+	}
 	if (UGoHomeGameUserSettings* Settings = UGoHomeGameUserSettings::Get())
 	{
 		Settings->OnGameplaySettingsApplied.Remove(SettingsAppliedHandle);
@@ -291,6 +296,23 @@ void AGoHomePlayerController::RefreshProgressHUD()
 		if (ItemInspect)
 		{
 			ItemInspect->AddToViewport(ItemInspectZOrder);
+		}
+	}
+
+	if (Vitals)
+	{
+		Vitals->RemoveFromParent();
+		Vitals = nullptr;
+	}
+	if (Cast<AExplorationGameState>(GameState))
+	{
+		if (UClass* VitalsWidgetClass = VitalsClass.LoadSynchronous())
+		{
+			Vitals = CreateWidget<UUserWidget>(this, VitalsWidgetClass);
+			if (Vitals)
+			{
+				Vitals->AddToViewport(VitalsZOrder);
+			}
 		}
 	}
 

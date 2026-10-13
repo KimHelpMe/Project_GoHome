@@ -50,7 +50,7 @@ USpectateComponent::USpectateComponent()
 
 	for (const TCHAR* Path : {
 		TEXT("/Game/GoHome/UI/HUD/WBP_HUD.WBP_HUD_C"),								// 조준점·운반 역할
-		TEXT("/Game/GoHome/Developers/LSA/UI/WB_HP_OxygenUI.WB_HP_OxygenUI_C"),		// HP·O₂ 링·LOAD
+		TEXT("/Game/GoHome/Developers/LSA/UI/WB_HP_OxygenUI.WB_HP_OxygenUI_C"),		// LOAD (산소 계기·HP 는 UVitalsWidget 이 사망 시 스스로 250ms 페이드)
 		TEXT("/Game/GoHome/UI/InventorySlot/WBP_InventorySlots.WBP_InventorySlots_C"),	// 핫바
 		TEXT("/Game/GoHome/UI/WBP_InteractionPrompt.WBP_InteractionPrompt_C"),
 		TEXT("/Game/GoHome/UI/WBP_DangerVignette.WBP_DangerVignette_C"),

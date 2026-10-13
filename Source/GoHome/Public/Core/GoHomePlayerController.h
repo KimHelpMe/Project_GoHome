@@ -204,6 +204,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	int32 AnnouncerZOrder = 3;
 
+	// 좌하단 바이탈 계기(UVitalsWidget — 트리까지 C++, 산소 바늘 계기 + HP). 탐사 월드에서만 알림 피드와 같은 시점에 (재)생성한다.
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSoftClassPtr<UUserWidget> VitalsClass = TSoftClassPtr<UUserWidget>(FSoftClassPath(TEXT("/Script/GoHome.VitalsWidget")));
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	int32 VitalsZOrder = 0;
+
 	// 보급 화면 Modal 클래스. 기본값은 C++ USupplyScreenWidget(트리를 C++이 만든다) — WBP 없이도 열린다.
 	UPROPERTY(EditDefaultsOnly, Category = "UI|Supply")
 	TSoftClassPtr<UUserWidget> SupplyScreenClass = TSoftClassPtr<UUserWidget>(FSoftClassPath(TEXT("/Script/GoHome.SupplyScreenWidget")));
@@ -255,6 +262,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UUserWidget> Announcer;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UUserWidget> Vitals;
 
 	// ProgressHUD 가 생성될 때의 GameState — 다르면(새 월드) 다시 만든다
 	TWeakObjectPtr<AGameStateBase> ProgressHUDGameState;

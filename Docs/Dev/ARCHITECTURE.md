@@ -255,7 +255,7 @@ decisions:
       로컬 폰 사망 → 자기 시체 시점(≈2.6s, 사망 카드·사인) → 생존 팀원 3인칭 오빗 관전(사용자 결정 2026-10-13, Pack A안 DIVER FEED). 흐름·카메라·입력·위젯 수명은 `AGoHomePlayerController`가 생성자에서 붙이는 `USpectateComponent`가 로컬에서만 소유하고, 위젯(`USpectateScreenWidget`)은 `ISpectateBackend` 스냅샷만 본다(보급·목적지 화면과 같은 C++ 트리 방식, WBP 없음).
       카메라는 로컬 전용 `ACameraActor`(복제 안 함). 클라 화면은 로컬이 정하지만 대상 폰이 관련성 거리 밖이면 클라에 복제되지 않으므로 `Server_SetSpectateTarget`으로 서버 쪽 뷰 타깃만 대상 폰에 맞춘다(엔진 규칙: 뷰 타깃 액터는 항상 관련성 있음). 서버가 보내는 `ClientSetViewTarget`은 관전 동안 `bClientSimulatingViewTarget`으로 무시. 리슨 호스트는 서버 뷰 타깃을 건드리지 않는다(로컬 카메라를 덮음).
       입력은 관전 동안만 푸시하는 입력 컴포넌트(좌클릭/→/D/RB 다음, 우클릭/←/A/LB 이전, 말하기 IA_Talk 재바인딩 — 폰 입력은 사망 시 캐릭터 BP가 끔). 궤도 회전은 축 바인딩 대신 마우스 델타·우스틱을 직접 읽는다(EnhancedInputComponent가 레거시 축 바인딩을 막음). 휠 거리 조절은 없음(사용자 결정). 입력 없이 전환 확인: 비Shipping 콘솔 `GoHome.Spectate.Step <1|-1>`.
-      개인 HUD(조준점·HP/O₂ 링·LOAD·핫바·상호작용 프롬프트 등)는 캐릭터·컨트롤러 BP가 따로 만들어 붙이는 최상위 위젯이라, 각 BP를 고치는 대신 `USpectateComponent::HiddenHUDClasses` 목록으로 관전 동안 숨기고 끝나면 복원한다 — 개인 HUD 위젯 클래스를 새로 만들면 이 목록에도 추가. 진행도 HUD·보이스 목록·나침반은 유지.
+      개인 HUD(조준점·LOAD·핫바·상호작용 프롬프트 등)는 캐릭터·컨트롤러 BP가 따로 만들어 붙이는 최상위 위젯이라, 각 BP를 고치는 대신 `USpectateComponent::HiddenHUDClasses` 목록으로 관전 동안 숨기고 끝나면 복원한다 — 개인 HUD 위젯 클래스를 새로 만들면 이 목록에도 추가. 예외: 바이탈 계기(`UVitalsWidget`)는 목록이 사망 프레임에 즉시 접어 시안의 250ms 페이드가 안 보여서 넣지 않고, 복제 `IsDead`로 스스로 페이드해 다음 폰까지 0으로 남는다. 진행도 HUD·보이스 목록·나침반은 유지.
       정산/실패 Sequence가 뜨면(`OnSettlementReady` 또는 상태 복제가 먼저 오면 Settlement/Failed) 관전 화면만 걷고 카메라는 화면 뒤에 둔다. 구 `WB_DeathSpectate`(Developers/LSA 플레이스홀더)와 BP PC의 사망 시 커서·UIOnly 체인은 제거 — 관전 입력을 막았다.
       음성: 사망자 목소리는 생존자에게 안 들린다(사용자 결정). `UVoiceChatSubsystem` 근접 뮤트가 생존자 쪽만 사망자를 `ServerMutePlayer`(한 방향), 사망자는 생존자·다른 사망자를 거리 무관하게 듣고, 사망자 발화는 소음을 내지 않는다.
   - name: HUD 위젯 소유
@@ -269,9 +269,9 @@ decisions:
       아바타는 `UPlayerAvatarSubsystem`(Core)이 Steamworks `ISteamFriends::GetMediumFriendAvatar`를 직접 호출해 텍스처 캐시(OSS v1에 아바타 API 없음 → Build.cs에 Steamworks 서드파티 의존). Steam 아닌 환경은 이니셜 원으로 대체. 마이크 없이 확인: 비Shipping 콘솔 `GoHome.Voice.FakeTalk <인덱스> <0|1>`.
   - name: 인게임 HUD 배치 (하단 중앙 콘솔)
     detail: |
-      좌상단=정보(진행도 패널 + 그 아래 보이스 목록, 간격 16), 상단 중앙=나침반만, 하단 중앙=내 상태(O₂ 링 · 인벤토리 핫바(아래 LOAD) · HP 링). 보이스 목록이 아래로 길어져도 바이탈과 안 겹치게 하려는 배치.
+      좌상단=정보(진행도 패널 + 그 아래 보이스 목록, 간격 16), 상단 중앙=나침반만, 하단 중앙=인벤토리 핫바(아래 LOAD), 좌하단=바이탈 계기(left 24 / bottom 24, 폭 264).
       핫바는 `UInventoryHotbarWidget`/`UInventorySlotWidget`(UI/HUD, BP 로직 제거) — 캐릭터 BP의 기존 `InitInventory(InInventory)` 호출을 그대로 받는다. 슬롯 크기는 핫바가 런타임 SizeBox로 강제(슬롯 UserWidget desired가 100에 고정되던 원인 미상 문제 회피).
-      O₂는 `UOxygenRingWidget`(HP 링 아트 MI_HP_Ring 재사용, 소유 폰 UOxygenComponent에 자가 바인딩)으로 바꿔 WB_HP_OxygenUI에 넣었다 — 기존 막대 WBP_OxygenStatus_V3 에셋은 남겨 둠. 산소 강화 레벨에 따라 링 전체 색이 바뀐다(청록→초록→파랑→보라, 경고색 우선) — 레벨은 복제 안 하고 복제된 MaxOxygenBonus를 DA_OxygenUpgrade 레벨별 누적 보너스와 대조해 역산. 기각: 등급별 구간 분할(예리도식) — 사용자 결정.
+      바이탈은 `UVitalsWidget`(UI/HUD, 트리까지 C++ — 확정 시안 vitals-announcer B안): 산소 바늘 계기 + 큰 강화 레벨을 한 외장에, 디지털 HP(심장·숫자·파형)를 아래 별도 모듈에. 소유 폰 `UOxygenComponent`·`UHealthComponent`에 자가 바인딩, 생성은 `RefreshProgressHUD`(`VitalsClass`, 탐사 월드만 — 구 WB_HP_OxygenUI 가 BP에서 탐사 HUD와 함께만 생기던 것과 같게). 산소 경고(현재/최대 25%·10%)는 바늘·잔량 숫자·상태 문구에만, 강화 등급색(청록→초록→파랑→보라)은 외장 테두리·O₂·LV.에 독립 적용 — 레벨은 복제 안 하고 복제된 MaxOxygenBonus를 DA_OxygenUpgrade 레벨별 누적 보너스와 대조해 역산. 도형은 텍스트와의 겹침 순서(눈금 숫자 < 바늘 < 수치)를 지키려고 뒤판·앞판 두 장의 NativePaint 정점 메시. 시안 mono는 미설치 브라우저가 GulimChe(.5em, 합성 굵기)로 그려서 JetBrains Mono Medium을 측정한 글자 폭에 맞춘다. WB_HP_OxygenUI는 LOAD(WB_CarryWeightStatus)만 남김 — 구 `UOxygenRingWidget`/WBP_OxygenRing·WB_HealthStatus 에셋은 미사용. 기각: 등급별 구간 분할(예리도식) — 사용자 결정.
   - name: 우측 알림 피드 (본인 알림)
     detail: |
       유물 획득·파손(들고 있을 때)·소음 단계 상승·납품을 화면 우측에 띄운다. 본인 알림만 — 서버가 판정 지점(AItemActorBase::ServerGrantToPawn/TryApplyBreakFromImpact/GrowNoiseRadius, UInventoryComponent::ServerDeliverAllItems, ACoopCarryObjectBase::ServerDeliver)에서 문구까지 담은 FHudNotice 를 만들어 UHudNoticeSubsystem::SendToPawnOwner → AGoHomePlayerController::Client_PushHudNotice 로 그 폰의 플레이어에게만 보낸다. 클라는 LocalPlayer 서브시스템(UHudNoticeSubsystem::OnNoticePushed)만 거쳐 UHudNoticeFeedWidget 이 받는다 — Item/Interaction 은 UI 를 include 하지 않는다.
