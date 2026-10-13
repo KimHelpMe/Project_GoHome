@@ -10,6 +10,8 @@ class UCurveFloat;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnOxygenChanged, float, CurrentOxygen, float, MaxOxygen);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSafeZoneChanged, bool, bNewInSafeZone);
+// 서버 전용: 몬스터가 물기·잡기로 산소 흡입 가속을 시작했다(모든 몬스터 BP 공격 지점이 StartOxygenDrainBoostFromInstigator 를 부른다)
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnDrainBoostStarted, AActor* /*InstigatorActor*/);
 
 /**
  * 소모 속도 계산 시 ICarryWeightProvider의 초과 무게를 참조한다.
@@ -29,6 +31,8 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Oxygen")
 	FOnSafeZoneChanged OnSafeZoneChanged;
+
+	FOnDrainBoostStarted OnDrainBoostStarted;
 
 	// 외부 코드는 산소 값을 직접 쓰지 말고, 읽기 전용 함수로만 접근한다.
 	UFUNCTION(BlueprintPure, Category = "Oxygen")

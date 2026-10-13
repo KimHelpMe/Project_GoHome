@@ -34,6 +34,11 @@ public:
 	// 서버 전용: 그 Key 의 표시·대기를 지운다(열수 영역 이탈·분출 종료, 기뢰 폭발 — 뒤늦은 경고 방지)
 	static void CancelForPawnOwner(const APawn* Pawn, FName Key);
 
+	// 로컬에서만 일어나는 사건(문어 먹물처럼 BP 가 로컬 조종 폰에서만 처리하는 연출)을 그 플레이어 화면에 띄운다.
+	// 로컬 조종 폰이 아니면 무시. 같은 사건의 반복은 카탈로그 간격(ServerCooldownSeconds)으로 거른다.
+	UFUNCTION(BlueprintCallable, Category = "Announcer", meta = (DisplayName = "Announce To Local Player"))
+	static void AnnounceToLocalPlayer(APawn* Pawn, EAnnouncerEvent Event);
+
 	// 로컬: 큐에 직접 넣는다(개발용 명령)
 	void PushLocal(const FAnnouncerEvent& Event);
 
@@ -95,6 +100,8 @@ private:
 	void ServerSend(const FAnnouncerEvent& Event);
 	void ServerRebindPawn();
 	void HandleDamageTaken(float Amount, AActor* DamageInstigator, FName DamageType, bool bLethal);
+	void HandleDrainBoostStarted(AActor* InstigatorActor);
+	bool IsMonsterInstigator(const AActor* InstigatorActor) const;
 	void ServerResetIfNewWorld();
 
 	TWeakObjectPtr<AGameStateBase> ServerContext;
@@ -102,6 +109,8 @@ private:
 	bool bFirstArtifactSent = false;
 	TWeakObjectPtr<UHealthComponent> ServerHealth;
 	FDelegateHandle DamageHandle;
+	TWeakObjectPtr<UOxygenComponent> ServerOxygen;
+	FDelegateHandle DrainHandle;
 
 	// --- 로컬 ---
 	bool IsLocal() const;
@@ -119,6 +128,7 @@ private:
 	int32 OxygenBand(float Ratio) const;
 
 	TWeakObjectPtr<AGameStateBase> LocalContext;
+	TMap<uint8, double> LocalLastTime;
 	double ContextStartTime = 0.0;
 	bool bRoundOver = false;
 	bool bStartQueued = false;

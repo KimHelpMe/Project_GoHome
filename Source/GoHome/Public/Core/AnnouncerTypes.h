@@ -7,7 +7,7 @@
  * 아나운서(탐사 보조 AI 부이) 사건 종류. 문구·표정·우선순위는 AnnouncerCatalog 가 정한다.
  * 팀 진행 사건(시작·귀환·제한시간)은 각 클라가 복제 상태로 판정하고, 개인 사건(유물·피해·열수·기뢰)은 서버가 판정해 보낸다.
  */
-UENUM()
+UENUM(BlueprintType)
 enum class EAnnouncerEvent : uint8
 {
 	None,
@@ -24,6 +24,7 @@ enum class EAnnouncerEvent : uint8
 	Damaged,
 	VentWarning,
 	MineArmed,
+	InkSplat,
 	Count UMETA(Hidden)
 };
 

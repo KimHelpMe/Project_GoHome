@@ -36,29 +36,29 @@ namespace
 	constexpr float CopyPadBottom = 18.f;
 	constexpr float CopyPadLeft = 22.f;
 	constexpr float CopyWidth = CardW - 202.f;	// padding-right = portrait overlap 184 + 18 → 내용 끝 x=458
-	constexpr float MotionSeconds = .18f;
-	constexpr float EnterShift = 8.f;
+	constexpr float AnnMotionSeconds = .18f;
+	constexpr float AnnEnterShift = 8.f;
 
 	// CSS 값은 sRGB 0..1 로 다룬다(정점 색은 sRGB 바이트로 넘긴다)
-	struct FCss
+	struct FAnnCss
 	{
 		float R = 0.f, G = 0.f, B = 0.f, A = 0.f;
-		static FCss Rgb(int32 R8, int32 G8, int32 B8, float A) { return { R8 / 255.f, G8 / 255.f, B8 / 255.f, A }; }
-		static FCss FromLinear(const FLinearColor& Color, float A = 1.f)
+		static FAnnCss Rgb(int32 R8, int32 G8, int32 B8, float A) { return { R8 / 255.f, G8 / 255.f, B8 / 255.f, A }; }
+		static FAnnCss FromLinear(const FLinearColor& Color, float A = 1.f)
 		{
 			const FColor S = Color.ToFColorSRGB();
 			return Rgb(S.R, S.G, S.B, A);
 		}
-		FCss WithAlpha(float InA) const { return { R, G, B, InA }; }
+		FAnnCss WithAlpha(float InA) const { return { R, G, B, InA }; }
 	};
 
-	FCss Lerp(const FCss& X, const FCss& Y, float T)
+	FAnnCss AnnLerp(const FAnnCss& X, const FAnnCss& Y, float T)
 	{
 		return { FMath::Lerp(X.R, Y.R, T), FMath::Lerp(X.G, Y.G, T), FMath::Lerp(X.B, Y.B, T), FMath::Lerp(X.A, Y.A, T) };
 	}
 
 	// color-mix(in srgb, A P%, B) — 알파는 premultiplied 로 섞는다
-	FCss Mix(const FCss& X, float P, const FCss& Y)
+	FAnnCss AnnMix(const FAnnCss& X, float P, const FAnnCss& Y)
 	{
 		const float A = X.A * P + Y.A * (1.f - P);
 		if (A <= 0.f)
@@ -69,14 +69,14 @@ namespace
 			(X.B * X.A * P + Y.B * Y.A * (1.f - P)) / A, A };
 	}
 
-	struct FStop
+	struct FAnnStop
 	{
 		float T;
-		FCss C;
+		FAnnCss C;
 	};
 
 	// CSS 그라데이션(색 정지점 사이 선형). transparent 끝점은 앞 색을 유지한 채 알파만 0(premultiplied 보간 결과)
-	FCss Sample(TConstArrayView<FStop> Stops, float T)
+	FAnnCss AnnSample(TConstArrayView<FAnnStop> Stops, float T)
 	{
 		if (T <= Stops[0].T)
 		{
@@ -87,14 +87,14 @@ namespace
 			if (T <= Stops[Index].T)
 			{
 				const float Span = Stops[Index].T - Stops[Index - 1].T;
-				return Lerp(Stops[Index - 1].C, Stops[Index].C, Span > 0.f ? (T - Stops[Index - 1].T) / Span : 1.f);
+				return AnnLerp(Stops[Index - 1].C, Stops[Index].C, Span > 0.f ? (T - Stops[Index - 1].T) / Span : 1.f);
 			}
 		}
 		return Stops.Last().C;
 	}
 
 	/** 정점 색 메시 — 위젯 스타일 불투명도를 직접 곱한다(커스텀 정점은 틴트가 자동 적용되지 않는다). */
-	struct FMesh
+	struct FAnnMesh
 	{
 		const FSlateRenderTransform& Transform;
 		FVector2f Origin;
@@ -102,10 +102,10 @@ namespace
 		TArray<FSlateVertex> Verts;
 		TArray<SlateIndex> Indices;
 
-		FMesh(const FSlateRenderTransform& InTransform, const FVector2f& InOrigin, float InOpacity)
+		FAnnMesh(const FSlateRenderTransform& InTransform, const FVector2f& InOrigin, float InOpacity)
 			: Transform(InTransform), Origin(InOrigin), Opacity(InOpacity) {}
 
-		SlateIndex Add(const FVector2f& P, const FCss& C)
+		SlateIndex Add(const FVector2f& P, const FAnnCss& C)
 		{
 			const FColor Color(FMath::RoundToInt(FMath::Clamp(C.R, 0.f, 1.f) * 255.f), FMath::RoundToInt(FMath::Clamp(C.G, 0.f, 1.f) * 255.f),
 				FMath::RoundToInt(FMath::Clamp(C.B, 0.f, 1.f) * 255.f), FMath::RoundToInt(FMath::Clamp(C.A * Opacity, 0.f, 1.f) * 255.f));
@@ -115,8 +115,8 @@ namespace
 
 		void Tri(SlateIndex A, SlateIndex B, SlateIndex C) { Indices.Append({ A, B, C }); }
 
-		void Quad(const FVector2f& P0, const FCss& C0, const FVector2f& P1, const FCss& C1,
-			const FVector2f& P2, const FCss& C2, const FVector2f& P3, const FCss& C3)
+		void Quad(const FVector2f& P0, const FAnnCss& C0, const FVector2f& P1, const FAnnCss& C1,
+			const FVector2f& P2, const FAnnCss& C2, const FVector2f& P3, const FAnnCss& C3)
 		{
 			const SlateIndex A = Add(P0, C0), B = Add(P1, C1), C = Add(P2, C2), D = Add(P3, C3);
 			Tri(A, B, C);
@@ -124,7 +124,7 @@ namespace
 		}
 
 		// 볼록 다각형 단색 채움 + 바깥 1px 페더(정점 메시는 AA 가 없어 사선이 계단지는 것을 감춘다)
-		void Convex(TConstArrayView<FVector2f> Points, const FCss& C, bool bFeather)
+		void Convex(TConstArrayView<FVector2f> Points, const FAnnCss& C, bool bFeather)
 		{
 			FVector2f Center(0.f, 0.f);
 			for (const FVector2f& P : Points)
@@ -164,7 +164,7 @@ namespace
 		}
 
 		// 동심 고리 [R0,R1] — 반지름별 색 함수
-		void Annulus(const FVector2f& Center, float R0, float R1, TFunctionRef<FCss(const FVector2f&, float)> ColorAt, int32 Segments = 96)
+		void Annulus(const FVector2f& Center, float R0, float R1, TFunctionRef<FAnnCss(const FVector2f&, float)> ColorAt, int32 Segments = 96)
 		{
 			const SlateIndex Base = (SlateIndex)Verts.Num();
 			for (int32 Step = 0; Step <= Segments; ++Step)
@@ -223,7 +223,7 @@ namespace
 	}
 
 	// SVG 원호를 선분으로(도 단위, 시계 방향 증가 = y 아래)
-	TArray<FVector2D> Arc(const FVector2D& Center, float Radius, float FromDeg, float ToDeg, int32 Steps = 10)
+	TArray<FVector2D> AnnArc(const FVector2D& Center, float Radius, float FromDeg, float ToDeg, int32 Steps = 10)
 	{
 		TArray<FVector2D> Points;
 		for (int32 Step = 0; Step <= Steps; ++Step)
@@ -235,19 +235,19 @@ namespace
 	}
 
 	// study.js announcerIcons — viewBox 40, stroke 2. 산소는 글자(O₂)라 위젯이 텍스트로 대신 그린다
-	TArray<TArray<FVector2D>> IconPaths(EAnnouncerIcon Icon)
+	TArray<TArray<FVector2D>> AnnIconPaths(EAnnouncerIcon Icon)
 	{
 		using V = FVector2D;
 		switch (Icon)
 		{
 		case EAnnouncerIcon::Signal:
-			return { Arc(V(20, 20), 3, 0, 360, 16), Arc(V(19.55, 20), 11, 133.3f, 226.7f), Arc(V(20.45, 20), 11, -46.7f, 46.7f),
-				Arc(V(19.45, 20), 18, 133.8f, 226.2f), Arc(V(20.55, 20), 18, -46.2f, 46.2f) };
+			return { AnnArc(V(20, 20), 3, 0, 360, 16), AnnArc(V(19.55, 20), 11, 133.3f, 226.7f), AnnArc(V(20.45, 20), 11, -46.7f, 46.7f),
+				AnnArc(V(19.45, 20), 18, 133.8f, 226.2f), AnnArc(V(20.55, 20), 18, -46.2f, 46.2f) };
 		case EAnnouncerIcon::Return:
 			return { { V(8, 32), V(8, 9), V(23, 9), V(23, 32) }, { V(5, 32), V(35, 32) }, { V(16, 21), V(17, 21) },
 				{ V(27, 14), V(35, 14), V(35, 25) }, { V(31, 10), V(35, 14), V(31, 18) } };
 		case EAnnouncerIcon::Clock:
-			return { Arc(V(20, 22), 13, 0, 360, 32), { V(20, 14), V(20, 23), V(26, 27) }, { V(15, 5), V(25, 5) }, { V(20, 5), V(20, 9) } };
+			return { AnnArc(V(20, 22), 13, 0, 360, 32), { V(20, 14), V(20, 23), V(26, 27) }, { V(15, 5), V(25, 5) }, { V(20, 5), V(20, 9) } };
 		case EAnnouncerIcon::Salvage:
 			return { { V(20, 5), V(34, 20), V(20, 35), V(6, 20), V(20, 5) }, { V(20, 13), V(27, 20), V(20, 27), V(13, 20), V(20, 13) } };
 		case EAnnouncerIcon::Hazard:
@@ -287,13 +287,13 @@ int32 UAnnouncerPlate::NativePaint(const FPaintArgs& Args, const FGeometry& Allo
 	}
 
 	const FSlateRenderTransform& Transform = AllottedGeometry.GetAccumulatedRenderTransform();
-	const FCss SignalCss = FCss::FromLinear(Signal);
+	const FAnnCss SignalCss = FAnnCss::FromLinear(Signal);
 	const float W = CardW;
 	const float H = PanelHeight;
 
 	// --- .ann-copy:before — 패싯 패널 ---
 	{
-		FMesh Mesh(Transform, FVector2f(0.f, PanelTop), Opacity);
+		FAnnMesh Mesh(Transform, FVector2f(0.f, PanelTop), Opacity);
 
 		// clip-path: polygon(12px 0, 100%-19px 0, 100% 18px, 100% 100%-19px, 100%-15px 100%, 14px 100%, 0 100%-14px, 0 12px)
 		auto TopAt = [W](float X) { return X < 12.f ? 12.f - X : (X > W - 19.f ? (X - (W - 19.f)) * 18.f / 19.f : 0.f); };
@@ -301,21 +301,21 @@ int32 UAnnouncerPlate::NativePaint(const FPaintArgs& Args, const FGeometry& Allo
 
 		// background: linear-gradient(110deg, ...) — 각 정점 위치를 110° 그라데이션 축에 투영
 		const float Glass_ = FMath::Clamp(Glass, .2f, .8f);
-		const FStop Background[] = {
-			{ 0.f, FCss::Rgb(8, 25, 34, Glass_ + .22f) },
-			{ .64f, FCss::Rgb(7, 17, 24, Glass_ + .15f) },
-			{ .82f, FCss::Rgb(6, 17, 23, .28f) },
-			{ 1.f, FCss::Rgb(6, 17, 23, 0.f) } };
+		const FAnnStop Background[] = {
+			{ 0.f, FAnnCss::Rgb(8, 25, 34, Glass_ + .22f) },
+			{ .64f, FAnnCss::Rgb(7, 17, 24, Glass_ + .15f) },
+			{ .82f, FAnnCss::Rgb(6, 17, 23, .28f) },
+			{ 1.f, FAnnCss::Rgb(6, 17, 23, 0.f) } };
 		// mask-image: linear-gradient(90deg, #000 0, #000 58%, rgba(0,0,0,.72) 74%, transparent 100%)
-		const FStop Mask[] = { { 0.f, FCss::Rgb(0, 0, 0, 1.f) }, { .58f, FCss::Rgb(0, 0, 0, 1.f) }, { .74f, FCss::Rgb(0, 0, 0, .72f) }, { 1.f, FCss::Rgb(0, 0, 0, 0.f) } };
+		const FAnnStop Mask[] = { { 0.f, FAnnCss::Rgb(0, 0, 0, 1.f) }, { .58f, FAnnCss::Rgb(0, 0, 0, 1.f) }, { .74f, FAnnCss::Rgb(0, 0, 0, .72f) }, { 1.f, FAnnCss::Rgb(0, 0, 0, 0.f) } };
 		const float Sin = FMath::Sin(FMath::DegreesToRadians(110.f));
 		const float Cos = FMath::Cos(FMath::DegreesToRadians(110.f));
 		const float AxisLength = FMath::Abs(W * Sin) + FMath::Abs(H * Cos);
 		auto PanelColor = [&](float X, float Y)
 		{
 			const float T = ((X - W * .5f) * Sin + (Y - H * .5f) * -Cos) / AxisLength + .5f;
-			const FCss Color = Sample(Background, T);
-			return Color.WithAlpha(Color.A * Sample(Mask, X / W).A);
+			const FAnnCss Color = AnnSample(Background, T);
+			return Color.WithAlpha(Color.A * AnnSample(Mask, X / W).A);
 		};
 
 		TArray<float> Xs = { 0.f, 12.f, 14.f, W * .58f, W * .64f, W * .74f, W * .82f, W - 19.f, W - 15.f, W };
@@ -337,7 +337,7 @@ int32 UAnnouncerPlate::NativePaint(const FPaintArgs& Args, const FGeometry& Allo
 		}
 
 		// border 1px color-mix(signal 45%, #4a6670) — 위·왼쪽은 transparent, 오른쪽은 마스크 끝(0)이라 하단선만 보인다
-		const FCss BorderColor = Mix(SignalCss, .45f, FCss::Rgb(0x4a, 0x66, 0x70, 1.f));
+		const FAnnCss BorderColor = AnnMix(SignalCss, .45f, FAnnCss::Rgb(0x4a, 0x66, 0x70, 1.f));
 		for (int32 Index = 0; Index + 1 < Xs.Num(); ++Index)
 		{
 			const float X0 = FMath::Max(Xs[Index], 14.f), X1 = FMath::Min(Xs[Index + 1], W - 15.f);
@@ -345,21 +345,21 @@ int32 UAnnouncerPlate::NativePaint(const FPaintArgs& Args, const FGeometry& Allo
 			{
 				continue;
 			}
-			const FCss C0 = BorderColor.WithAlpha(Sample(Mask, X0 / W).A), C1 = BorderColor.WithAlpha(Sample(Mask, X1 / W).A);
+			const FAnnCss C0 = BorderColor.WithAlpha(AnnSample(Mask, X0 / W).A), C1 = BorderColor.WithAlpha(AnnSample(Mask, X1 / W).A);
 			Mesh.Quad(FVector2f(X0, H - 1.f), C0, FVector2f(X1, H - 1.f), C1, FVector2f(X1, H), C1, FVector2f(X0, H), C0);
 		}
 
 		// .ann-copy:after — 하단 신호선 left 16 right 24 bottom 8 height 4, clip-path 아래 변 2% 안쪽
 		{
 			const float L = 16.f, R = W - 24.f, Bw = R - L, Y0 = H - 12.f, Y1 = H - 8.f;
-			const FStop Bar[] = { { 0.f, SignalCss }, { .68f, SignalCss.WithAlpha(.45f) }, { 1.f, SignalCss.WithAlpha(0.f) } };
+			const FAnnStop Bar[] = { { 0.f, SignalCss }, { .68f, SignalCss.WithAlpha(.45f) }, { 1.f, SignalCss.WithAlpha(0.f) } };
 			const float Us[] = { 0.f, .02f, .17f, .34f, .51f, .68f, .84f, .98f, 1.f };
 			for (int32 Index = 0; Index + 1 < UE_ARRAY_COUNT(Us); ++Index)
 			{
 				const float Xa = L + Bw * Us[Index], Xb = L + Bw * Us[Index + 1];
 				const float Ba = FMath::Clamp(Xa, L + Bw * .02f, R - Bw * .02f), Bb = FMath::Clamp(Xb, L + Bw * .02f, R - Bw * .02f);
-				const FCss Ca = Sample(Bar, Us[Index]), Cb = Sample(Bar, Us[Index + 1]);
-				const FCss Da = Sample(Bar, (Ba - L) / Bw), Db = Sample(Bar, (Bb - L) / Bw);
+				const FAnnCss Ca = AnnSample(Bar, Us[Index]), Cb = AnnSample(Bar, Us[Index + 1]);
+				const FAnnCss Da = AnnSample(Bar, (Ba - L) / Bw), Db = AnnSample(Bar, (Bb - L) / Bw);
 				Mesh.Quad(FVector2f(Xa, Y0), Ca, FVector2f(Xb, Y0), Cb, FVector2f(Bb, Y1), Db, FVector2f(Ba, Y1), Da);
 			}
 		}
@@ -374,11 +374,11 @@ int32 UAnnouncerPlate::NativePaint(const FPaintArgs& Args, const FGeometry& Allo
 		if (Size.X > 0.f)
 		{
 			const FVector2f Pos = FVector2f(AllottedGeometry.AbsoluteToLocal(TabGeometry.GetAbsolutePosition()));
-			FMesh Mesh(Transform, Pos, Opacity);
+			FAnnMesh Mesh(Transform, Pos, Opacity);
 			const float Tw = Size.X, Th = Size.Y;
 			// clip-path: polygon(10px 0, 100% 0, 100%-12px 100%, 0 100%, 0 10px), 배경 #203c4a
 			const FVector2f Shape[] = { FVector2f(10.f, 0.f), FVector2f(Tw, 0.f), FVector2f(Tw - 12.f, Th), FVector2f(0.f, Th), FVector2f(0.f, 10.f) };
-			Mesh.Convex(Shape, FCss::Rgb(0x20, 0x3c, 0x4a, 1.f), true);
+			Mesh.Convex(Shape, FAnnCss::Rgb(0x20, 0x3c, 0x4a, 1.f), true);
 			// linear-gradient(130deg, signal 0 10px, ...) — 130° 축 위치 .766x+.643y < 10 인 사선 띠
 			const float Dx = 10.f / FMath::Sin(FMath::DegreesToRadians(130.f));
 			const float Dy = 10.f / -FMath::Cos(FMath::DegreesToRadians(130.f));
@@ -392,7 +392,7 @@ int32 UAnnouncerPlate::NativePaint(const FPaintArgs& Args, const FGeometry& Allo
 	const FVector2f PortraitOrigin(W - PortraitBox, 0.f);
 	OutDrawElements.PushClip(FSlateClippingZone(AllottedGeometry.ToPaintGeometry(FVector2f(PortraitBox, PortraitBox), FSlateLayoutTransform(PortraitOrigin))));
 	{
-		FMesh Mesh(Transform, PortraitOrigin, Opacity);
+		FAnnMesh Mesh(Transform, PortraitOrigin, Opacity);
 		// :before inset 7px 0 3px 10px → 174 정사각, border 5px, border-radius 50%
 		const FVector2f Center(10.f + 87.f, 7.f + 87.f);
 		const float Inner = 82.f, Outer = 87.f;
@@ -400,17 +400,17 @@ int32 UAnnouncerPlate::NativePaint(const FPaintArgs& Args, const FGeometry& Allo
 		// radial-gradient(circle at 52% 45%, mix(signal 12%, rgba(8,23,30,.82)), rgba(4,12,18,.72) 74%) — 패딩 상자(164) 기준
 		const FVector2f GradientCenter(15.f + 164.f * .52f, 12.f + 164.f * .45f);
 		const float Farthest = FMath::Sqrt(FMath::Square(15.f + 164.f - GradientCenter.X) + FMath::Square(12.f + 164.f - GradientCenter.Y));
-		const FCss Start = Mix(SignalCss, .12f, FCss::Rgb(8, 23, 30, .82f));
-		const FCss End = FCss::Rgb(4, 12, 18, .72f);
+		const FAnnCss Start = AnnMix(SignalCss, .12f, FAnnCss::Rgb(8, 23, 30, .82f));
+		const FAnnCss End = FAnnCss::Rgb(4, 12, 18, .72f);
 		auto FillAt = [&](const FVector2f& P, float Radius)
 		{
 			const float T = FMath::Clamp(FVector2f::Distance(P, GradientCenter) / (Farthest * .74f), 0.f, 1.f);
-			const FCss Fill = Lerp(Start, End, T);
+			const FAnnCss Fill = AnnLerp(Start, End, T);
 			// inset 0 0 16px rgba(0,0,0,.32) — 안쪽 가장자리에서 16px 에 걸쳐 어두워짐
 			const float Shade = .32f * .5f * FMath::Clamp(1.f - (Inner - Radius) / 16.f, 0.f, 1.f);
 			const float A = Fill.A + Shade * (1.f - Fill.A);
 			const float K = A > 0.f ? Fill.A * (1.f - Shade) / A : 0.f;
-			return FCss{ Fill.R * K, Fill.G * K, Fill.B * K, A };
+			return FAnnCss{ Fill.R * K, Fill.G * K, Fill.B * K, A };
 		};
 		const float Radii[] = { 0.f, 16.f, 32.f, 48.f, 60.f, 66.f, 72.f, 76.f, 79.f, Inner };
 		for (int32 Index = 0; Index + 1 < UE_ARRAY_COUNT(Radii); ++Index)
@@ -419,8 +419,8 @@ int32 UAnnouncerPlate::NativePaint(const FPaintArgs& Args, const FGeometry& Allo
 		}
 
 		// border 5px color-mix(signal 82%, #183541) + box-shadow 0 0 0 2px rgba(5,14,19,.85) + 1px 페더
-		const FCss Ring = Mix(SignalCss, .82f, FCss::Rgb(0x18, 0x35, 0x41, 1.f));
-		const FCss Halo = FCss::Rgb(5, 14, 19, .85f);
+		const FAnnCss Ring = AnnMix(SignalCss, .82f, FAnnCss::Rgb(0x18, 0x35, 0x41, 1.f));
+		const FAnnCss Halo = FAnnCss::Rgb(5, 14, 19, .85f);
 		Mesh.Annulus(Center, Inner - .5f, Inner, [&](const FVector2f& P, float Radius) { return Radius < Inner ? FillAt(P, Radius).WithAlpha(0.f) : Ring; });
 		Mesh.Annulus(Center, Inner, Outer, [&](const FVector2f&, float) { return Ring; });
 		Mesh.Annulus(Center, Outer, Outer + 2.f, [&](const FVector2f&, float) { return Halo; });
@@ -661,7 +661,7 @@ void UAnnouncerWidget::ApplyContent(const FAnnouncerDisplay& Display)
 		Glyph->SetColorAndOpacity(Signal);
 	}
 	CodeIcon->SetVisibility(bOxygen ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible);
-	CodeIcon->SetGlyph(FVector2D(40.f, 40.f), IconPaths(Display.Icon), 2.f);
+	CodeIcon->SetGlyph(FVector2D(40.f, 40.f), AnnIconPaths(Display.Icon), 2.f);
 	CodeIcon->SetStrokeColor(Signal);
 
 	Plate->Signal = Signal;
@@ -690,7 +690,7 @@ void UAnnouncerWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime
 	const float Target = bTargetVisible ? 1.f : 0.f;
 	if (Progress != Target)
 	{
-		const float Step = InDeltaTime / MotionSeconds;
+		const float Step = InDeltaTime / AnnMotionSeconds;
 		Progress = Target > Progress ? FMath::Min(Target, Progress + Step) : FMath::Max(Target, Progress - Step);
 		ApplyMotion(Ease.Eval(Progress));
 	}
@@ -700,7 +700,7 @@ void UAnnouncerWidget::ApplyMotion(float Eased)
 {
 	// 진입 opacity 0→1 · Y -8→0, 퇴장은 그 역(180ms ease) — 밑판·문구·초상이 함께 움직인다
 	SetRenderOpacity(Eased);
-	SetRenderTranslation(FVector2D(0.f, -EnterShift * (1.f - Eased)));
+	SetRenderTranslation(FVector2D(0.f, -AnnEnterShift * (1.f - Eased)));
 	if (Card)
 	{
 		Card->SetVisibility(Eased > 0.f ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);

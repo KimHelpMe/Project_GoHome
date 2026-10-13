@@ -349,6 +349,9 @@ void UOxygenComponent::StartOxygenDrainBoostFromInstigator(AActor* InstigatorAct
 
 	RemoveInvalidDrainBoosts();
 
+	// 배율 설정과 무관하게 "공격 시작" 사실은 알린다(아나운서). 반복 호출 간격은 구독자가 거른다
+	OnDrainBoostStarted.Broadcast(InstigatorActor);
+
 	const float DrainMultiplier = OxygenDrainBoostConfig
 		? OxygenDrainBoostConfig->GetDrainMultiplierForInstigator(InstigatorActor)
 		: 1.f;

@@ -78,6 +78,10 @@ namespace
 				TEXT("VENT / ERUPT"), Crimson(), I::Hazard, 100, S::Personal, 2.f, 8.f);
 			Lines[(int32)E::MineArmed] = Def(LOCTEXT("MineTitle", "기뢰 작동!"), LOCTEXT("MineLine", "거리를 벌려!"),
 				TEXT("MINE / ARMED"), Crimson(), I::Hazard, 100, S::Personal, 3.f);
+
+			// 문어 먹물 — 시야 가림(치명 아님). 같은 구역 재진입 반복은 간격으로 거른다
+			Lines[(int32)E::InkSplat] = Def(LOCTEXT("InkTitle", "먹물에 맞았어!"), LOCTEXT("InkLine", "시야가 가려졌어. 침착하게 빠져나와."),
+				TEXT("INK / BLIND"), Gold(), I::Hazard, 80, S::Personal, 3.f, 10.f);
 		}
 	};
 
@@ -121,6 +125,7 @@ EAnnouncerEvent AnnouncerCatalog::FromName(const FString& Name)
 		{ TEXT("Damaged"), EAnnouncerEvent::Damaged },
 		{ TEXT("Vent"), EAnnouncerEvent::VentWarning },
 		{ TEXT("Mine"), EAnnouncerEvent::MineArmed },
+		{ TEXT("Ink"), EAnnouncerEvent::InkSplat },
 	};
 	for (const TPair<const TCHAR*, EAnnouncerEvent>& Pair : Names)
 	{

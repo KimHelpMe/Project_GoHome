@@ -108,6 +108,11 @@ void UAnnouncerComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		Health->OnDamageTaken.Remove(DamageHandle);
 	}
 	ServerHealth.Reset();
+	if (UOxygenComponent* Oxygen = ServerOxygen.Get())
+	{
+		Oxygen->OnDrainBoostStarted.Remove(DrainHandle);
+	}
+	ServerOxygen.Reset();
 	if (UOxygenComponent* Oxygen = BoundOxygen.Get())
 	{
 		Oxygen->OnOxygenChanged.RemoveDynamic(this, &UAnnouncerComponent::HandleOxygenChanged);
@@ -162,6 +167,31 @@ void UAnnouncerComponent::CancelForPawnOwner(const APawn* Pawn, FName Key)
 		Envelope.bCancel = true;
 		Announcer->ServerSend(Envelope);
 	}
+}
+
+void UAnnouncerComponent::AnnounceToLocalPlayer(APawn* Pawn, EAnnouncerEvent Event)
+{
+	if (!Pawn || !Pawn->IsLocallyControlled() || Event == EAnnouncerEvent::None)
+	{
+		return;
+	}
+	const AController* Controller = Pawn->GetController();
+	UAnnouncerComponent* Announcer = Controller ? Controller->FindComponentByClass<UAnnouncerComponent>() : nullptr;
+	if (!Announcer)
+	{
+		return;
+	}
+	const float Cooldown = AnnouncerCatalog::Get(Event).ServerCooldownSeconds;
+	const double Time = Announcer->Now();
+	if (const double* Last = Announcer->LocalLastTime.Find((uint8)Event); Cooldown > 0.f && Last && Time - *Last < Cooldown)
+	{
+		return;
+	}
+	Announcer->LocalLastTime.Add((uint8)Event, Time);
+
+	FAnnouncerEvent Envelope;
+	Envelope.Type = Event;
+	Announcer->Enqueue(Envelope);
 }
 
 void UAnnouncerComponent::ServerResetIfNewWorld()
@@ -220,6 +250,20 @@ void UAnnouncerComponent::ServerRebindPawn()
 	const AController* Controller = Cast<AController>(GetOwner());
 	APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
 	UHealthComponent* Health = Pawn ? Pawn->FindComponentByClass<UHealthComponent>() : nullptr;
+	UOxygenComponent* Oxygen = Pawn ? Pawn->FindComponentByClass<UOxygenComponent>() : nullptr;
+	if (Oxygen != ServerOxygen.Get())
+	{
+		if (UOxygenComponent* Old = ServerOxygen.Get())
+		{
+			Old->OnDrainBoostStarted.Remove(DrainHandle);
+		}
+		DrainHandle.Reset();
+		ServerOxygen = Oxygen;
+		if (Oxygen)
+		{
+			DrainHandle = Oxygen->OnDrainBoostStarted.AddUObject(this, &UAnnouncerComponent::HandleDrainBoostStarted);
+		}
+	}
 	if (Health == ServerHealth.Get())
 	{
 		return;
@@ -247,13 +291,38 @@ void UAnnouncerComponent::HandleDamageTaken(float Amount, AActor* DamageInstigat
 		return;
 	}
 
-	// 몬스터 BP 는 DamageType 을 비워 보낸다 — 비어 있고 가해자가 AI 폰일 때만 공격으로 분류(HealthComponent 사인 규칙과 같다)
-	const APawn* InstigatorPawn = Cast<APawn>(DamageInstigator);
-	const bool bMonster = DamageType.IsNone() && InstigatorPawn && !InstigatorPawn->IsPlayerControlled();
+	// 몬스터 BP 는 DamageType 을 비워 보낸다. 지렁이처럼 폰이 아닌 액터 몬스터도 있으므로 "플레이어가 아닌 가해자"면 공격으로 분류
+	const bool bMonster = DamageType.IsNone() && IsMonsterInstigator(DamageInstigator);
 
 	FAnnouncerEvent Event;
 	Event.Type = bMonster ? EAnnouncerEvent::Attacked : EAnnouncerEvent::Damaged;
 	ServerSend(Event);
+}
+
+bool UAnnouncerComponent::IsMonsterInstigator(const AActor* InstigatorActor) const
+{
+	if (!InstigatorActor)
+	{
+		return false;
+	}
+	const AController* Controller = Cast<AController>(GetOwner());
+	if (Controller && InstigatorActor == Controller->GetPawn())
+	{
+		return false;
+	}
+	const APawn* InstigatorPawn = Cast<APawn>(InstigatorActor);
+	return !(InstigatorPawn && InstigatorPawn->IsPlayerControlled());
+}
+
+void UAnnouncerComponent::HandleDrainBoostStarted(AActor* InstigatorActor)
+{
+	// 물기·촉수 잡기처럼 피해 전에 시작하는 몬스터 공격(모든 몬스터 BP 공격 지점이 산소 흡입 가속을 건다). 피해 안내와 간격을 공유한다
+	if (IsMonsterInstigator(InstigatorActor))
+	{
+		FAnnouncerEvent Event;
+		Event.Type = EAnnouncerEvent::Attacked;
+		ServerSend(Event);
+	}
 }
 
 void UAnnouncerComponent::Client_PushAnnouncerEvent_Implementation(const FAnnouncerEvent& Event)
@@ -298,6 +367,7 @@ void UAnnouncerComponent::ResetForNewWorld()
 		DisplayChanged.Broadcast();
 	}
 	LocalContext.Reset();
+	LocalLastTime.Reset();
 	bRoundOver = false;
 	bStartQueued = false;
 	StartAt = -1.0;
