@@ -5,6 +5,9 @@
 #include "Components/CanvasPanel.h"
 #include "Components/CanvasPanelSlot.h"
 #include "Components/Overlay.h"
+#include "Components/ScrollBox.h"
+#include "Engine/World.h"
+#include "TimerManager.h"
 #include "UI/Supply/SupplyMotion.h"
 #include "UI/Supply/SupplyScreenWidget.h"
 
@@ -46,11 +49,8 @@ void USupplyPageBase::RebuildPage()
 		return;
 	}
 
-	// 진행 중 트랙은 옛 위젯을 잡고 있다 — 끝 값으로 정리한 뒤 트리를 버린다(해상도 전환 때만 일어나 호스트 연출까지 끝내도 무방).
-	if (FSupplyAnimator* Animator = GetAnimator())
-	{
-		Animator->FinishAll();
-	}
+	// 진행 중 트랙은 약참조로 옛 위젯을 잡고 있어 그대로 둬도 안전하다. 애니메이터는 호스트 공용이라 FinishAll은 안 된다
+	// (숨은 페이지의 재빌드가 보이는 페이지의 스윕·오프닝까지 끝내 버림).
 	HitTargets.Reset();
 	Masthead = nullptr;
 	Footer = nullptr;
@@ -93,6 +93,29 @@ void USupplyPageBase::GetWipeBand(float& OutTop, float& OutBottom) const
 	{
 		OutBottom += Footer->GetDesiredSize().Y;
 	}
+}
+
+void USupplyPageBase::ScrollIntoViewNextFrame(UScrollBox* Scroll, UWidget* Target)
+{
+	UWorld* World = GetWorld();
+	if (!World || !Scroll || !Target)
+	{
+		return;
+	}
+	TWeakObjectPtr<UScrollBox> WeakScroll = Scroll;
+	TWeakObjectPtr<UWidget> WeakTarget = Target;
+	World->GetTimerManager().SetTimerForNextTick([WeakScroll, WeakTarget]()
+	{
+		if (WeakScroll.IsValid() && WeakTarget.IsValid())
+		{
+			WeakScroll->ScrollWidgetIntoView(WeakTarget.Get(), false, EDescendantScrollDestination::IntoView);
+		}
+	});
+}
+
+void USupplyPageBase::PruneHitTargets()
+{
+	HitTargets.RemoveAll([](const FHitTarget& Hit) { return !Hit.Widget.IsValid() || !Hit.Widget->GetParent(); });
 }
 
 void USupplyPageBase::AddHitTarget(UWidget* Target, TFunction<void()> OnClick, int32 Layer)

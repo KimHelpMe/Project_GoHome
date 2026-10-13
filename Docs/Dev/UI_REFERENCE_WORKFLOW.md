@@ -72,6 +72,8 @@ Docs/Dev/UI/<screen>/
 
 `motion.md`에는 “부드럽게” 같은 표현 대신 다음을 적는다.
 
+효과 후보와 조합 방식을 찾을 때는 [UI_MOTION_CATALOG.md](UI_MOTION_CATALOG.md)의 의미 패턴과 레시피를 참고한다. 카탈로그는 후보 탐색용이며, 실제 재생 시점과 조합은 해당 `prototype.html`에서 확인한 뒤 화면 계약에 적는다.
+
 | 전환 | 시작 → 끝 | 시간 | easing | 입력/중단 규칙 | Unreal 소유자 |
 |---|---|---:|---|---|---|
 | 예: Modal Open | opacity 0→1, scale 0.96→1 | 180ms | ease-out | 끝날 때까지 뒤 UI 입력 차단 | 위젯 UMG Animation |
@@ -88,7 +90,7 @@ Docs/Dev/UI/<screen>/
 
 | 참조 요소/상태 | UMG Widget/BP | 데이터·이벤트 | 구현 방식 | 검증 관찰점 |
 |---|---|---|---|---|
-| 예: Confirm 버튼 disabled | `WBP_ZoneSelect` | Zone 유효성 | Widget BP | 무효 선택에서 포커스/클릭 불가 |
+| 예: 지정 버튼 disabled | `UZoneSelectScreenWidget` | 복제 `SelectedZoneId` | C++ | 이미 지정된 맵에서 포커스 가능·재입력 무시 |
 
 새 위젯·DataAsset·이벤트가 필요하면 먼저 `UI_GUIDE.md` 및 `ARCHITECTURE.md`의 경계에 맞는지 확인한다. Pack은 C++/Blueprint 경계를 바꾸는 권한이 아니다.
 

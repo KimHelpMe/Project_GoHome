@@ -56,6 +56,9 @@ protected:
 
 private:
 	void Start(ESupplyEntry Entry);
+
+	// 뷰포트 논리 크기(개발용 높이 강제 반영)를 페이지에 알린다. 바뀌었을 때만 — 압축 전환은 여기서 트리를 다시 만든다.
+	void ApplyViewSize(const FVector2D& RawSize);
 	void ShowPage(ESupplyPage Page, bool bBack, FName FocusHint, bool bWithWipe);
 	USupplyPageBase* GetPage(ESupplyPage Page) const;
 	USupplyPageBase* GetCurrentPage() const { return GetPage(CurrentPage); }

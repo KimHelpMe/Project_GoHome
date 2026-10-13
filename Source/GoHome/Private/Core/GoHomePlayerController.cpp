@@ -7,6 +7,7 @@
 #include "Engine/LocalPlayer.h"
 
 #include "Core/LobbyGameState.h"
+#include "Core/ExpeditionZoneDataAsset.h"
 #include "Core/ExplorationGameState.h"
 
 #include "Core/SessionSubsystem.h"
@@ -90,6 +91,12 @@ void AGoHomePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		SupplyScreen->RemoveFromParent();
 		SupplyScreen = nullptr;
 	}
+	if (ZoneSelectScreen)
+	{
+		ZoneSelectScreen->RemoveFromParent();
+		ZoneSelectScreen = nullptr;
+	}
+	GetWorldTimerManager().ClearTimer(DestinationRequestTimeoutHandle);
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -114,6 +121,10 @@ void AGoHomePlayerController::SetPawn(APawn* InPawn)
 	if (IsLocalController() && SupplyScreen)
 	{
 		CloseSupplyScreen(true);
+	}
+	if (IsLocalController() && ZoneSelectScreen)
+	{
+		CloseZoneSelect(true);
 	}
 }
 
@@ -162,6 +173,14 @@ void AGoHomePlayerController::HandleGameStateSet(AGameStateBase* /*NewGameState*
 	{
 		CloseSupplyScreen(true);
 	}
+	if (ZoneSelectScreen)
+	{
+		CloseZoneSelect(true);
+	}
+	// 새 월드의 로비 GameState는 다음 열기/요청 때 다시 묶는다. 이전 월드 요청은 버린다.
+	BoundLobbyGameState.Reset();
+	PendingDestination = NAME_None;
+	GetWorldTimerManager().ClearTimer(DestinationRequestTimeoutHandle);
 	RefreshExplorationHUD();
 	RefreshProgressHUD();
 	BindSettlementDismiss();
@@ -264,10 +283,156 @@ void AGoHomePlayerController::Server_SelectZone_Implementation(FName ZoneId)
 
 void AGoHomePlayerController::Client_OpenSelectZone_Implementation()
 {
-	// 실제 위젯 생성/표시는 BlueprintImplementableEvent로 열어두거나                                 
-	// 여기서 바로 CreateWidget 호출 — 컨벤션상 BP 확장 지점 열어두는 쪽 권장
-	OnOpenSelectZone();
+	OpenZoneSelect();
 }
+
+// --- 탐사 목적지 화면 ---
+
+void AGoHomePlayerController::OpenZoneSelect()
+{
+	if (!IsLocalController() || ZoneSelectScreen || SupplyScreen || PauseMenu)
+	{
+		return;
+	}
+	if (!GetWorld() || !GetWorld()->GetGameState<ALobbyGameState>())
+	{
+		return;
+	}
+
+	UClass* WidgetClass = ZoneSelectClass.LoadSynchronous();
+	if (!WidgetClass)
+	{
+		return;
+	}
+
+	// 화면이 NativeConstruct에서 목록·현재 값을 읽고 변경 이벤트에 묶는다 — 생성 전에 GameState 구독을 맞춰 둔다.
+	BindLobbyDestination();
+	ZoneSelectScreen = CreateWidget<UUserWidget>(this, WidgetClass);
+	if (!ZoneSelectScreen)
+	{
+		return;
+	}
+	ZoneSelectScreen->AddToViewport(ZoneSelectZOrder);
+
+	// Modal 규칙: UIOnly + 커서(CanOpenPauseMenu가 커서로 다른 Modal 소유를 판정)
+	FlushPressedKeys();
+	FInputModeUIOnly InputMode;
+	InputMode.SetWidgetToFocus(ZoneSelectScreen->TakeWidget());
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	SetInputMode(InputMode);
+	bShowMouseCursor = true;
+}
+
+void AGoHomePlayerController::CloseZoneSelect(bool bRestoreInput)
+{
+	if (!ZoneSelectScreen)
+	{
+		return;
+	}
+
+	ZoneSelectScreen->RemoveFromParent();
+	ZoneSelectScreen = nullptr;
+
+	if (bRestoreInput)
+	{
+		FlushPressedKeys();
+		SetInputMode(FInputModeGameOnly());
+		bShowMouseCursor = false;
+	}
+}
+
+void AGoHomePlayerController::RequestCloseZoneSelect()
+{
+	CloseZoneSelect(true);
+}
+
+TArray<const UExpeditionZoneDataAsset*> AGoHomePlayerController::GetSelectableZones() const
+{
+	TArray<const UExpeditionZoneDataAsset*> Zones;
+	if (const ALobbyGameState* LobbyGameState = GetWorld() ? GetWorld()->GetGameState<ALobbyGameState>() : nullptr)
+	{
+		for (const UExpeditionZoneDataAsset* Zone : LobbyGameState->GetAvailableZones())
+		{
+			if (Zone)
+			{
+				Zones.Add(Zone);
+			}
+		}
+	}
+	return Zones;
+}
+
+FName AGoHomePlayerController::GetTeamDestination() const
+{
+	const ALobbyGameState* LobbyGameState = GetWorld() ? GetWorld()->GetGameState<ALobbyGameState>() : nullptr;
+	return LobbyGameState ? LobbyGameState->GetSelectedZoneId() : NAME_None;
+}
+
+bool AGoHomePlayerController::RequestTeamDestination(FName ZoneId)
+{
+	if (IsDestinationRequestPending() || ZoneId == NAME_None || ZoneId == GetTeamDestination())
+	{
+		return false;
+	}
+
+	BindLobbyDestination();
+	PendingDestination = ZoneId;
+	GetWorldTimerManager().SetTimer(DestinationRequestTimeoutHandle, this, &ThisClass::HandleDestinationRequestTimeout, DestinationRequestTimeoutSeconds, false);
+
+	// 리슨 호스트는 이 호출 안에서 SetSelectedZone → OnRep → HandleSelectedZoneChanged까지 끝난다(요청 상태를 먼저 세워 둔다).
+	Server_SelectZone(ZoneId);
+	return true;
+}
+
+void AGoHomePlayerController::BindLobbyDestination()
+{
+	ALobbyGameState* LobbyGameState = GetWorld() ? GetWorld()->GetGameState<ALobbyGameState>() : nullptr;
+	if (!LobbyGameState || BoundLobbyGameState == LobbyGameState)
+	{
+		return;
+	}
+	BoundLobbyGameState = LobbyGameState;
+	LobbyGameState->OnSelectedZoneChanged.AddUniqueDynamic(this, &ThisClass::HandleSelectedZoneChanged);
+}
+
+void AGoHomePlayerController::HandleSelectedZoneChanged(FName NewZoneId)
+{
+	// 클라 OnRep은 서버 값과 무관하게 이 클라가 처음 받는 값에도 불린다 — 내 요청과 같은 값일 때만 내 지정으로 본다.
+	const bool bMine = PendingDestination != NAME_None && PendingDestination == NewZoneId;
+	if (bMine)
+	{
+		PendingDestination = NAME_None;
+		GetWorldTimerManager().ClearTimer(DestinationRequestTimeoutHandle);
+	}
+	TeamDestinationChangedEvent.Broadcast(NewZoneId, bMine ? EZoneDestinationChange::Mine : EZoneDestinationChange::Other);
+}
+
+void AGoHomePlayerController::HandleDestinationRequestTimeout()
+{
+	if (PendingDestination == NAME_None)
+	{
+		return;
+	}
+	// 같은 값을 다른 팀원이 먼저 지정했으면 서버 값이 안 바뀌어 OnRep이 오지 않는다 — 결과적으로 원하는 값이면 성공.
+	const FName Current = GetTeamDestination();
+	const bool bReached = Current == PendingDestination;
+	PendingDestination = NAME_None;
+	TeamDestinationChangedEvent.Broadcast(Current, bReached ? EZoneDestinationChange::Mine : EZoneDestinationChange::Failed);
+}
+
+#if !UE_BUILD_SHIPPING
+// 모니터 상호작용 없이 화면 확인용: GoHome.ZoneSelect.Open
+static FAutoConsoleCommandWithWorldAndArgs GZoneSelectOpenCommand(
+	TEXT("GoHome.ZoneSelect.Open"),
+	TEXT("탐사 목적지 화면을 연다(로비 전용)."),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& Args, UWorld* World)
+	{
+		if (AGoHomePlayerController* PC = World ? Cast<AGoHomePlayerController>(World->GetFirstPlayerController()) : nullptr)
+		{
+			PC->OpenZoneSelect();
+		}
+	}));
+#endif
 
 void AGoHomePlayerController::Client_OpenEquipmentUpgrade_Implementation()
 {
@@ -455,7 +620,7 @@ void AGoHomePlayerController::Client_OpenSupplyScreen_Implementation(ESupplyEntr
 
 void AGoHomePlayerController::OpenSupplyScreen(ESupplyEntry Entry)
 {
-	if (!IsLocalController() || SupplyScreen || PauseMenu)
+	if (!IsLocalController() || SupplyScreen || ZoneSelectScreen || PauseMenu)
 	{
 		return;
 	}

@@ -209,7 +209,7 @@ decisions:
 decoupling:
   - >
     표시 전용 위젯(게이지·인벤토리·카운트다운)은 복제 프로퍼티/델리게이트를 구독만 한다.
-    입력 위젯(존 선택 확정, 강화 구매)은 서버 RPC(Server_ConfirmZoneSelection 등)만 호출하고
+    입력 위젯(탐사 목적지 지정, 강화 구매)은 서버 RPC(`Server_SelectZone` 등)만 호출하고
     로컬 상태를 직접 바꾸지 않는다.
   - >
     화면(정산/게임오버/엔딩 등)은 자기완결 유닛 — 자기 UMG 애니메이션·연출 시퀀스를 소유하고
@@ -243,6 +243,11 @@ decisions:
       위 "BP 서브클래스가 레이아웃·Widget Animation" 관례의 예외: 페이지(USupplyPageBase 파생)가 위젯 트리·스타일·모션을 C++로 직접 만들고 WBP가 없다(PC의 SupplyScreenClass 기본값이 C++ 클래스). 이유: 시안(PRESSURE INDEX HTML)의 cubic-bezier 곡선·CSS 수치·line-height/기준선을 그대로 재현하려면 UMG 커브 키·디자이너 배치로는 근사밖에 안 된다(사용자 결정 2026-10-12 "시안을 완벽하게 구현할 수 있는 방식").
       텍스트는 대체 글꼴(Noto Sans KR·Archivo Black — 시안의 맑은 고딕·Arial Black은 배포 불가)을 SupplyUI::Typeset으로 시안 글꼴의 줄 상자·기준선에 맞추고, HarfBuzz FullShaping으로 GPOS 커닝을 켠다. 포커스·선택은 논리 상태로 직접 그리고 Slate 포커스는 호스트가 항상 쥔다(선택 면과 조작 커서 분리 규칙).
       시안의 높이 850 이하 압축 변형(상점·보관함만)은 페이지가 논리 높이 ≤850이면 트리를 압축 수치로 다시 만들고 들고 있던 상태(분류·선택·확인 패널)로 다시 그린다(USupplyPageBase::ApplyViewSize/OnPageRebuilt). UE 기본 DPI 규칙(ShortestSide, 1080→1.0)에선 가로 화면 논리 높이가 항상 ≈1080이라 지금은 발동하지 않는다 — 사용자 결정(2026-10-12)으로 UI 배율 옵션 등에 대비해 구현해 두고, 개발용 GoHome.Supply.ViewHeight 850으로 확인한다. 시안의 모션 축소(prefers-reduced-motion)는 연결할 게임 설정이 없어 생략.
+  - name: 탐사 목적지 화면 (UI/ZoneSelect) — 보급 화면과 같은 C++ 트리 방식
+    detail: |
+      로비 ZoneSelectMonitor → UZoneSelectScreenWidget 한 Modal. 생성·입력 모드·제거와 지정 요청은 AGoHomePlayerController(IZoneSelectBackend). 보급 화면 예외(위 절)를 같은 이유로 따른다 — 사용자 결정(2026-10-13) "C++ 위주, 시안 100%". 사진 보정(CSS filter·mix-blend color·그라데이션)만 UI 머티리얼 M_ZoneSelectPhoto가 sRGB로 합성(UMG 속성으로 대응 불가), 앱 배경 방사 그라데이션은 C++이 런타임 텍스처로 만든다.
+      로컬 미리보기·조작 포커스·서버 팀 목적지를 별개 상태로 그린다. 지정은 요청만 보내고 표시·문구는 복제 SelectedZoneId로만 바꾼다(낙관 출력 금지) — 서버 SetSelectedZone은 거절을 알리지 않으므로 PC가 요청 값과 같은 OnRep이 오면 "내 지정", 아니면 "다른 팀원", DestinationRequestTimeoutSeconds 안에 안 오면 실패(그때 이미 같은 값이면 성공)로 판정한다. 재진입은 마지막 미리보기 카드로 포커스 복원(PC가 기억).
+      카드 사진·영문명·설명·사진 보정값은 UExpeditionZoneDataAsset 표시 필드(게임 규칙엔 안 씀). 시안의 폭 1000/720 이하 재배치는 16:9 기본 DPI에서 논리 폭이 ≥1700이라 구현하지 않았다(≥1700 규칙만). 맑은 고딕 700~900은 Malgun Bold로 그려지므로 Noto SemiBold, Consolas는 Inconsolata wdth 112 인스턴스(FF_Inconsolata_SemiExpanded)로 대체. 구 WBP_ZoneSelect/WBP_ZoneButton·BP OnOpenSelectZone은 삭제.
   - name: HUD 위젯 소유
     detail: |
       상시 HUD 위젯은 BP PlayerController(또는 그 AHUD) 소유 — Pawn/Character 소유 금지. 폰 스코프 데이터(HP·산소·인벤토리)도 위젯은 뷰라 GetOwningPlayerPawn으로 읽고 OnPossessedPawnChanged에 재바인딩. 폰 소유 불가 이유: 사망 시 부활 없이 관전이 수 분 지속되며 그동안도 목표/타이머 HUD가 필요(폰 소유면 관전 내내 검은 화면), 폰은 로비마다 재생성되는 소모품. per-pawn 패널은 "폰 없음/사망" 상태를 명시.
