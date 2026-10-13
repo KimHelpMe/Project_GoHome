@@ -87,6 +87,11 @@ void AGoHomePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		HudNoticeFeed->RemoveFromParent();
 		HudNoticeFeed = nullptr;
 	}
+	if (ItemInspect)
+	{
+		ItemInspect->RemoveFromParent();
+		ItemInspect = nullptr;
+	}
 	if (UGoHomeGameUserSettings* Settings = UGoHomeGameUserSettings::Get())
 	{
 		Settings->OnGameplaySettingsApplied.Remove(SettingsAppliedHandle);
@@ -260,6 +265,20 @@ void AGoHomePlayerController::RefreshProgressHUD()
 		if (HudNoticeFeed)
 		{
 			HudNoticeFeed->AddToViewport(HudNoticeFeedZOrder);
+		}
+	}
+
+	if (ItemInspect)
+	{
+		ItemInspect->RemoveFromParent();
+		ItemInspect = nullptr;
+	}
+	if (UClass* InspectClass = ItemInspectClass.LoadSynchronous())
+	{
+		ItemInspect = CreateWidget<UUserWidget>(this, InspectClass);
+		if (ItemInspect)
+		{
+			ItemInspect->AddToViewport(ItemInspectZOrder);
 		}
 	}
 }

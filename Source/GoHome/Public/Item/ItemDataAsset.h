@@ -10,6 +10,16 @@ class UStaticMesh;
 class USoundBase;
 class USoundAttenuation;
 
+// 조준 정보 UI의 등급 표시용. 게임 규칙(가치·스폰)엔 쓰지 않는다.
+UENUM(BlueprintType)
+enum class EItemGrade : uint8
+{
+	Common		UMETA(DisplayName = "일반"),
+	Rare		UMETA(DisplayName = "희귀"),
+	Epic		UMETA(DisplayName = "영웅"),
+	Legendary	UMETA(DisplayName = "전설"),
+};
+
 /** 아이템 종별 무게/가치/파손·소음 플래그. AItemActorBase가 참조해 종을 구분한다. */
 UCLASS(BlueprintType)
 class GOHOME_API UItemDataAsset : public UPrimaryDataAsset
@@ -29,6 +39,13 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
 	TObjectPtr<UTexture2D> Icon;
+
+	// 조준 정보 UI 표시 전용(등급 패널·정보 패널).
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Display")
+	EItemGrade Grade = EItemGrade::Common;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Display", meta = (MultiLine = true))
+	FText Description;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
 	TObjectPtr<UStaticMesh> Mesh;

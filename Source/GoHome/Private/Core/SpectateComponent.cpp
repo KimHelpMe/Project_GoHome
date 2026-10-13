@@ -1,4 +1,4 @@
-#include "Core/SpectateComponent.h"
+﻿#include "Core/SpectateComponent.h"
 
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
@@ -55,7 +55,8 @@ USpectateComponent::USpectateComponent()
 		TEXT("/Game/GoHome/UI/WBP_InteractionPrompt.WBP_InteractionPrompt_C"),
 		TEXT("/Game/GoHome/UI/WBP_DangerVignette.WBP_DangerVignette_C"),
 		TEXT("/Game/GoHome/UI/Ink/WBP_InkSplatEffect.WBP_InkSplatEffect_C"),
-		TEXT("/Game/GoHome/Developers/YSS/Teleport/WBP_TeleportHoldGauge.WBP_TeleportHoldGauge_C") })
+		TEXT("/Game/GoHome/Developers/YSS/Teleport/WBP_TeleportHoldGauge.WBP_TeleportHoldGauge_C"),
+		TEXT("/Script/GoHome.ItemInspectWidget") })										// 유물 조준 정보
 	{
 		HiddenHUDClasses.Add(TSoftClassPtr<UUserWidget>(FSoftClassPath(Path)));
 	}

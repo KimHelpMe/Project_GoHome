@@ -56,6 +56,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Item")
 	float GetCurrentValue() const;
 
+	// 누적 파손 횟수(복제). 조준 정보 UI의 파손 칩·원가 취소선용.
+	int32 GetBreakCount() const { return BreakCount; }
+
 	// 납품 정산 대상인지 여부. 기본은 true(일반 아이템)
 	// 손전등 처럼 슬롯은 차지하지만 정산되면서 파괴되면 안되는 장비류는 false로 오버라이드.
 	UFUNCTION(BlueprintPure, Category = "Item")

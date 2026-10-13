@@ -11,6 +11,7 @@ class UCameraComponent;
 class ADeliveryPoint;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnInteractableTargetChanged, AActor*, NewTarget);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnInteractRequested, AActor*, Target);
 
 // 카메라 정면 트레이스로 상호작용 대상을 탐지한다(로컬 컨트롤 폰(Pawn)에서만 동작).
 // 대상 변경은 OnInteractableTargetChanged로 브로드캐스트(HUD 프롬프트 표시/숨김용).
@@ -26,6 +27,10 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Interaction")
 	FOnInteractableTargetChanged OnInteractableTargetChanged;
+
+	// 로컬에서 상호작용(E)을 서버에 요청한 순간. 서버 승인(복제) 전이라 HUD가 그 대상을 미리 걷는 데 쓴다(조준 정보 UI).
+	UPROPERTY(BlueprintAssignable, Category = "Interaction")
+	FOnInteractRequested OnInteractRequested;
 
 	UFUNCTION(BlueprintCallable, Category = "Interaction")
 	void TryInteract();

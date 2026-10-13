@@ -277,6 +277,10 @@ decisions:
       유물 획득·파손(들고 있을 때)·소음 단계 상승·납품을 화면 우측에 띄운다. 본인 알림만 — 서버가 판정 지점(AItemActorBase::ServerGrantToPawn/TryApplyBreakFromImpact/GrowNoiseRadius, UInventoryComponent::ServerDeliverAllItems, ACoopCarryObjectBase::ServerDeliver)에서 문구까지 담은 FHudNotice 를 만들어 UHudNoticeSubsystem::SendToPawnOwner → AGoHomePlayerController::Client_PushHudNotice 로 그 폰의 플레이어에게만 보낸다. 클라는 LocalPlayer 서브시스템(UHudNoticeSubsystem::OnNoticePushed)만 거쳐 UHudNoticeFeedWidget 이 받는다 — Item/Interaction 은 UI 를 include 하지 않는다.
       반려: 클라 OnRep(HoldingPawn/BreakCount/CurrentNoiseRadius) 로컬 감지 — 늦은 접속·관련성 재진입 때 OnRep 이 다시 돌아 오알림이 나고, 리슨 호스트는 OnRep 이 안 돌아 경로가 둘로 갈린다.
       같은 Key(아이템별 소음)는 새 줄 대신 기존 줄 갱신. 피드는 진행도 HUD 와 같은 시점(RefreshProgressHUD, HudNoticeFeedClass)에 (재)생성. 사망은 폰이 남으므로 UHealthComponent::IsDead(복제)까지 보고 숨긴다.
+  - name: 유물 조준 정보 (UI/HUD/UItemInspectWidget) — 위젯 트리까지 C++
+    detail: |
+      줍기 사거리 안 바닥 아이템을 조준하면 대상 주변에 패널 5개(이름·가치·무게·등급·정보)를 리더 라인으로 잇는다(Pack item-inspect A안). 트리거는 소유 폰 `UInteractionComponent::OnInteractableTargetChanged`, 대상은 `AItemActorBase` + `CanInteract`(=미확보, 복제)일 때만. 위치는 매 프레임 메시 바운드 투영으로 다시 계산하고 브래킷·선·레티클은 NativePaint. 생성은 알림 피드와 같은 `RefreshProgressHUD`(`ItemInspectClass`), 관전 중엔 `HiddenHUDClasses`.
+      등급(`EItemGrade`)·설명은 `UItemDataAsset` 표시 전용 필드(가치 구간 자동 계산 아님 — 게임 규칙엔 안 씀). 가치가 패널에 나오므로 줍기 프롬프트는 `줍기`만.
   - name: 정산 진행도 레일 데이터
     detail: |
       정산표/엔딩의 자금 관문 레일은 전 노드 위치·목표가 필요하나 FExpeditionProgress는 다음 관문 하나만 싣는다.

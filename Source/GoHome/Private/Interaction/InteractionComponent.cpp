@@ -235,6 +235,7 @@ void UInteractionComponent::TryInteract()
 
 	if (Interactable->CanInteract(OwnerPawn))
 	{
+		OnInteractRequested.Broadcast(CurrentTarget);
 		Server_RequestInteract(CurrentTarget);
 	}
 }

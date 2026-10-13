@@ -189,6 +189,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	int32 HudNoticeFeedZOrder = 1;
 
+	// 유물 조준 정보(UItemInspectWidget — 트리까지 C++). 알림 피드와 같은 시점에 (재)생성한다. 피드와 겹치면 이게 위.
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSoftClassPtr<UUserWidget> ItemInspectClass = TSoftClassPtr<UUserWidget>(FSoftClassPath(TEXT("/Script/GoHome.ItemInspectWidget")));
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	int32 ItemInspectZOrder = 2;
+
 	// 보급 화면 Modal 클래스. 기본값은 C++ USupplyScreenWidget(트리를 C++이 만든다) — WBP 없이도 열린다.
 	UPROPERTY(EditDefaultsOnly, Category = "UI|Supply")
 	TSoftClassPtr<UUserWidget> SupplyScreenClass = TSoftClassPtr<UUserWidget>(FSoftClassPath(TEXT("/Script/GoHome.SupplyScreenWidget")));
@@ -230,6 +237,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UUserWidget> HudNoticeFeed;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UUserWidget> ItemInspect;
 
 	// ProgressHUD 가 생성될 때의 GameState — 다르면(새 월드) 다시 만든다
 	TWeakObjectPtr<AGameStateBase> ProgressHUDGameState;
