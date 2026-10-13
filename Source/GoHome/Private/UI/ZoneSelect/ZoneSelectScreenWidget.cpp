@@ -418,10 +418,11 @@ UWidget* UZoneSelectScreenWidget::BuildHeader(const FBuilder& B)
 
 	// .brand: 32×32 마름모(1px 종이색 테두리, 45°) + ↧ — gap 13
 	UOverlay* Icon = B.Overlay();
-	UWidget* Diamond = B.Ring(Paper(), 1.f, true);
-	Diamond->SetRenderTransformPivot(FVector2D(.5f, .5f));
-	Diamond->SetRenderTransformAngle(45.f);
-	AddFill(Icon, Diamond);
+	// 45° 회전한 1px 테두리 — 회전 채움 막대는 DPI < 1에서 변이 흐리게 끊겨(fresh 비교 지적) 안티에일리어싱 선으로 닫힌 마름모를 그린다.
+	// 32 상자 대각선 45.25가 아이콘 상자 밖으로 나가므로 바깥 여백을 음수로.
+	UStrokeGlyphWidget* Diamond = Glyph(B, FVector2D(46.25f, 46.25f), { {
+		FVector2D(23.125f, .5f), FVector2D(45.75f, 23.125f), FVector2D(23.125f, 45.75f), FVector2D(.5f, 23.125f), FVector2D(23.125f, .5f) } }, 1.f, Paper());
+	AddOverlay(Icon, Diamond, HAlign_Fill, VAlign_Fill, FMargin(-7.125f));
 	// ↧(Segoe UI Symbol 19px — 대체 글꼴에 없음): 글리프 윤곽 좌표에서 옮긴 막대·대·화살촉
 	AddFill(Icon, Glyph(B, FVector2D(32.f, 32.f), {
 		{ FVector2D(12.89f, 11.72f), FVector2D(19.08f, 11.72f) },
@@ -749,10 +750,13 @@ FZoneSelectCardView UZoneSelectScreenWidget::BuildCard(const FBuilder& B, const 
 	}
 
 	Card.Slot = B.Size(400.f);
+	// 테두리·포커스 링은 클립 밖 겉 층에 — 1px 헤어라인이 물리 픽셀로 스냅되며 카드 경계 밖으로 반 픽셀 나가면 클립에 통째로 잘린다(DPI .92 실측)
+	UOverlay* Shell = B.Overlay();
+	Card.Slot->AddChild(Shell);
+	Card.Body = Shell;
 	UOverlay* Body = B.Overlay();
 	Body->SetClipping(EWidgetClipping::ClipToBounds);	// overflow hidden
-	Card.Slot->AddChild(Body);
-	Card.Body = Body;
+	AddFill(Shell, Body);
 
 	AddFill(Body, B.Fill(Navy()));
 
@@ -818,9 +822,10 @@ FZoneSelectCardView UZoneSelectScreenWidget::BuildCard(const FBuilder& B, const 
 	USizeBox* CaptionBox = B.Size();
 	CaptionBox->SetMaxDesiredWidth(360.f);
 	CaptionBox->AddChild(Caption);
-	UBorder* CaptionWrap = B.Box(FMargin(0.f, 13.f, 0.f, 0.f));
+	// 숨은 설명은 height 0이지만 margin-top 13은 남는다 — 여백은 늘 두고 안쪽 내용만 접는다
+	UBorder* CaptionWrap = B.Box();
 	SetContent(CaptionWrap, CaptionBox, HAlign_Left);
-	AddV(CardBottom, CaptionWrap);
+	AddV(CardBottom, CaptionWrap, FMargin(0.f, 13.f, 0.f, 0.f));
 	Card.Caption = CaptionWrap;
 
 	// .card-line: margin-top 21, border-top 1px #c0cffb55, padding-top 12 — 탐사지 0N / ✓ 팀 목적지 ↔ ↗(10px)
@@ -847,8 +852,8 @@ FZoneSelectCardView UZoneSelectScreenWidget::BuildCard(const FBuilder& B, const 
 	AddOverlay(Body, CardBottom, HAlign_Fill, VAlign_Bottom, FMargin(33.f, 0.f, 33.f, 34.f));
 
 	Card.Edge = B.Ring(CardEdge(), 1.f);
-	AddFill(Body, Card.Edge);
-	Card.FocusRing = AddFocusRing(B, Body, 2.f);
+	AddFill(Shell, Card.Edge);
+	Card.FocusRing = AddFocusRing(B, Shell, 2.f);
 	return Card;
 }
 
@@ -1056,16 +1061,14 @@ void UZoneSelectScreenWidget::RenderState()
 			Card.Title->SetFont(Font(MalgunBold, Px, -.05f));
 			Typeset(Card.Title, ERef::Malgun, Px * 1.2f);
 		}
-		// 설명: 높이는 auto/0으로 즉시, 투명도만 180ms
-		if (Card.Caption)
+		// 설명: 높이는 auto/0으로 즉시, 투명도만 180ms. 접는 건 안쪽 내용 — 래퍼 슬롯의 margin-top 13은 숨어도 남는다
+		// (Slate는 접힌 자식의 슬롯 여백까지 빼므로 래퍼를 접으면 안 됨)
+		if (UBorder* CaptionWrap = Cast<UBorder>(Card.Caption))
 		{
-			const bool bWasShown = Card.Caption->GetVisibility() != ESlateVisibility::Collapsed;
-			SetShown(Card.Caption, bPreview);
-			if (bPreview && !bWasShown)
-			{
-				CaptionOpacity[Index].Snap(0.f);
-			}
-			if (!bPreview)
+			UWidget* Content = CaptionWrap->GetContent();
+			const bool bWasShown = Content && Content->GetVisibility() != ESlateVisibility::Collapsed;
+			SetShown(Content, bPreview);
+			if (!bPreview || !bWasShown)
 			{
 				CaptionOpacity[Index].Snap(0.f);
 			}
