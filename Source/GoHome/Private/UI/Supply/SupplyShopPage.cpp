@@ -173,8 +173,12 @@ UWidget* USupplyShopPage::BuildCatalog(const FBuilder& B)
 	// .shop-title: 900 italic clamp(46px,6vw,88px)/.95, margin 4 0 18
 	// 압축: 52px, margin-bottom 12
 	const float NextDivePx = Css(88.f, 52.f);
-	UTextBlock* Title = B.Text(LOCTEXT("NextDive", "NEXT DIVE."), Font(EFace::Display, NextDivePx, -.065f, true), Paper());
-	AddV(Catalog, B.LineBox(Title, NextDivePx * .95f, ERef::ArialBlack), FMargin(0.f, 4.f, 0.f, Css(18.f, 12.f)));
+	// "DIVE."만 라임 — 같은 글꼴 두 조각을 한 줄에 이어 붙인다
+	const FSlateFontInfo NextDiveFont = Font(EFace::Display, NextDivePx, -.065f, true);
+	UHorizontalBox* Title = B.HBox();
+	AddH(Title, B.LineBox(B.Text(LOCTEXT("NextDiveA", "NEXT "), NextDiveFont, Paper()), NextDivePx * .95f, ERef::ArialBlack), FMargin(0.f), VAlign_Top);
+	AddH(Title, B.LineBox(B.Text(LOCTEXT("NextDiveB", "DIVE."), NextDiveFont, Lime()), NextDivePx * .95f, ERef::ArialBlack), FMargin(0.f), VAlign_Top);
+	AddV(Catalog, Title, FMargin(0.f, 4.f, 0.f, Css(18.f, 12.f)), HAlign_Left);
 
 	// .shop-filters: gap 4, padding-bottom 12, border-bottom 1px line
 	UHorizontalBox* FilterRow = B.HBox();
@@ -488,8 +492,8 @@ UWidget* USupplyShopPage::BuildFooter(const FBuilder& B)
 	UVerticalBox* Texts = B.VBox();
 	StatusText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 12.f), Paper()), 18.f);
 	AddV(Texts, StatusText);
-	HintText = B.LineBox(B.Text(FText::GetEmpty(), Font(EFace::Regular, 11.f), Muted()));
-	AddV(Texts, HintText, FMargin(0.f, 8.f, 0.f, 0.f));
+	HintBox = B.HBox();
+	AddV(Texts, HintBox, FMargin(0.f, 8.f, 0.f, 0.f), HAlign_Left);
 	AddV(Foot, Texts, FMargin(0.f, Css(12.f, 9.f), 0.f, 0.f));
 	return Foot;
 }
@@ -608,6 +612,7 @@ void USupplyShopPage::BuildRows()
 	}
 	RowsList->ClearChildren();
 	Rows.Reset();
+	PruneHitTargets();
 	const FBuilder B(WidgetTree);
 	for (const FItemShopProduct& Product : Products)
 	{
@@ -1260,6 +1265,13 @@ void USupplyShopPage::OnPageRebuilt()
 	BuildRows();
 	SetStatus(StatusMessage, bStatusError);
 	RefreshAll();
+	for (const FRowWidgets& Row : Rows)
+	{
+		if (Row.ProductId == SelectedId && Row.Root)
+		{
+			ScrollIntoViewNextFrame(RowsScroll, Row.Root);
+		}
+	}
 	if (bConfirmOpen)
 	{
 		HitLayer = ShopConfirmLayerIndex;
@@ -1428,16 +1440,43 @@ void USupplyShopPage::RefreshFocus()
 	SetButtonFocused(CancelButton, bConfirmOpen && ConfirmFocus == 0);
 	SetButtonFocused(CommitButton, bConfirmOpen && ConfirmFocus == 1);
 
-	FText Hint;
+	const FString Enter = TEXT("Enter");
+	TArray<FKeyHint> Hints;
 	switch (Area)
 	{
-	case EArea::Category: Hint = LOCTEXT("HintCategory", "← → 분류　↓ / Enter 목록　Esc 메인 분기"); break;
-	case EArea::List: Hint = LOCTEXT("HintList", "↑ ↓ 상품　→ / Enter 주문 수량　Esc 분류"); break;
-	case EArea::Quantity: Hint = LOCTEXT("HintQuantity", "← → 수량　Enter 주문 확인으로　Esc 목록"); break;
-	case EArea::Buy: Hint = LOCTEXT("HintBuy", "Enter 확인 열기　Esc 수량"); break;
-	default: Hint = LOCTEXT("HintUtility", "Enter 실행　Esc 목록"); break;
+	case EArea::Category:
+		Hints = {
+			{ { TEXT("AD"), TEXT("← →") }, LOCTEXT("HintCategory", "분류") },
+			{ { TEXT("S"), TEXT("↓"), TEXT("Space"), Enter }, LOCTEXT("HintToList", "목록") },
+			{ { TEXT("Esc") }, LOCTEXT("HintHub", "메인 분기") } };
+		break;
+	case EArea::List:
+		Hints = {
+			{ { TEXT("WS"), TEXT("↑↓") }, LOCTEXT("HintProducts", "상품") },
+			{ { TEXT("D"), TEXT("→"), TEXT("Space"), Enter }, LOCTEXT("HintToQuantity", "주문 수량") },
+			{ { TEXT("Esc") }, LOCTEXT("HintToCategory", "분류") } };
+		break;
+	case EArea::Quantity:
+		Hints = {
+			{ { TEXT("AD"), TEXT("← →") }, LOCTEXT("HintQuantity", "수량") },
+			{ { TEXT("Space"), Enter }, LOCTEXT("HintToBuy", "주문 확인으로") },
+			{ { TEXT("Esc") }, LOCTEXT("HintToList", "목록") } };
+		break;
+	case EArea::Buy:
+		Hints = {
+			{ { TEXT("Space"), Enter }, LOCTEXT("HintOpenConfirm", "확인 열기") },
+			{ { TEXT("Esc") }, LOCTEXT("HintToQuantityBack", "수량") } };
+		break;
+	default:
+		Hints = {
+			{ { TEXT("Space"), Enter }, LOCTEXT("HintRun", "실행") },
+			{ { TEXT("Esc") }, LOCTEXT("HintToList", "목록") } };
+		break;
 	}
-	HintText->SetText(Hint);
+	if (WidgetTree)
+	{
+		FillKeyHints(FBuilder(WidgetTree), HintBox, Hints, 11.f);
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

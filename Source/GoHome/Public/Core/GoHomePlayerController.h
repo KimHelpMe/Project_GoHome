@@ -7,6 +7,7 @@
 #include "Core/HudNoticeTypes.h"
 #include "Core/PauseMenuBackend.h"
 #include "Core/SupplyScreenBackend.h"
+#include "Core/ZoneSelectBackend.h"
 #include "Data/FSettlementResult.h"
 #include "Shop/ItemShopTypes.h"
 #include "GoHomePlayerController.generated.h"
@@ -19,7 +20,7 @@ class UUserWidget;
  *
  */
 UCLASS()
-class GOHOME_API AGoHomePlayerController : public APlayerController, public IPauseMenuBackend, public ISupplyScreenBackend
+class GOHOME_API AGoHomePlayerController : public APlayerController, public IPauseMenuBackend, public ISupplyScreenBackend, public IZoneSelectBackend
 {
 	GENERATED_BODY()
 
@@ -69,14 +70,28 @@ public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "UI")
 	void OnExplorationHUDTeardown();
 
-	UFUNCTION(BlueprintImplementableEvent, Category="UI")
-	void OnOpenSelectZone();
-	
-	UFUNCTION(Server, Reliable, BlueprintCallable)                                                                  
+	// IZoneSelectBackend
+	virtual TArray<const UExpeditionZoneDataAsset*> GetSelectableZones() const override;
+	virtual FName GetTeamDestination() const override;
+	virtual bool RequestTeamDestination(FName ZoneId) override;
+	virtual bool IsDestinationRequestPending() const override { return PendingDestination != NAME_None; }
+	virtual FZoneDestinationChangedEvent& OnTeamDestinationChanged() override { return TeamDestinationChangedEvent; }
+	virtual FName GetLastPreviewedZone() const override { return LastPreviewedZone; }
+	virtual void SetLastPreviewedZone(FName ZoneId) override { LastPreviewedZone = ZoneId; }
+	virtual void RequestCloseZoneSelect() override;
+
+	UFUNCTION(BlueprintPure, Category = "UI|ZoneSelect")
+	bool IsZoneSelectOpen() const { return ZoneSelectScreen != nullptr; }
+
+	// 탐사 목적지 Modal을 연다. 로컬 컨트롤러 전용 — 서버 오브젝트(ZoneSelectMonitor)는 Client_OpenSelectZone.
+	UFUNCTION(BlueprintCallable, Category = "UI|ZoneSelect")
+	void OpenZoneSelect();
+
+	// 팀 목적지 지정 요청. UI는 IZoneSelectBackend::RequestTeamDestination으로만 부른다. 서버 검증은 ALobbyGameState::SetSelectedZone.
+	UFUNCTION(Server, Reliable)
 	void Server_SelectZone(FName ZoneId);
-	
-	// UI 실제 생성/뷰포트 추가는 BP에서 (WBP_ZoneSelect 참조는 C++이 몰라도 되므로)                  
-	UFUNCTION(Client, Reliable)                                                                       
+
+	UFUNCTION(Client, Reliable)
 	void Client_OpenSelectZone();
 
 	// 강화 관련
@@ -176,6 +191,17 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "UI|Supply")
 	int32 SupplyScreenZOrder = 110;
 
+	// 탐사 목적지 Modal 클래스. 기본값은 C++ UZoneSelectScreenWidget(트리를 C++이 만든다) — WBP 없이도 열린다.
+	UPROPERTY(EditDefaultsOnly, Category = "UI|ZoneSelect")
+	TSoftClassPtr<UUserWidget> ZoneSelectClass = TSoftClassPtr<UUserWidget>(FSoftClassPath(TEXT("/Script/GoHome.ZoneSelectScreenWidget")));
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI|ZoneSelect")
+	int32 ZoneSelectZOrder = 110;
+
+	// 지정 요청이 이 시간 안에 복제되지 않으면 실패로 알린다(서버는 거절을 따로 알려 주지 않는다)
+	UPROPERTY(EditDefaultsOnly, Category = "UI|ZoneSelect")
+	float DestinationRequestTimeoutSeconds = 5.f;
+
 private:
 	// 로컬 컨트롤러에서 현재 월드의 GameState 로 탐사 레벨 여부를 판정해 Ready/Teardown 을 엣지에서 1회씩 쏜다.
 	void RefreshExplorationHUD();
@@ -235,6 +261,22 @@ private:
 	TObjectPtr<UUserWidget> SupplyScreen;
 
 	ESupplyEntry SupplyEntry = ESupplyEntry::LobbyHub;
+
+	// --- 탐사 목적지 화면 ---
+	void CloseZoneSelect(bool bRestoreInput);
+	void BindLobbyDestination();
+	UFUNCTION()
+	void HandleSelectedZoneChanged(FName NewZoneId);
+	void HandleDestinationRequestTimeout();
+
+	UPROPERTY(Transient)
+	TObjectPtr<UUserWidget> ZoneSelectScreen;
+
+	TWeakObjectPtr<AGameStateBase> BoundLobbyGameState;
+	FName PendingDestination = NAME_None;
+	FName LastPreviewedZone = NAME_None;
+	FTimerHandle DestinationRequestTimeoutHandle;
+	FZoneDestinationChangedEvent TeamDestinationChangedEvent;
 
 	// 보급 화면 구매 요청(한 번에 하나). 결과가 오면 비운다.
 	FName PendingPurchaseProduct = NAME_None;

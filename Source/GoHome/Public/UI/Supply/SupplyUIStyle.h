@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "Fonts/SlateFontInfo.h"
@@ -49,7 +49,8 @@ namespace SupplyUI
 		Bold,
 		ExtraBold,
 		Black,
-		Display	// Arial Black 대체(Archivo Black)
+		Display,	// Arial Black 대체(Archivo Black)
+		Mono		// Consolas 대체(Inconsolata wdth 112 인스턴스 — advance .548em ≈ Consolas .550em, 탐사 목적지 수치)
 	};
 
 	// 브라우저 합성 이탤릭(oblique) 기울기. FreeType 변환 행렬 xy 값.
@@ -60,7 +61,8 @@ namespace SupplyUI
 	{
 		Malgun,		// 맑은 고딕(한글 본문 기본)
 		Segoe,		// Segoe UI(영문 kicker·숫자)
-		ArialBlack	// Arial Black(워드마크·대제목)
+		ArialBlack,	// Arial Black(워드마크·대제목)
+		Consolas	// Consolas(탐사 목적지 수치)
 	};
 
 	// CSS line-height:normal = 시안 글꼴 ascent+descent, 브라우저가 정수 px로 반올림
@@ -102,7 +104,8 @@ namespace SupplyUI
 		// 테두리만(안쪽 채움 없음). CSS outline/inset box-shadow 재현용 — 슬롯 패딩으로 offset을 준다.
 		// 네 변을 단색 막대로 그린다: RoundedBox 브러시의 외곽선(OutlineSettings)은 부모 RenderOpacity를 따르지 않아
 		// 페이드 아웃(스윕 잔상 등) 중에도 그대로 남는다(2026-10-12 확인).
-		UWidget* Ring(const FLinearColor& Color, float Width) const;
+		// bRotated: 렌더 변환으로 회전·기울일 링 — 1px도 헤어라인(축 정렬 스냅, AA 없음) 대신 매끈한 채움 변으로 그린다.
+		UWidget* Ring(const FLinearColor& Color, float Width, bool bRotated = false) const;
 
 		// Typeset 후 그 텍스트를 돌려준다(조립 체인용)
 		UTextBlock* LineBox(UTextBlock* TextWidget, float LineHeightPx = -1.f, ERef Ref = ERef::Malgun) const;
@@ -120,6 +123,15 @@ namespace SupplyUI
 	// 가로/세로 줄(CSS border). 1px은 UHairlineWidget — DPI 배율 < 1에서 1px 채움 막대는 픽셀 중심 사이에 끼면 통째로 사라진다
 	GOHOME_API UWidget* Rule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f);
 	GOHOME_API UWidget* VRule(const FBuilder& B, const FLinearColor& Color, float Thickness = 1.f);
-	GOHOME_API void ShowIf(UWidget* Widget, bool bShow);
+	GOHOME_API void ShowIf(UWidget* Widget, bool bShow);	// 보이면 HitTestInvisible, 아니면 Hidden(자리 유지)
 	GOHOME_API void SetRingColor(UWidget* Ring, const FLinearColor& Color);	// FBuilder::Ring 네 변 색 바꾸기(채움 막대·헤어라인 둘 다)	// 보이면 HitTestInvisible, 아니면 Hidden(자리 유지)
+
+	// 하단 키 안내 한 항목: 같은 동작의 키들(칩을 "/"로 잇는다) + 설명. 키 "Space"·"Enter"는 ␣·↵ 모양을 그리고 "Esc"는 칩 없이 굵은 글자.
+	struct FKeyHint
+	{
+		TArray<FString> Keys;
+		FText Label;
+	};
+	// Box를 비우고 항목들을 다시 채운다(항목 사이 20, 칩→설명 6)
+	GOHOME_API void FillKeyHints(const FBuilder& B, UHorizontalBox* Box, const TArray<FKeyHint>& Hints, float LabelPx);
 }

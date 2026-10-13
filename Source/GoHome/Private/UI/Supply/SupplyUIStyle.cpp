@@ -1,4 +1,4 @@
-#include "UI/Supply/SupplyUIStyle.h"
+﻿#include "UI/Supply/SupplyUIStyle.h"
 
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
@@ -44,6 +44,7 @@ namespace SupplyUI
 			case EFace::ExtraBold: return TEXT("/Game/GoHome/UI/Style/Fonts/FF_NotoSansKR_ExtraBold.FF_NotoSansKR_ExtraBold");
 			case EFace::Black: return TEXT("/Game/GoHome/UI/Style/Fonts/FF_NotoSansKR_Black.FF_NotoSansKR_Black");
 			case EFace::Display: return TEXT("/Game/GoHome/UI/Style/Fonts/FF_ArchivoBlack.FF_ArchivoBlack");
+			case EFace::Mono: return TEXT("/Game/GoHome/UI/Style/Fonts/FF_Inconsolata_SemiExpanded.FF_Inconsolata_SemiExpanded");
 			}
 			return nullptr;
 		}
@@ -102,6 +103,7 @@ namespace SupplyUI
 			{
 			case ERef::Segoe: OutAscent = 1.079f; OutDescent = .251f; break;
 			case ERef::ArialBlack: OutAscent = 1.101f; OutDescent = .310f; break;
+			case ERef::Consolas: OutAscent = .920f; OutDescent = .251f; break;
 			default: OutAscent = 1.088f; OutDescent = .242f; break;
 			}
 		}
@@ -206,8 +208,12 @@ namespace SupplyUI
 	UBorder* FBuilder::Fill(const FLinearColor& Color, const FMargin& Padding) const
 	{
 		UBorder* Border = Tree->ConstructWidget<UBorder>();
+		// Box(평면 사각형)는 렌더 변환으로 회전·기울이면 가장자리가 계단으로 깨진다. RoundedBox는 SDF 셰이더가 자기 공간에서
+		// 가장자리 커버리지를 계산해 회전해도 매끈하다 — 반지름 0·외곽선 없음으로 모서리는 그대로(외곽선은 부모 투명도를 안 따르므로 안 씀).
 		FSlateBrush Brush;
-		Brush.DrawAs = ESlateBrushDrawType::Box;
+		Brush.DrawAs = ESlateBrushDrawType::RoundedBox;
+		Brush.OutlineSettings = FSlateBrushOutlineSettings(FVector4(0.f, 0.f, 0.f, 0.f), FSlateColor(FLinearColor::Transparent), 0.f);
+		Brush.OutlineSettings.RoundingType = ESlateBrushRoundingType::FixedRadius;
 		Brush.TintColor = FSlateColor(FLinearColor::White);
 		Border->SetBrush(Brush);
 		Border->SetBrushColor(Color);
@@ -253,14 +259,25 @@ namespace SupplyUI
 		return TextWidget;
 	}
 
-	UWidget* FBuilder::Ring(const FLinearColor& Color, float Width) const
+	UWidget* FBuilder::Ring(const FLinearColor& Color, float Width, bool bRotated) const
 	{
 		UOverlay* RingOverlay = Overlay();
 		// 1px 변은 Rule/VRule과 같이 헤어라인(DPI 배율 < 1에서 채움 막대 변이 사라지는 문제 — kbd 칩 윗변 실측)
-		AddOverlay(RingOverlay, Rule(*this, Color, Width), HAlign_Fill, VAlign_Top);
-		AddOverlay(RingOverlay, Rule(*this, Color, Width), HAlign_Fill, VAlign_Bottom);
-		AddOverlay(RingOverlay, VRule(*this, Color, Width), HAlign_Left, VAlign_Fill);
-		AddOverlay(RingOverlay, VRule(*this, Color, Width), HAlign_Right, VAlign_Fill);
+		if (bRotated)
+		{
+			const float Half = Width * .5f;
+			AddOverlay(RingOverlay, Fill(Color, FMargin(0.f, Half)), HAlign_Fill, VAlign_Top);
+			AddOverlay(RingOverlay, Fill(Color, FMargin(0.f, Half)), HAlign_Fill, VAlign_Bottom);
+			AddOverlay(RingOverlay, Fill(Color, FMargin(Half, 0.f)), HAlign_Left, VAlign_Fill);
+			AddOverlay(RingOverlay, Fill(Color, FMargin(Half, 0.f)), HAlign_Right, VAlign_Fill);
+		}
+		else
+		{
+			AddOverlay(RingOverlay, Rule(*this, Color, Width), HAlign_Fill, VAlign_Top);
+			AddOverlay(RingOverlay, Rule(*this, Color, Width), HAlign_Fill, VAlign_Bottom);
+			AddOverlay(RingOverlay, VRule(*this, Color, Width), HAlign_Left, VAlign_Fill);
+			AddOverlay(RingOverlay, VRule(*this, Color, Width), HAlign_Right, VAlign_Fill);
+		}
 		RingOverlay->SetVisibility(ESlateVisibility::HitTestInvisible);
 		return RingOverlay;
 	}
@@ -379,6 +396,77 @@ namespace SupplyUI
 		if (Widget)
 		{
 			Widget->SetVisibility(bShow ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
+		}
+	}
+
+	namespace
+	{
+		// kbd: 800 11px, border 1px #7b8aa0, box-shadow 0 2px 0 #48556a, padding 2 5
+		UWidget* KeyChip(const FBuilder& B, const FString& Key)
+		{
+			UOverlay* Chip = B.Overlay();
+			UBorder* ChipShadow = B.Fill(Hex(0x48556a));
+			ChipShadow->SetRenderTranslation(FVector2D(0.f, 2.f));
+			AddFill(Chip, ChipShadow);
+			AddFill(Chip, B.Fill(Ink()));
+			AddFill(Chip, B.Ring(Hex(0x7b8aa0), 1.f));
+			if (Key == TEXT("Space"))
+			{
+				// ␣: 밑변 + 양끝 짧은 세로 — 글리프 대신 그린다(대체 글꼴에 없을 수 있음)
+				UOverlay* Bracket = B.Overlay();
+				AddOverlay(Bracket, Rule(B, Paper()), HAlign_Fill, VAlign_Bottom);
+				for (EHorizontalAlignment Side : { HAlign_Left, HAlign_Right })
+				{
+					USizeBox* Tick = B.Size(-1.f, 4.f);
+					Tick->AddChild(VRule(B, Paper()));
+					AddOverlay(Bracket, Tick, Side, VAlign_Bottom);
+				}
+				USizeBox* Shape = B.Size(22.f, 9.f);
+				Shape->AddChild(Bracket);
+				AddOverlay(Chip, Shape, HAlign_Center, VAlign_Center, FMargin(6.f, 4.f));
+			}
+			else if (Key == TEXT("Enter"))
+			{
+				// ↵: 대체 글꼴에 글리프가 없어 ← 글자 오른끝에 위로 올라가는 세로 획을 얹는다
+				UHorizontalBox* Glyph = B.HBox();
+				AddH(Glyph, B.LineBox(B.Text(FText::FromString(TEXT("←")), Font(EFace::ExtraBold, 11.f), Paper()), -1.f, ERef::Segoe), FMargin(0.f), VAlign_Center);
+				USizeBox* Stem = B.Size(-1.f, 4.5f);
+				Stem->AddChild(VRule(B, Paper()));
+				AddH(Glyph, Stem, FMargin(-3.f, 2.f, 1.f, 0.f), VAlign_Top);	// 글리프 오른쪽 여백만큼 당겨 화살대 끝에 붙인다
+				AddOverlay(Chip, Glyph, HAlign_Fill, VAlign_Fill, FMargin(6.f, 3.f));
+			}
+			else
+			{
+				AddOverlay(Chip, B.LineBox(B.Text(FText::FromString(Key), Font(EFace::ExtraBold, 11.f), Paper()), -1.f, ERef::Segoe), HAlign_Fill, VAlign_Fill, FMargin(6.f, 3.f));
+			}
+			return Chip;
+		}
+	}
+
+	void FillKeyHints(const FBuilder& B, UHorizontalBox* Box, const TArray<FKeyHint>& Hints, float LabelPx)
+	{
+		if (!Box)
+		{
+			return;
+		}
+		Box->ClearChildren();
+		for (int32 Index = 0; Index < Hints.Num(); ++Index)
+		{
+			const FKeyHint& Hint = Hints[Index];
+			for (int32 KeyIndex = 0; KeyIndex < Hint.Keys.Num(); ++KeyIndex)
+			{
+				const FString& Key = Hint.Keys[KeyIndex];
+				const float Left = KeyIndex > 0 ? 0.f : (Index == 0 ? 0.f : 20.f);
+				if (KeyIndex > 0)
+				{
+					AddH(Box, B.LineBox(B.Text(FText::FromString(TEXT("/")), Font(EFace::Regular, LabelPx), Muted())), FMargin(6.f, 0.f), VAlign_Center);
+				}
+				UWidget* KeyWidget = Key == TEXT("Esc")
+					? static_cast<UWidget*>(B.LineBox(B.Text(FText::FromString(Key), Font(EFace::ExtraBold, LabelPx), Paper()), -1.f, ERef::Segoe))
+					: KeyChip(B, Key);
+				AddH(Box, KeyWidget, FMargin(Left, 0.f, 0.f, 0.f), VAlign_Center);
+			}
+			AddH(Box, B.LineBox(B.Text(Hint.Label, Font(EFace::Regular, LabelPx), Muted())), FMargin(6.f, 0.f, 0.f, 0.f), VAlign_Center);
 		}
 	}
 }

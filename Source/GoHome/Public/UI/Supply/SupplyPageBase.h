@@ -83,6 +83,12 @@ protected:
 
 	// Layer: 지금 입력을 받는 층(HitLayer)과 같은 대상만 클릭된다 — 확인 패널이 뜨면 층을 올려 배경 클릭을 막는다.
 	void AddHitTarget(UWidget* Target, TFunction<void()> OnClick, int32 Layer = 0);
+
+	// 트리에서 떼어 낸(ClearChildren 등) 위젯의 히트 대상을 지운다
+	void PruneHitTargets();
+
+	// 방금 만든 행은 아직 배치 전이라 바로 스크롤하면 무시된다 — 한 번 그려진 다음 프레임에 스크롤
+	void ScrollIntoViewNextFrame(class UScrollBox* Scroll, UWidget* Target);
 	FSupplyAnimator* GetAnimator() const;
 	USupplyScreenWidget* GetHost() const { return Host.Get(); }
 
