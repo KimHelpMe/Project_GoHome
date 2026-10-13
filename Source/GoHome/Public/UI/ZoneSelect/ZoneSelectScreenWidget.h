@@ -54,7 +54,6 @@ struct FZoneSelectCardView
 	UPROPERTY(Transient) TObjectPtr<UWidget> ViewLabel;
 	UPROPERTY(Transient) TObjectPtr<UWidget> TeamTag;
 	UPROPERTY(Transient) TObjectPtr<UWidget> Arrow;
-	UPROPERTY(Transient) TObjectPtr<UWidget> FocusRing;
 	UPROPERTY(Transient) TObjectPtr<UTexture2D> Texture;
 
 	FName ZoneId;

@@ -853,7 +853,8 @@ FZoneSelectCardView UZoneSelectScreenWidget::BuildCard(const FBuilder& B, const 
 
 	Card.Edge = B.Ring(CardEdge(), 1.f);
 	AddFill(Shell, Card.Edge);
-	Card.FocusRing = AddFocusRing(B, Shell, 2.f);
+	// 카드엔 포커스 링을 그리지 않는다: 시안 CSS는 :focus-visible에 라임 outline을 주지만, 카드 안 절대 위치 사진·:before/:after 층이
+	// 그 위를 덮어 브라우저 화면엔 안 보인다(Chrome 실측 2026-10-13 — 보이는 건 미리보기 종이색 1px 테두리뿐). 닫기·지정 버튼 링은 보인다.
 	return Card;
 }
 
@@ -1167,10 +1168,6 @@ void UZoneSelectScreenWidget::ApplyCardTargets(bool bInstant)
 
 void UZoneSelectScreenWidget::RenderFocus()
 {
-	for (int32 Index = 0; Index < Cards.Num(); ++Index)
-	{
-		SetShown(Cards[Index].FocusRing, bFocusVisible && FocusKind == EFocus::Card && FocusCard == Index);
-	}
 	SetShown(CloseFocus, bFocusVisible && FocusKind == EFocus::Close);
 	SetShown(ApplyFocus, bFocusVisible && FocusKind == EFocus::Apply);
 }
