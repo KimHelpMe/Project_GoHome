@@ -1,6 +1,7 @@
 #include "Core/AnnouncerComponent.h"
 
 #include "Core/DockingDoorComponent.h"
+#include "Core/ExpeditionEntryBackend.h"
 #include "Core/ExplorationGameState.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -414,6 +415,15 @@ void UAnnouncerComponent::LocalTick()
 		bRoundOver = true;
 		ClearAll();
 		return;
+	}
+
+	// 탐사 진입 오프닝 동안은 판정·발화하지 않는다(아나운서 위젯도 오프닝 뒤에 생긴다). 시작 안내는 HUD가 뜬 뒤 StartDelaySeconds.
+	if (const IExpeditionEntryBackend* Entry = GetOwner() ? GetOwner()->FindComponentByInterface<IExpeditionEntryBackend>() : nullptr)
+	{
+		if (Entry->GetEntryView().Context != Exploration || !Entry->GetEntryView().bHUDVisible)
+		{
+			return;
+		}
 	}
 
 	RebindLocalPawn();

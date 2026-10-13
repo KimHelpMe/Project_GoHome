@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "GoHomeGameState.h"
 #include "Data/FSettlementResult.h"
+#include "Core/ExpeditionEntryTypes.h"
+#include "Core/ExpeditionPreparation.h"
 #include "ExplorationGameState.generated.h"
 
 class UHealthComponent;
@@ -17,29 +19,47 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnQuotaProgressChanged, int32, Del
 
 // 제한시간 정보(마감 서버시각 + 총 길이)가 복제 도착했을 때 브로드캐스트 — 상시 HUD가 바인딩, 바인딩 직후 Get*()로 초기값 1회
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnTimeLimitChanged);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnExpeditionEntryChanged);
 
 /**
  *
  */
 
 UCLASS()
-class GOHOME_API AExplorationGameState : public AGoHomeGameState
+class GOHOME_API AExplorationGameState : public AGoHomeGameState, public IExpeditionPreparation
 {
 	GENERATED_BODY()
 
 public:
 	AExplorationGameState();
+
+	UFUNCTION(BlueprintPure, Category = "Expedition|Entry")
+	const FExpeditionEntryState& GetEntryState() const { return EntryState; }
+
+	UFUNCTION(BlueprintPure, Category = "Expedition|Entry")
+	bool HasExplorationStarted() const { return EntryState.Phase == EExpeditionEntryPhase::Active; }
+
+	virtual bool IsExpeditionPreparing() const override
+	{
+		return CurrentState == EExpeditionState::Exploration && !HasExplorationStarted();
+	}
+
+	// 서버 GameMode가 결정한 값만 복제한다. UI에서 호출하지 않는다.
+	void SetEntryState(const FExpeditionEntryState& InState);
+
+	UPROPERTY(BlueprintAssignable, Category = "Expedition|Entry")
+	FOnExpeditionEntryChanged OnEntryChanged;
 	
 	// 위젯이 매 틱 호출해 카운트다운 표시 (서버, 클라)
 	UFUNCTION(BlueprintPure, Category = "Expedition")
 	float GetRemainingSeconds() const;
 
 	UFUNCTION(BlueprintPure, Category = "Expedition")
-	bool HasTimeLimit()const {return ExpeditionDeadline>0.f;}
+	bool HasTimeLimit()const {return EntryState.TimeLimitSeconds > 0.f || ExpeditionDeadline > 0.f;}
 
 	// 총 제한시간(초). 프로그레스 바 비율용. 미설정 시 0.
 	UFUNCTION(BlueprintPure, Category = "Expedition")
-	float GetTotalSeconds() const { return ExpeditionDurationSeconds; }
+	float GetTotalSeconds() const { return EntryState.TimeLimitSeconds > 0.f ? EntryState.TimeLimitSeconds : ExpeditionDurationSeconds; }
 
 	// 서버 전용. 마감 서버시각 + 총 제한시간을 복제 필드에 싣는다(AExplorationGameMode::BeginPlay).
 	void SetExpeditionDeadline(float InDeadlineServerTime, float InDurationSeconds);
@@ -104,6 +124,12 @@ public:
 	FOnTimeLimitChanged OnTimeLimitChanged;
 
 private:
+	UPROPERTY(ReplicatedUsing = OnRep_EntryState)
+	FExpeditionEntryState EntryState;
+
+	UFUNCTION()
+	void OnRep_EntryState();
+
 	UPROPERTY(ReplicatedUsing = OnRep_ExpeditionTime)
 	float ExpeditionDeadline = 0.f;
 

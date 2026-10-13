@@ -18,6 +18,7 @@ class AGameStateBase;
 class UUserWidget;
 class USpectateComponent;
 class UAnnouncerComponent;
+class UExpeditionEntryComponent;
 
 /**
  *
@@ -250,6 +251,15 @@ private:
 	// 아나운서 사건 수신·큐·표시 데이터(서버: 개인 사건 발화 간격, 로컬: 팀 진행 판정·대기열)
 	UPROPERTY(VisibleAnywhere, Category = "Announcer")
 	TObjectPtr<UAnnouncerComponent> AnnouncerComponent;
+
+	// 탐사 진입(팀 대기 → 오프닝 → 탐사 개시) 게이트. 오프닝이 끝나야(View.bHUDVisible) 탐사 HUD를 만든다.
+	UPROPERTY(VisibleAnywhere, Category = "Expedition|Entry")
+	TObjectPtr<UExpeditionEntryComponent> EntryComponent;
+
+	// 탐사 월드에서 오프닝이 끝나기 전이면 false — HUD 생성(진행도·피드·바이탈·아나운서·WBP_HUD)을 미룬다
+	bool IsExplorationHUDAllowed() const;
+	void HandleEntryViewChanged();
+	void RemoveProgressHUDWidgets();
 
 	UPROPERTY(Transient)
 	TObjectPtr<UUserWidget> ProgressHUD;

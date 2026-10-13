@@ -9,7 +9,16 @@
 #include "Core/DockingDoorComponent.h"
 #include "Core/ExpeditionTravelSubsystem.h"
 #include "Core/ExpeditionZoneDataAsset.h"
+#include "HAL/IConsoleManager.h"
 
+
+#if !UE_BUILD_SHIPPING
+static TAutoConsoleVariable<int32> CVarEntryPIEZone(
+	TEXT("GoHome.Entry.PIEZone"),
+	0,
+	TEXT("탐사맵을 로비 출발 없이 직접 열었을 때 쓸 존(DA_Zone_Lv<n>). 0이면 존 없음(기존 동작)."),
+	ECVF_Cheat);
+#endif
 
 AExplorationGameMode::AExplorationGameMode()
 {
@@ -23,16 +32,47 @@ void AExplorationGameMode::BeginPlay()
 	UExpeditionTravelSubsystem* TravelSubsystem = GetGameInstance()->GetSubsystem<UExpeditionTravelSubsystem>();
 
 	UExpeditionZoneDataAsset* Zone = TravelSubsystem ? TravelSubsystem->GetActiveZone() : nullptr;
+#if !UE_BUILD_SHIPPING
+	// 탐사맵을 직접 연 PIE에서 존 데이터(오프닝·할당량·제한시간)를 확인할 때: GoHome.Entry.PIEZone <1~3>
+	if (!Zone && TravelSubsystem && CVarEntryPIEZone.GetValueOnGameThread() > 0)
+	{
+		const int32 Number = CVarEntryPIEZone.GetValueOnGameThread();
+		const FString Path = FString::Printf(TEXT("/Game/GoHome/Data/DA_Zone_Lv%d.DA_Zone_Lv%d"), Number, Number);
+		if (UExpeditionZoneDataAsset* DebugZone = LoadObject<UExpeditionZoneDataAsset>(nullptr, *Path))
+		{
+			TravelSubsystem->SetActiveZone(DebugZone, Number);
+			Zone = DebugZone;
+		}
+	}
+#endif
 	if (!Zone)
 	{
 		// DepartureButton을 거치지 않고 탐사맵을 직접 연 경우(PIE 등). 제한 시간/할당량 없음
 		UE_LOG(LogTemp, Warning, TEXT("AExplorationGameMode: ActiveZone 없음 — 제한 시간/할당량 미적용"));
-		return;
+	}
+
+	AExplorationGameState* EntryGameState = GetGameState<AExplorationGameState>();
+	if (EntryGameState)
+	{
+		FExpeditionEntryState Entry;
+		Entry.OpeningDuration = FMath::Clamp(OpeningDurationSeconds, 0.f, 30.f);
+		if (Zone)
+		{
+			Entry.ZoneId = Zone->ZoneId;
+			Entry.ZoneNumber = TravelSubsystem->GetActiveZoneNumber();
+			Entry.DisplayName = Zone->DisplayName;
+			Entry.EnglishName = Zone->EnglishName;
+			Entry.Caption = Zone->Caption;
+			Entry.MapQuota = Zone->MapQuota;
+			Entry.TimeLimitSeconds = FMath::Max(0.f, Zone->TimeLimitSeconds);
+		}
+		RoundTimeLimitSeconds = Entry.TimeLimitSeconds;
+		EntryGameState->SetEntryState(Entry);
 	}
 
 	// 할당량 세팅
 	UGoHomeSaveSubsystem* SaveSubsystem = GetGameInstance()->GetSubsystem<UGoHomeSaveSubsystem>();
-	if (SaveSubsystem)
+	if (SaveSubsystem && Zone)
 	{
 		SaveSubsystem->SetTargetMapQuota(Zone->MapQuota);
 	}
@@ -40,7 +80,7 @@ void AExplorationGameMode::BeginPlay()
 	// 라이브 HUD용 복제 소스(할당량·자금)
 	if (AExplorationGameState* ExplorationGameState = GetGameState<AExplorationGameState>())
 	{
-		ExplorationGameState->SetMapQuota(Zone->MapQuota);
+		ExplorationGameState->SetMapQuota(Zone ? Zone->MapQuota : 0);
 
 		// 납품 전에도 정확한 보유 자금이 HUD에 뜨도록 초기값 1회 push
 		if (SaveSubsystem)
@@ -49,21 +89,76 @@ void AExplorationGameMode::BeginPlay()
 		}
 	}
 
-	// 정상적으로 타이며가 세팅 되어 있는 경우
-	if (Zone->TimeLimitSeconds > 0.f)
-	{
-		if (AExplorationGameState* ExplorationGameState = GetGameState<AExplorationGameState>())
-		{
-			const float Deadline = ExplorationGameState->GetServerWorldTimeSeconds() + Zone->TimeLimitSeconds;
-			ExplorationGameState->SetExpeditionDeadline(Deadline, Zone->TimeLimitSeconds);
-		}
-
-		GetWorldTimerManager().SetTimer(TimeLimitTimer, this, &AExplorationGameMode::HandleTimeExpired,
-		                                Zone->TimeLimitSeconds, false);
-	}
-
 	// 참조 방지, 이미 읽었으니 null 초기화
-	TravelSubsystem->SetActiveZone(nullptr);
+	if (TravelSubsystem) TravelSubsystem->SetActiveZone(nullptr);
+	if (OpeningDurationSeconds <= 0.f)
+	{
+		StartExploration();
+	}
+	else
+	{
+		EntryWaitStartedAt = GetWorld()->GetTimeSeconds();
+		GetWorldTimerManager().SetTimer(EntryTimer, this, &AExplorationGameMode::TryScheduleEntry, .1f, true);
+	}
+}
+
+void AExplorationGameMode::NotifyEntryReady(APlayerController* Player, AExplorationGameState* Context)
+{
+	if (!Player || Player->GetWorld() != GetWorld() || !Player->GetPawn() ||
+		Context != GetGameState<AExplorationGameState>() || bEntryScheduled || bExplorationStarted || bRoundResolved) return;
+	EntryReadyPlayers.Add(Player);
+}
+
+void AExplorationGameMode::TryScheduleEntry()
+{
+	if (bRoundResolved || bEntryScheduled || bExplorationStarted) return;
+	bool bAllReady = NumTravellingPlayers == 0;
+	int32 Participants = 0;
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		APlayerController* PC = It->Get();
+		if (!PC || (PC->PlayerState && PC->PlayerState->IsOnlyASpectator())) continue;
+		++Participants;
+		bAllReady &= EntryReadyPlayers.Contains(PC) && PC->GetPawn() != nullptr;
+	}
+	if (Participants == 0) return;
+	if (!bAllReady && GetWorld()->GetTimeSeconds() - EntryWaitStartedAt < FMath::Max(1.f, EntryReadyTimeoutSeconds)) return;
+	AExplorationGameState* GS = GetGameState<AExplorationGameState>();
+	if (!GS) return;
+	bEntryScheduled = true;
+	GetWorldTimerManager().ClearTimer(EntryTimer);
+	FExpeditionEntryState Entry = GS->GetEntryState();
+	Entry.Phase = EExpeditionEntryPhase::Opening;
+	Entry.OpeningStartServerTime = GS->GetServerWorldTimeSeconds() + .25;
+	Entry.GameplayStartServerTime = Entry.OpeningStartServerTime + Entry.OpeningDuration;
+	GS->SetEntryState(Entry);
+	GetWorldTimerManager().SetTimer(EntryTimer, this, &AExplorationGameMode::StartExploration, Entry.OpeningDuration + .25f, false);
+	UE_LOG(LogTemp, Log, TEXT("ExpeditionEntry: opening scheduled, players=%d allReady=%d duration=%.2f"), Participants, bAllReady, Entry.OpeningDuration);
+}
+
+void AExplorationGameMode::StartExploration()
+{
+	AExplorationGameState* GS = GetGameState<AExplorationGameState>();
+	if (!GS || bRoundResolved || bExplorationStarted || GS->GetCurrentState() != EExpeditionState::Exploration) return;
+	bExplorationStarted = true;
+	GetWorldTimerManager().ClearTimer(EntryTimer);
+	FExpeditionEntryState Entry = GS->GetEntryState();
+	Entry.Phase = EExpeditionEntryPhase::Active;
+	Entry.GameplayStartServerTime = GS->GetServerWorldTimeSeconds();
+	GS->SetExpeditionDeadline(RoundTimeLimitSeconds > 0.f ? Entry.GameplayStartServerTime + RoundTimeLimitSeconds : 0.f, RoundTimeLimitSeconds);
+	GS->SetEntryState(Entry);
+	if (UDockingDoorComponent* Door = GS->GetDockingDoorComponent()) Door->SetOpen(true);
+	if (RoundTimeLimitSeconds > 0.f)
+	{
+		GetWorldTimerManager().SetTimer(TimeLimitTimer, this, &AExplorationGameMode::HandleTimeExpired, RoundTimeLimitSeconds, false);
+	}
+	UE_LOG(LogTemp, Log, TEXT("ExpeditionEntry: active, limit=%.2f"), RoundTimeLimitSeconds);
+}
+
+void AExplorationGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	GetWorldTimerManager().ClearTimer(EntryTimer);
+	Super::EndPlay(EndPlayReason);
 }
 
 
@@ -87,6 +182,7 @@ void AExplorationGameMode::HandleFail(EFailReason Reason)
 		return;
 	}
 	bRoundResolved = true;
+	GetWorldTimerManager().ClearTimer(EntryTimer);
 
 	GetWorldTimerManager().ClearTimer(TimeLimitTimer);
 	GetWorldTimerManager().ClearTimer(DoorCloseTimer);
@@ -114,7 +210,7 @@ void AExplorationGameMode::HandleFail(EFailReason Reason)
 
 void AExplorationGameMode::HandleReturn()
 {
-	if (bRoundResolved || bReturnPending)
+	if (bRoundResolved || bReturnPending || !bExplorationStarted)
 	{
 		return;
 	}

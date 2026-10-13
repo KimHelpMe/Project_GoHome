@@ -45,6 +45,7 @@ namespace SupplyUI
 			case EFace::Black: return TEXT("/Game/GoHome/UI/Style/Fonts/FF_NotoSansKR_Black.FF_NotoSansKR_Black");
 			case EFace::Display: return TEXT("/Game/GoHome/UI/Style/Fonts/FF_ArchivoBlack.FF_ArchivoBlack");
 			case EFace::Mono: return TEXT("/Game/GoHome/UI/Style/Fonts/FF_Inconsolata_SemiExpanded.FF_Inconsolata_SemiExpanded");
+			case EFace::MonoBold: return TEXT("/Game/GoHome/UI/Style/Fonts/FF_Inconsolata_SemiExpanded_Bold.FF_Inconsolata_SemiExpanded_Bold");
 			}
 			return nullptr;
 		}

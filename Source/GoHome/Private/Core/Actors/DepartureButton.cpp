@@ -33,7 +33,8 @@ void ADepartureButton::OnInteract(APawn* InstigatorPawn)
 		// 선택된 존 에셋을 트래블 간 유지되는 서브시스템에 넘겨둔다.
 		if (UExpeditionTravelSubsystem* TravelSubsystem = GetGameInstance()->GetSubsystem<UExpeditionTravelSubsystem>())
 		{
-			TravelSubsystem->SetActiveZone(SelectedZone);
+			const int32 ZoneIndex = LobbyGameState->GetAvailableZones().IndexOfByKey(SelectedZone);
+			TravelSubsystem->SetActiveZone(SelectedZone, ZoneIndex + 1);
 		}
 		
 		GoHomeGameMode->ServerTravelViaLoadingScreen(SelectedZone->MapPath.ToSoftObjectPath().GetLongPackageName());

@@ -14,6 +14,21 @@ AExplorationGameState::AExplorationGameState()
 	CurrentState = EExpeditionState::Exploration;
 }
 
+void AExplorationGameState::SetEntryState(const FExpeditionEntryState& InState)
+{
+	if (!HasAuthority()) return;
+	EntryState = InState;
+	ForceNetUpdate();
+	OnRep_EntryState();
+}
+
+void AExplorationGameState::OnRep_EntryState()
+{
+	OnEntryChanged.Broadcast();
+	OnTimeLimitChanged.Broadcast();
+	NotifyExpeditionProgressChanged();
+}
+
 void AExplorationGameState::SetExpeditionDeadline(float InDeadlineServerTime, float InDurationSeconds)
 {
 	if (!HasAuthority())
@@ -101,12 +116,17 @@ bool AExplorationGameState::GetTimeLimitProgress(float& OutRemainingSeconds, flo
 	}
 
 	OutRemainingSeconds = GetRemainingSeconds();
-	OutTotalSeconds = ExpeditionDurationSeconds;
+	OutTotalSeconds = GetTotalSeconds();
 	return true;
 }
 
 float AExplorationGameState::GetRemainingSeconds() const
 {
+	if (!HasExplorationStarted()) return EntryState.TimeLimitSeconds;
+	if (EntryState.TimeLimitSeconds > 0.f)
+	{
+		return FMath::Max(0.0, EntryState.GameplayStartServerTime + EntryState.TimeLimitSeconds - GetServerWorldTimeSeconds());
+	}
 	if (ExpeditionDeadline <= 0.f)
 	{
 		return 0.f;
@@ -119,12 +139,13 @@ void AExplorationGameState::BeginPlay()
 {
 	Super::BeginPlay();
 
-	DockingDoorComponent->SetOpen(true);
+	// 문 개방은 GameMode의 실제 탐사 개시가 소유한다.
 }
 
 void AExplorationGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AExplorationGameState, EntryState);
 	DOREPLIFETIME(AExplorationGameState, ExpeditionDeadline);
 	DOREPLIFETIME(AExplorationGameState, ExpeditionDurationSeconds);
 	DOREPLIFETIME(AExplorationGameState, SettlementResult);

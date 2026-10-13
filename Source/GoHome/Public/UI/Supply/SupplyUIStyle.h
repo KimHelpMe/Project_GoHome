@@ -50,7 +50,8 @@ namespace SupplyUI
 		ExtraBold,
 		Black,
 		Display,	// Arial Black 대체(Archivo Black)
-		Mono		// Consolas 대체(Inconsolata wdth 112 인스턴스 — advance .548em ≈ Consolas .550em, 탐사 목적지 수치)
+		Mono,		// Consolas 대체(Inconsolata wdth 112 인스턴스 — advance .548em ≈ Consolas .550em, 탐사 목적지 수치)
+		MonoBold	// Consolas Bold 대체(같은 인스턴스 wght 700 — 폭 동일)
 	};
 
 	// 브라우저 합성 이탤릭(oblique) 기울기. FreeType 변환 행렬 xy 값.

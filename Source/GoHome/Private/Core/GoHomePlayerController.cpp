@@ -13,6 +13,7 @@
 #include "Core/SessionSubsystem.h"
 #include "Core/SpectateComponent.h"
 #include "Core/AnnouncerComponent.h"
+#include "Core/ExpeditionEntryComponent.h"
 #include "Core/GoHomeGameUserSettings.h"
 #include "Camera/CameraComponent.h"
 
@@ -47,6 +48,24 @@ AGoHomePlayerController::AGoHomePlayerController()
 {
 	SpectateComponent = CreateDefaultSubobject<USpectateComponent>(TEXT("SpectateComponent"));
 	AnnouncerComponent = CreateDefaultSubobject<UAnnouncerComponent>(TEXT("AnnouncerComponent"));
+	EntryComponent = CreateDefaultSubobject<UExpeditionEntryComponent>(TEXT("ExpeditionEntryComponent"));
+}
+
+bool AGoHomePlayerController::IsExplorationHUDAllowed() const
+{
+	const UWorld* World = GetWorld();
+	if (!World || !World->GetGameState<AExplorationGameState>())
+	{
+		return true;
+	}
+	const FExpeditionEntryView& View = EntryComponent ? EntryComponent->GetEntryView() : FExpeditionEntryView();
+	return !EntryComponent || (View.Context == World->GetGameState() && View.bHUDVisible);
+}
+
+void AGoHomePlayerController::HandleEntryViewChanged()
+{
+	RefreshExplorationHUD();
+	RefreshProgressHUD();
 }
 
 const FSpectateView& AGoHomePlayerController::GetSpectateView() const
@@ -67,6 +86,10 @@ void AGoHomePlayerController::BeginPlay()
 	}
 	ApplyLocalPlayerSettings();
 	BindGameStateSetEvent();
+	if (EntryComponent && IsLocalController())
+	{
+		EntryComponent->OnEntryViewChanged().AddUObject(this, &AGoHomePlayerController::HandleEntryViewChanged);
+	}
 	RefreshExplorationHUD();
 	RefreshProgressHUD();
 	BindSettlementDismiss();
@@ -79,31 +102,11 @@ void AGoHomePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		bExplorationHUDActive = false;
 		OnExplorationHUDTeardown();
 	}
-	if (ProgressHUD)
+	if (EntryComponent)
 	{
-		ProgressHUD->RemoveFromParent();
-		ProgressHUD = nullptr;
+		EntryComponent->OnEntryViewChanged().RemoveAll(this);
 	}
-	if (HudNoticeFeed)
-	{
-		HudNoticeFeed->RemoveFromParent();
-		HudNoticeFeed = nullptr;
-	}
-	if (ItemInspect)
-	{
-		ItemInspect->RemoveFromParent();
-		ItemInspect = nullptr;
-	}
-	if (Announcer)
-	{
-		Announcer->RemoveFromParent();
-		Announcer = nullptr;
-	}
-	if (Vitals)
-	{
-		Vitals->RemoveFromParent();
-		Vitals = nullptr;
-	}
+	RemoveProgressHUDWidgets();
 	if (UGoHomeGameUserSettings* Settings = UGoHomeGameUserSettings::Get())
 	{
 		Settings->OnGameplaySettingsApplied.Remove(SettingsAppliedHandle);
@@ -134,6 +137,10 @@ void AGoHomePlayerController::OnRep_Pawn()
 	Super::OnRep_Pawn();
 	ApplyLocalPlayerSettings();
 	BindGameStateSetEvent();
+	if (EntryComponent && EntryComponent->HasBegunPlay())
+	{
+		EntryComponent->RefreshContext();
+	}
 	RefreshExplorationHUD();
 	RefreshProgressHUD();
 }
@@ -143,6 +150,11 @@ void AGoHomePlayerController::SetPawn(APawn* InPawn)
 	Super::SetPawn(InPawn);
 	ApplyLocalPlayerSettings();
 	BindGameStateSetEvent();
+	// 새 폰 = 준비 보고(로컬) + 이동 잠금(서버)
+	if (EntryComponent && EntryComponent->HasBegunPlay())
+	{
+		EntryComponent->RefreshContext();
+	}
 	RefreshExplorationHUD();
 	RefreshProgressHUD();
 
@@ -226,6 +238,11 @@ void AGoHomePlayerController::HandleGameStateSet(AGameStateBase* /*NewGameState*
 	BoundLobbyGameState.Reset();
 	PendingDestination = NAME_None;
 	GetWorldTimerManager().ClearTimer(DestinationRequestTimeoutHandle);
+	// 새 GameState에 진입 게이트를 먼저 묶는다 — 아래 HUD 생성이 그 판정을 읽는다
+	if (EntryComponent && EntryComponent->HasBegunPlay())
+	{
+		EntryComponent->RefreshContext();
+	}
 	RefreshExplorationHUD();
 	RefreshProgressHUD();
 	BindSettlementDismiss();
@@ -250,6 +267,16 @@ void AGoHomePlayerController::RefreshProgressHUD()
 	const bool bWantHUD = Cast<ALobbyGameState>(GameState) || Cast<AExplorationGameState>(GameState);
 	if (!bWantHUD)
 	{
+		return;
+	}
+
+	// 탐사 진입 오프닝이 끝나기 전엔 만들지 않는다(타이머·할당량·아나운서는 오프닝 뒤에 등장)
+	if (!IsExplorationHUDAllowed())
+	{
+		if (ProgressHUDGameState.Get() != GameState)
+		{
+			RemoveProgressHUDWidgets();
+		}
 		return;
 	}
 
@@ -334,6 +361,19 @@ void AGoHomePlayerController::RefreshProgressHUD()
 	}
 }
 
+void AGoHomePlayerController::RemoveProgressHUDWidgets()
+{
+	for (TObjectPtr<UUserWidget>* Widget : { &ProgressHUD, &HudNoticeFeed, &ItemInspect, &Announcer, &Vitals })
+	{
+		if (*Widget)
+		{
+			(*Widget)->RemoveFromParent();
+			*Widget = nullptr;
+		}
+	}
+	ProgressHUDGameState.Reset();
+}
+
 void AGoHomePlayerController::Client_PushHudNotice_Implementation(const FHudNotice& Notice)
 {
 	if (UHudNoticeSubsystem* Notices = ULocalPlayer::GetSubsystem<UHudNoticeSubsystem>(GetLocalPlayer()))
@@ -349,7 +389,7 @@ void AGoHomePlayerController::RefreshExplorationHUD()
 		return;
 	}
 
-	const bool bWantHUD = GetWorld() && GetWorld()->GetGameState<AExplorationGameState>() != nullptr;
+	const bool bWantHUD = GetWorld() && GetWorld()->GetGameState<AExplorationGameState>() != nullptr && IsExplorationHUDAllowed();
 	if (bWantHUD == bExplorationHUDActive)
 	{
 		return;

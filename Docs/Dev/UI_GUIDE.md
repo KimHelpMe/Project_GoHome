@@ -32,7 +32,7 @@
 |---|---|---|
 | HUD | 산소·나침반(`WBP_Compass`)·HP·무게·상호작용 프롬프트(`WBP_InteractionPrompt`)·위험 비네트(`WBP_DangerVignette`)·인벤토리(`WBP_InventorySlots`)·제한시간·할당량 | 상시, 게임플레이 위. 표시 전용 |
 | Modal | 탐사 목적지(`UZoneSelectScreenWidget`, WBP 없음), 강화 상점, 보급 화면(`USupplyScreenWidget` — 상점·팀 보관함·탐사 아이템 박스, WBP 없음), 인게임 시스템 메뉴(`WBP_PauseMenu`) | 게임 위, 입력 잡음. 확정은 Server RPC. **열 때 `bShowMouseCursor`를 켜고 닫을 때 끈다** — 인게임 메뉴는 커서가 켜져 있으면 다른 Modal이 Escape를 소유한 것으로 보고 열리지 않는다(`AGoHomePlayerController::CanOpenPauseMenu`) |
-| Fullscreen / Sequence | 정산·게임오버·엔딩(`WBP_Settlement` 계열), 타이틀(`WBP_Title`), 로딩(`WBP_Loading`) | 게임 가림. 자체 enter/exit 연출. 동시에 하나만 |
+| Fullscreen / Sequence | 정산·게임오버·엔딩(`WBP_Settlement` 계열), 타이틀(`WBP_Title`), 로딩(`WBP_Loading`), 탐사 진입 오프닝(`UExpeditionOpeningWidget`) | 게임 가림. 자체 enter/exit 연출. 동시에 하나만 |
 | System | 세션 진입(`WBP_SessionEntry`), 연결 끊김/에러 | 최상단 |
 
 ## 화면 카탈로그
@@ -49,6 +49,7 @@
 | 우측 알림 피드 (`UHudNoticeFeedWidget` 부모 `WBP_HudNoticeFeed`, 행 `WBP_HudNoticeRow`) | HUD | `AGoHomePlayerController`(C++, `HudNoticeFeedClass`) | 진행도 HUD 와 같이 로비·탐사 GameState 마다 (재)생성 / 월드 교체·EndPlay 시 파괴. 사망·폰 없음이면 비우고 숨김 | `UHudNoticeSubsystem::OnNoticePushed`(LocalPlayer) ← 서버 `Client_PushHudNotice`. 본인 알림만 |
 | 유물 조준 정보 (`UItemInspectWidget` — 트리까지 C++, WBP 없음) | HUD | `AGoHomePlayerController`(C++, `ItemInspectClass`) | 알림 피드와 같이 로비·탐사 GameState 마다 (재)생성(ZOrder 2 — 피드 위) / 월드 교체·EndPlay 시 파괴. 관전 중 `HiddenHUDClasses`로 숨김 | 소유 폰 `UInteractionComponent::OnInteractableTargetChanged` + 대상 `AItemActorBase`(`GetCurrentValue`·`GetTotalWeight`·`GetBreakCount`) · `UItemDataAsset`(`DisplayName`·`Grade`·`Description`·파손/소음 플래그) |
 | 사망 → 관전 (`USpectateScreenWidget` — 트리까지 C++, WBP 없음) | HUD (사망 카드 구간만 화면을 덮음) | `USpectateComponent`(C++, `AGoHomePlayerController` 생성자 부착, `ScreenClass`) | 로컬 폰 `UHealthComponent::IsDead` → 사망 연출 시작 시 생성(ZOrder 99 — 시스템 메뉴 아래) / 정산·실패 시작(`OnSettlementReady` 또는 상태 Settlement·Failed)·폰 교체·월드 교체 시 파괴. 관전 동안 개인 HUD(`HiddenHUDClasses`: WBP_HUD·WB_HP_OxygenUI·핫바 등)를 숨겼다 복원 | `ISpectateBackend::GetSpectateView()` 스냅샷(매 틱) — 단계·사인(`UHealthComponent::GetDeathCause`, 복제)·대상 이름/HP/O₂·팀 생존(`AExplorationGameState::IsPlayerDead`)·전환 serial |
+| 탐사 진입 오프닝 (`UExpeditionOpeningWidget` — 트리까지 C++, WBP 없음) | Sequence | `UExpeditionEntryComponent`(C++, `AGoHomePlayerController` 생성자 부착, `OpeningClass`) | 탐사맵 진입(팀 대기 = 대기 문구) → 오프닝 → 탐사 개시 + 1.3s(도착 안내 퇴장)에 파괴, 스킵·정산/실패·월드 교체 시 즉시 파괴(ZOrder 90). 그동안 탐사 HUD는 생성을 미루고 BP 개인 HUD는 숨김 | `IExpeditionEntryBackend::GetEntryView()` — 복제 `FExpeditionEntryState`(존 표시명·영문명·설명·할당량·제한시간·구역 번호·서버 시각) |
 | 인게임 시스템 메뉴 (`UPauseMenuWidget` 부모 `WBP_PauseMenu`) | Modal | `AGoHomePlayerController`(C++, `PauseMenuClass`) | 로비·탐사에서 Escape/게임패드 Start로 생성(UIOnly, 로컬 입력만 — 세션은 멈추지 않음) / 닫힘 연출 끝·나가기 성공·월드 교체 시 파괴 | `IPauseMenuBackend`(컨트롤러가 구현 — 역할(호스트/참가자)·복귀·나가기 요청·실패 이벤트). 설정 화면은 타이틀과 같은 `UTitleSettingsPanel` 클래스(레이아웃만 `WBP_PauseSettingsPanel`) |
 
 PIE 주의: 에디터의 Stop 단축키가 Esc라 PIE 창에서 Esc를 누르면 메뉴보다 먼저 PIE가 종료된다(엔진에 끄는 옵션 없음, `DebuggerCommands.cpp`). 메뉴 키 흐름은 Standalone(`-game`)으로 확인하거나 에디터 단축키 Stop을 바꿔서 본다.

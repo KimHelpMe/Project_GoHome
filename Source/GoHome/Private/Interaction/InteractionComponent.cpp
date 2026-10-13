@@ -2,6 +2,8 @@
 
 #include "Interaction/InteractionComponent.h"
 #include "Interaction/Interactable.h"
+#include "Core/ExpeditionPreparation.h"
+#include "GameFramework/GameStateBase.h"
 #include "Interaction/CoopCarryObjectBase.h"
 #include "Player/GoHomeCharacter.h"
 #include "Camera/CameraComponent.h"
@@ -207,9 +209,21 @@ void UInteractionComponent::UpdateNearbyItemHints()
 
 
 
+namespace
+{
+	// 탐사 진입 오프닝(팀 대기 ~ 탐사 개시) 동안은 상호작용하지 않는다 — 이동도 잠겨 있다. GameState 구체 클래스 대신 읽기 계약만 본다.
+	bool IsExpeditionPreparing(const UObject* Context)
+	{
+		const UWorld* World = Context ? Context->GetWorld() : nullptr;
+		const IExpeditionPreparation* Preparation = World ? Cast<IExpeditionPreparation>(World->GetGameState()) : nullptr;
+		return Preparation && Preparation->IsExpeditionPreparing();
+	}
+}
+
 void UInteractionComponent::TryInteract()
 {
 	APawn* OwnerPawn = Cast<APawn>(GetOwner());
+	if (IsExpeditionPreparing(this)) return;
 
 	if (AGoHomeCharacter* Character = Cast<AGoHomeCharacter>(OwnerPawn))
 	{
@@ -247,7 +261,7 @@ void UInteractionComponent::Server_RequestInteract_Implementation(AActor* Target
 	if (!Interactable) return;
 
 	APawn* OwnerPawn = Cast<APawn>(GetOwner());
-	if (!OwnerPawn || !Target) return;
+	if (!OwnerPawn || !Target || IsExpeditionPreparing(this)) return;
 
 	// 서버에서 거리 재검증 -> 클라이언트가 임의 액터나 멀리 있는 대상을 지정해도 막힘.
 	const float DistSq = Target->GetComponentsBoundingBox().ComputeSquaredDistanceToPoint(OwnerPawn->GetActorLocation());
@@ -266,7 +280,7 @@ void UInteractionComponent::Server_RequestDeliverCarry_Implementation(ADeliveryP
 	APawn* OwnerPawn = Cast<APawn>(GetOwner());
 	AGoHomeCharacter* Character = Cast<AGoHomeCharacter>(OwnerPawn);
 
-	if (!Character || !DeliveryPoint) return;
+	if (!Character || !DeliveryPoint || IsExpeditionPreparing(this)) return;
 
 	ACoopCarryObjectBase* CarryObject = Character->GetCurrentCarryObject();
 	if (!CarryObject) return;
