@@ -1,4 +1,4 @@
-#include "UI/Supply/SupplyUIStyle.h"
+﻿#include "UI/Supply/SupplyUIStyle.h"
 
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
@@ -44,6 +44,7 @@ namespace SupplyUI
 			case EFace::ExtraBold: return TEXT("/Game/GoHome/UI/Style/Fonts/FF_NotoSansKR_ExtraBold.FF_NotoSansKR_ExtraBold");
 			case EFace::Black: return TEXT("/Game/GoHome/UI/Style/Fonts/FF_NotoSansKR_Black.FF_NotoSansKR_Black");
 			case EFace::Display: return TEXT("/Game/GoHome/UI/Style/Fonts/FF_ArchivoBlack.FF_ArchivoBlack");
+			case EFace::Mono: return TEXT("/Game/GoHome/UI/Style/Fonts/FF_Inconsolata_SemiExpanded.FF_Inconsolata_SemiExpanded");
 			}
 			return nullptr;
 		}
@@ -102,6 +103,7 @@ namespace SupplyUI
 			{
 			case ERef::Segoe: OutAscent = 1.079f; OutDescent = .251f; break;
 			case ERef::ArialBlack: OutAscent = 1.101f; OutDescent = .310f; break;
+			case ERef::Consolas: OutAscent = .920f; OutDescent = .251f; break;
 			default: OutAscent = 1.088f; OutDescent = .242f; break;
 			}
 		}

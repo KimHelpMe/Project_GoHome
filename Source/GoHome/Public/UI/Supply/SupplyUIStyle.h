@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "Fonts/SlateFontInfo.h"
@@ -49,7 +49,8 @@ namespace SupplyUI
 		Bold,
 		ExtraBold,
 		Black,
-		Display	// Arial Black 대체(Archivo Black)
+		Display,	// Arial Black 대체(Archivo Black)
+		Mono		// Consolas 대체(Inconsolata wdth 112 인스턴스 — advance .548em ≈ Consolas .550em, 탐사 목적지 수치)
 	};
 
 	// 브라우저 합성 이탤릭(oblique) 기울기. FreeType 변환 행렬 xy 값.
@@ -60,7 +61,8 @@ namespace SupplyUI
 	{
 		Malgun,		// 맑은 고딕(한글 본문 기본)
 		Segoe,		// Segoe UI(영문 kicker·숫자)
-		ArialBlack	// Arial Black(워드마크·대제목)
+		ArialBlack,	// Arial Black(워드마크·대제목)
+		Consolas	// Consolas(탐사 목적지 수치)
 	};
 
 	// CSS line-height:normal = 시안 글꼴 ascent+descent, 브라우저가 정수 px로 반올림

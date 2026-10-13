@@ -30,6 +30,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Zone")
 	const UExpeditionZoneDataAsset* GetSelectedZone() const;
 
+	FName GetSelectedZoneId() const { return SelectedZoneId; }
+
+	// 지정 가능한 탐사지(BP 기본값 — 복제 안 해도 클라 GameState에도 있다)
+	const TArray<TObjectPtr<UExpeditionZoneDataAsset>>& GetAvailableZones() const { return AvailableZones; }
+
 	// UI 갱신용 델리게이트 브로드 캐스트
 	UFUNCTION()
 	void OnRep_SelectedZone();
