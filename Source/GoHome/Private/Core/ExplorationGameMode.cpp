@@ -170,6 +170,11 @@ void AExplorationGameMode::HandlePawnDeath(TWeakObjectPtr<APawn> DeadPawn)
 	if (APlayerState* PlayerState = Pawn->GetPlayerState())
 	{
 		CasualtyNames.Add(PlayerState->GetPlayerName());
+		// 클라 관전 대상 목록·음성 뮤트가 읽는 복제 미러
+		if (AExplorationGameState* ExplorationGameState = GetGameState<AExplorationGameState>())
+		{
+			ExplorationGameState->AddDeadPlayer(PlayerState);
+		}
 	}
 
 	CheckAllDead();

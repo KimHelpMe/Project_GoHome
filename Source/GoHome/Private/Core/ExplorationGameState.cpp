@@ -130,5 +130,19 @@ void AExplorationGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 	DOREPLIFETIME(AExplorationGameState, SettlementResult);
 	DOREPLIFETIME(AExplorationGameState, MapQuota);
 	DOREPLIFETIME(AExplorationGameState, RoundDeliveredValue);
+	DOREPLIFETIME(AExplorationGameState, DeadPlayers);
+}
+
+void AExplorationGameState::AddDeadPlayer(APlayerState* PlayerState)
+{
+	if (HasAuthority() && PlayerState)
+	{
+		DeadPlayers.AddUnique(PlayerState);
+	}
+}
+
+bool AExplorationGameState::IsPlayerDead(const APlayerState* PlayerState) const
+{
+	return PlayerState && DeadPlayers.Contains(PlayerState);
 }
 

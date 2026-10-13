@@ -109,7 +109,9 @@ decisions:
 
 decisions:
   - name: HP 0 처리
-    detail: "HealthComponent가 서버 전용 OnDeath 브로드캐스트 → `AExplorationGameMode`가 `RestartPlayer`마다 폰의 `IDeathNotifier`를 구독(`TrackPawnDeath`), 사망 시 `DeadPawns`/`CasualtyNames` 집계 후 `CheckAllDead`. 생존자 0명이면 `HandleFail(EFailReason::AllPlayersDead)`. 사망 추적은 GameState가 아니라 GameMode 소유(서버 전용이라 HasAuthority 가드 불필요)."
+    detail: "HealthComponent가 서버 전용 OnDeath 브로드캐스트 → `AExplorationGameMode`가 `RestartPlayer`마다 폰의 `IDeathNotifier`를 구독(`TrackPawnDeath`), 사망 시 `DeadPawns`/`CasualtyNames` 집계 후 `CheckAllDead`. 생존자 0명이면 `HandleFail(EFailReason::AllPlayersDead)`. 사망 추적은 GameState가 아니라 GameMode 소유(서버 전용이라 HasAuthority 가드 불필요). 클라가 읽을 사망자 목록만 `AExplorationGameState::DeadPlayers`(PlayerState, 복제)로 미러 — 폰의 `IsDead`는 관련성 거리 밖이면 클라에 없어서 관전 대상 목록·음성 뮤트가 이걸 본다."
+  - name: 사인(사망 원인)
+    detail: "`UHealthComponent`가 사망 확정 틱에 마지막 `ApplyDamage`의 `DamageType`을 `DeathCause`(복제)로 남긴다. 몬스터 BP는 DamageType을 비워 보내므로 DamageType 없이 AI 폰(비플레이어 Instigator)이 준 치명타는 `Monster`로 기록. 잠수정 문 닫힘 즉사는 `SubmarineLeftBehind`. 문구 매핑은 UI(`USpectateScreenWidget::CauseText`) 몫 — 새 위해요소를 추가하면 DamageType 이름을 거기에도 한 줄."
 
 known_gaps:
   - name: 접속 종료 처리
@@ -248,6 +250,14 @@ decisions:
       로비 ZoneSelectMonitor → UZoneSelectScreenWidget 한 Modal. 생성·입력 모드·제거와 지정 요청은 AGoHomePlayerController(IZoneSelectBackend). 보급 화면 예외(위 절)를 같은 이유로 따른다 — 사용자 결정(2026-10-13) "C++ 위주, 시안 100%". 사진 보정(CSS filter·mix-blend color·그라데이션)만 UI 머티리얼 M_ZoneSelectPhoto가 sRGB로 합성(UMG 속성으로 대응 불가), 앱 배경 방사 그라데이션은 C++이 런타임 텍스처로 만든다.
       로컬 미리보기·조작 포커스·서버 팀 목적지를 별개 상태로 그린다. 지정은 요청만 보내고 표시·문구는 복제 SelectedZoneId로만 바꾼다(낙관 출력 금지) — 서버 SetSelectedZone은 거절을 알리지 않으므로 PC가 요청 값과 같은 OnRep이 오면 "내 지정", 아니면 "다른 팀원", DestinationRequestTimeoutSeconds 안에 안 오면 실패(그때 이미 같은 값이면 성공)로 판정한다. 재진입은 마지막 미리보기 카드로 포커스 복원(PC가 기억).
       카드 사진·영문명·설명·사진 보정값은 UExpeditionZoneDataAsset 표시 필드(게임 규칙엔 안 씀). 시안의 폭 1000/720 이하 재배치는 16:9 기본 DPI에서 논리 폭이 ≥1700이라 구현하지 않았다(≥1700 규칙만). 맑은 고딕 700~900은 Malgun Bold로 그려지므로 Noto SemiBold, Consolas는 Inconsolata wdth 112 인스턴스(FF_Inconsolata_SemiExpanded)로 대체. 구 WBP_ZoneSelect/WBP_ZoneButton·BP OnOpenSelectZone은 삭제.
+  - name: 사망 → 관전 (Core/USpectateComponent + UI/Spectate) — 위젯 트리까지 C++
+    detail: |
+      로컬 폰 사망 → 자기 시체 시점(≈2.6s, 사망 카드·사인) → 생존 팀원 3인칭 오빗 관전(사용자 결정 2026-10-13, Pack A안 DIVER FEED). 흐름·카메라·입력·위젯 수명은 `AGoHomePlayerController`가 생성자에서 붙이는 `USpectateComponent`가 로컬에서만 소유하고, 위젯(`USpectateScreenWidget`)은 `ISpectateBackend` 스냅샷만 본다(보급·목적지 화면과 같은 C++ 트리 방식, WBP 없음).
+      카메라는 로컬 전용 `ACameraActor`(복제 안 함). 클라 화면은 로컬이 정하지만 대상 폰이 관련성 거리 밖이면 클라에 복제되지 않으므로 `Server_SetSpectateTarget`으로 서버 쪽 뷰 타깃만 대상 폰에 맞춘다(엔진 규칙: 뷰 타깃 액터는 항상 관련성 있음). 서버가 보내는 `ClientSetViewTarget`은 관전 동안 `bClientSimulatingViewTarget`으로 무시. 리슨 호스트는 서버 뷰 타깃을 건드리지 않는다(로컬 카메라를 덮음).
+      입력은 관전 동안만 푸시하는 입력 컴포넌트(좌클릭/→/D/RB 다음, 우클릭/←/A/LB 이전, 말하기 IA_Talk 재바인딩 — 폰 입력은 사망 시 캐릭터 BP가 끔). 궤도 회전은 축 바인딩 대신 마우스 델타·우스틱을 직접 읽는다(EnhancedInputComponent가 레거시 축 바인딩을 막음). 휠 거리 조절은 없음(사용자 결정). 입력 없이 전환 확인: 비Shipping 콘솔 `GoHome.Spectate.Step <1|-1>`.
+      개인 HUD(조준점·HP/O₂ 링·LOAD·핫바·상호작용 프롬프트 등)는 캐릭터·컨트롤러 BP가 따로 만들어 붙이는 최상위 위젯이라, 각 BP를 고치는 대신 `USpectateComponent::HiddenHUDClasses` 목록으로 관전 동안 숨기고 끝나면 복원한다 — 개인 HUD 위젯 클래스를 새로 만들면 이 목록에도 추가. 진행도 HUD·보이스 목록·나침반은 유지.
+      정산/실패 Sequence가 뜨면(`OnSettlementReady` 또는 상태 복제가 먼저 오면 Settlement/Failed) 관전 화면만 걷고 카메라는 화면 뒤에 둔다. 구 `WB_DeathSpectate`(Developers/LSA 플레이스홀더)와 BP PC의 사망 시 커서·UIOnly 체인은 제거 — 관전 입력을 막았다.
+      음성: 사망자 목소리는 생존자에게 안 들린다(사용자 결정). `UVoiceChatSubsystem` 근접 뮤트가 생존자 쪽만 사망자를 `ServerMutePlayer`(한 방향), 사망자는 생존자·다른 사망자를 거리 무관하게 듣고, 사망자 발화는 소음을 내지 않는다.
   - name: HUD 위젯 소유
     detail: |
       상시 HUD 위젯은 BP PlayerController(또는 그 AHUD) 소유 — Pawn/Character 소유 금지. 폰 스코프 데이터(HP·산소·인벤토리)도 위젯은 뷰라 GetOwningPlayerPawn으로 읽고 OnPossessedPawnChanged에 재바인딩. 폰 소유 불가 이유: 사망 시 부활 없이 관전이 수 분 지속되며 그동안도 목표/타이머 HUD가 필요(폰 소유면 관전 내내 검은 화면), 폰은 로비마다 재생성되는 소모품. per-pawn 패널은 "폰 없음/사망" 상태를 명시.

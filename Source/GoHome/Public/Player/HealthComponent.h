@@ -55,6 +55,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Health")
 	bool IsDead() const { return bIsDead; }
 
+	// 사망을 일으킨 마지막 데미지 종류(사망 화면 사인 표시용). 사망 전엔 NAME_None.
+	// DamageType 없이 AI 폰이 준 데미지는 "Monster"로 기록한다(몬스터 BP는 DamageType을 비워 둔다).
+	UFUNCTION(BlueprintPure, Category = "Health")
+	FName GetDeathCause() const { return DeathCause; }
+
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void BeginPlay() override;
@@ -64,6 +69,10 @@ protected:
 
 	UPROPERTY(ReplicatedUsing = OnRep_IsDead)
 	bool bIsDead = false;
+
+	// bIsDead와 같은 틱에 세팅 — 같은 번치로 복제되지만 순서 보장은 없어 UI는 늦게 와도 채울 수 있게 읽는다
+	UPROPERTY(Replicated)
+	FName DeathCause = NAME_None;
 
 	UFUNCTION()
 	void OnRep_IsDead();

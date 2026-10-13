@@ -84,7 +84,7 @@ void ASubmarine::HandleDoorStateChanged(bool bOpen)
 		// 매우 큰 대미지를 주어 즉사 처리
 		if (UActorComponent* DamageableComponent = Pawn->FindComponentByInterface(UDamageable::StaticClass()))
 		{
-			IDamageable::Execute_ApplyDamage(DamageableComponent, TNumericLimits<float>::Max(), this, NAME_None);
+			IDamageable::Execute_ApplyDamage(DamageableComponent, TNumericLimits<float>::Max(), this, TEXT("SubmarineLeftBehind"));
 		}
 		
 	}

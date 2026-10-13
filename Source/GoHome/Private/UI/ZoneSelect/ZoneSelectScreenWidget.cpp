@@ -192,7 +192,7 @@ namespace
 		return Box;
 	}
 
-	void SetShown(UWidget* Widget, bool bShow)
+	void SetZoneShown(UWidget* Widget, bool bShow)
 	{
 		if (Widget)
 		{
@@ -1068,14 +1068,14 @@ void UZoneSelectScreenWidget::RenderState()
 		{
 			UWidget* Content = CaptionWrap->GetContent();
 			const bool bWasShown = Content && Content->GetVisibility() != ESlateVisibility::Collapsed;
-			SetShown(Content, bPreview);
+			SetZoneShown(Content, bPreview);
 			if (!bPreview || !bWasShown)
 			{
 				CaptionOpacity[Index].Snap(0.f);
 			}
 		}
-		SetShown(Card.ViewLabel, !bCommitted);
-		SetShown(Card.TeamTag, bCommitted);
+		SetZoneShown(Card.ViewLabel, !bCommitted);
+		SetZoneShown(Card.TeamTag, bCommitted);
 	}
 
 	const UExpeditionZoneDataAsset* Zone = Zones.IsValidIndex(Selected) ? Zones[Selected].Get() : nullptr;
@@ -1110,7 +1110,7 @@ void UZoneSelectScreenWidget::RenderState()
 		ApplyIcon->SetColorAndOpacity(FSlateColor(bSame ? Lime() : Ink()));
 		ApplyFace->SetBrushColor(bSame ? DisabledFace() : LerpSRGB(Paper(), FLinearColor::White, ApplyHover.Value));
 	}
-	SetShown(ApplyEdge, bSame);
+	SetZoneShown(ApplyEdge, bSame);
 
 	if (SharedDot)
 	{
@@ -1168,8 +1168,8 @@ void UZoneSelectScreenWidget::ApplyCardTargets(bool bInstant)
 
 void UZoneSelectScreenWidget::RenderFocus()
 {
-	SetShown(CloseFocus, bFocusVisible && FocusKind == EFocus::Close);
-	SetShown(ApplyFocus, bFocusVisible && FocusKind == EFocus::Apply);
+	SetZoneShown(CloseFocus, bFocusVisible && FocusKind == EFocus::Close);
+	SetZoneShown(ApplyFocus, bFocusVisible && FocusKind == EFocus::Apply);
 }
 
 // --- 동작 ---
@@ -1461,8 +1461,8 @@ void UZoneSelectScreenWidget::ApplyEntranceFrame(float Time)
 
 	// 사진 중앙 셔터: 420ms 지연 620ms, X 0 → ∓101%(지연 중에도 보임 — fill backwards)
 	const bool bShutter = Time < .42f + .62f;
-	SetShown(ShutterLeft, bShutter);
-	SetShown(ShutterRight, bShutter);
+	SetZoneShown(ShutterLeft, bShutter);
+	SetZoneShown(ShutterRight, bShutter);
 	if (bShutter)
 	{
 		const float ShutterE = Eased(.42f, .62f);

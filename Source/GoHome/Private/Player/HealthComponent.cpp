@@ -1,6 +1,7 @@
 ﻿
 
 #include "Player/HealthComponent.h"
+#include "GameFramework/Pawn.h"
 #include "Net/UnrealNetwork.h"
 
 UHealthComponent::UHealthComponent()
@@ -50,6 +51,15 @@ void UHealthComponent::ApplyDamage_Implementation(float Amount, AActor* Instigat
 	if (HP <= 0.f)
 	{
 		bIsDead = true;
+		DeathCause = DamageType;
+		if (DeathCause.IsNone())
+		{
+			const APawn* InstigatorPawn = Cast<APawn>(Instigator);
+			if (InstigatorPawn && !InstigatorPawn->IsPlayerControlled())
+			{
+				DeathCause = TEXT("Monster");
+			}
+		}
 		OnDeath.Broadcast();
 		OnDeathDynamic.Broadcast();
 	}
@@ -82,6 +92,7 @@ void UHealthComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(UHealthComponent, MaxHP);
 	DOREPLIFETIME(UHealthComponent, HP);
 	DOREPLIFETIME(UHealthComponent, bIsDead);
+	DOREPLIFETIME(UHealthComponent, DeathCause);
 }
 
 void UHealthComponent::OnRep_HP()

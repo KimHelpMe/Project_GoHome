@@ -6,6 +6,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Core/HudNoticeTypes.h"
 #include "Core/PauseMenuBackend.h"
+#include "Core/SpectateBackend.h"
 #include "Core/SupplyScreenBackend.h"
 #include "Core/ZoneSelectBackend.h"
 #include "Data/FSettlementResult.h"
@@ -15,16 +16,22 @@
 class UEquipmentUpgradeDataAsset;
 class AGameStateBase;
 class UUserWidget;
+class USpectateComponent;
 
 /**
  *
  */
 UCLASS()
-class GOHOME_API AGoHomePlayerController : public APlayerController, public IPauseMenuBackend, public ISupplyScreenBackend, public IZoneSelectBackend
+class GOHOME_API AGoHomePlayerController : public APlayerController, public IPauseMenuBackend, public ISupplyScreenBackend, public IZoneSelectBackend, public ISpectateBackend
 {
 	GENERATED_BODY()
 
 public:
+	AGoHomePlayerController();
+
+	// ISpectateBackend — 사망 → 관전 흐름은 USpectateComponent가 소유한다
+	virtual const FSpectateView& GetSpectateView() const override;
+
 	// ISupplyScreenBackend
 	virtual ESupplyEntry GetSupplyEntry() const override { return SupplyEntry; }
 	virtual void RequestCloseSupplyScreen() override;
@@ -214,6 +221,9 @@ private:
 	void ApplyLocalPlayerSettings();
 
 	FDelegateHandle SettingsAppliedHandle;
+
+	UPROPERTY(VisibleAnywhere, Category = "Spectate")
+	TObjectPtr<USpectateComponent> SpectateComponent;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UUserWidget> ProgressHUD;

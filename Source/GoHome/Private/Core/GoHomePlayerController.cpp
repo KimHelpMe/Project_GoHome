@@ -11,6 +11,7 @@
 #include "Core/ExplorationGameState.h"
 
 #include "Core/SessionSubsystem.h"
+#include "Core/SpectateComponent.h"
 #include "Core/GoHomeGameUserSettings.h"
 #include "Camera/CameraComponent.h"
 
@@ -40,6 +41,17 @@ static TAutoConsoleVariable<int32> CVarPauseSimulateLeaveFailure(
 	ECVF_Cheat);
 #endif
 
+
+AGoHomePlayerController::AGoHomePlayerController()
+{
+	SpectateComponent = CreateDefaultSubobject<USpectateComponent>(TEXT("SpectateComponent"));
+}
+
+const FSpectateView& AGoHomePlayerController::GetSpectateView() const
+{
+	static const FSpectateView Empty;
+	return SpectateComponent ? SpectateComponent->GetView() : Empty;
+}
 
 void AGoHomePlayerController::BeginPlay()
 {
@@ -117,6 +129,12 @@ void AGoHomePlayerController::SetPawn(APawn* InPawn)
 	RefreshExplorationHUD();
 	RefreshProgressHUD();
 
+	// 새 폰(로비 재생성 등)이면 이전 탐사의 관전은 끝 — 사망 자체는 폰이 그대로라 여기 오지 않는다
+	if (IsLocalController() && SpectateComponent)
+	{
+		SpectateComponent->ResetSpectate();
+	}
+
 	// 폰이 바뀌면(사망 후 관전 등) 이전 폰 기준으로 연 보급 화면(보관함 내 소지 수량 등)은 닫는다.
 	if (IsLocalController() && SupplyScreen)
 	{
@@ -176,6 +194,11 @@ void AGoHomePlayerController::HandleGameStateSet(AGameStateBase* /*NewGameState*
 	if (ZoneSelectScreen)
 	{
 		CloseZoneSelect(true);
+	}
+	// 관전 카메라·화면은 이전 월드 소속 — 새 월드로 끌고 가지 않는다
+	if (SpectateComponent)
+	{
+		SpectateComponent->ResetSpectate();
 	}
 	// 새 월드의 로비 GameState는 다음 열기/요청 때 다시 묶는다. 이전 월드 요청은 버린다.
 	BoundLobbyGameState.Reset();

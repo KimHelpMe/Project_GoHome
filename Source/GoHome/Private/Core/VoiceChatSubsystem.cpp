@@ -4,6 +4,7 @@
 #include "Core/VoiceChatSubsystem.h"
 
 #include "OnlineSubsystemUtils.h"
+#include "Core/ExplorationGameState.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerState.h"
 #include "AI/NoiseType.h"
@@ -72,7 +73,10 @@ void UVoiceChatSubsystem::HandlePlayerTalkingStateChanged(FUniqueNetIdRef NetId,
 			
 			// 말하기 상태일 때만 소음 발생 - 말을 멈추면 노이즈 트리거 안 함
 			// GenerateNoise는 1회성 동기 함수라 시작 시점 1회면 충분
-			if (bIsTalking && GetWorld()->GetNetMode() != NM_Client)
+			// 사망자는 관전 중이라 시체 위치에서 소음을 내지 않는다
+			const AExplorationGameState* ExplorationGameState = Cast<AExplorationGameState>(GameStateBase);
+			const bool bSpeakerDead = ExplorationGameState && ExplorationGameState->IsPlayerDead(PlayerState);
+			if (bIsTalking && !bSpeakerDead && GetWorld()->GetNetMode() != NM_Client)
 			{
 				// 몬스터가 추적 가능하게 실제 월드 상에 배치된 Pawn을 넘김
 				if (APawn* Pawn = PlayerState->GetPawn())
@@ -98,6 +102,13 @@ void UVoiceChatSubsystem::UpdateProximityMute()
 		return;
 	}
 	
+	// 사망자 목소리는 생존자에게 들리지 않는다(한 방향). 사망자는 생존자·다른 사망자 모두 거리 무관하게 듣는다(관전).
+	const AExplorationGameState* ExplorationGameState = Cast<AExplorationGameState>(GameStateBase);
+	auto IsDead = [ExplorationGameState](const APlayerState* PlayerState)
+	{
+		return ExplorationGameState && ExplorationGameState->IsPlayerDead(PlayerState);
+	};
+
 	const TArray<APlayerState*> PlayerStates = GameStateBase->PlayerArray;
 	for (int32 i = 0; i < PlayerStates.Num(); i++)
 	{
@@ -113,6 +124,31 @@ void UVoiceChatSubsystem::UpdateProximityMute()
 
 			if (!PawnA || !PawnB || !ControllerA || !ControllerB)
 			{
+				continue;
+			}
+
+			const bool bDeadA = IsDead(StateA);
+			const bool bDeadB = IsDead(StateB);
+			if (bDeadA || bDeadB)
+			{
+				// ServerMutePlayer는 호출한 쪽이 상대를 못 듣게만 한다 — 생존자 쪽만 사망자를 뮤트
+				if (bDeadA && !bDeadB)
+				{
+					ControllerB->ServerMutePlayer(StateA->GetUniqueId());
+				}
+				else
+				{
+					ControllerB->ServerUnmutePlayer(StateA->GetUniqueId());
+				}
+
+				if (bDeadB && !bDeadA)
+				{
+					ControllerA->ServerMutePlayer(StateB->GetUniqueId());
+				}
+				else
+				{
+					ControllerA->ServerUnmutePlayer(StateB->GetUniqueId());
+				}
 				continue;
 			}
 

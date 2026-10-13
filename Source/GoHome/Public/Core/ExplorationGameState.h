@@ -67,6 +67,12 @@ public:
 
 	virtual bool GetTimeLimitProgress(float& OutRemainingSeconds, float& OutTotalSeconds) const override;
 
+	// 서버 전용. AExplorationGameMode가 사망 집계 때 부른다(얇은 미러 — 판정은 GameMode).
+	void AddDeadPlayer(APlayerState* PlayerState);
+
+	// 이번 탐사에서 죽은 플레이어인가. 폰이 관련성 밖이라 클라에 없어도 판정된다(관전 대상 목록·음성 뮤트용).
+	bool IsPlayerDead(const APlayerState* PlayerState) const;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -111,6 +117,10 @@ private:
 	// 현재 맵의 할당량 기준(출발 시 1회 세팅). 라이브 HUD "납품 / 할당량" 표시용.
 	UPROPERTY(ReplicatedUsing = OnRep_QuotaProgress, BlueprintReadOnly, Category = "Expedition", meta = (AllowPrivateAccess = "true"))
 	int32 MapQuota = 0;
+
+	// 이번 탐사 사망자. 폰(UHealthComponent::IsDead)은 관련성 거리 밖이면 클라에 없으므로 PlayerState로 따로 싣는다.
+	UPROPERTY(Replicated)
+	TArray<TObjectPtr<APlayerState>> DeadPlayers;
 
 	// 이번 라운드 납품 누적액(세이브 CurrentRoundDeliveredValue 미러). 납품마다 갱신.
 	UPROPERTY(ReplicatedUsing = OnRep_QuotaProgress, BlueprintReadOnly, Category = "Expedition", meta = (AllowPrivateAccess = "true"))
