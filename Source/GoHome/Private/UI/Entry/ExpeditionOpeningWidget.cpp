@@ -33,7 +33,7 @@ using namespace SupplyUI;
  * 폰트만 SupplyUI::Font가 0.75배. cqw 글자(색인·스탬프·컷인·아웃라인 단어)는 묶음째 W/1920 배율, 위치는 CSS %/clamp 그대로.
  * 시간: opening.js의 track() — WAAPI는 easing을 트랙 전체 진행도에 걸고 키 사이는 선형이다(motion.md 표의 24%/66%는 "곡선 적용 뒤" 진행도).
  */
-namespace
+namespace ExpeditionOpeningUI
 {
 	const FSupplyEase& OpeningEase()
 	{
@@ -341,7 +341,7 @@ void UExpeditionOpeningWidget::NativeTick(const FGeometry& MyGeometry, float InD
 		if (bDebugPlaying)
 		{
 			DebugTimeMs += InDeltaTime * 1000.f;
-			if (DebugTimeMs >= EndMs)
+			if (DebugTimeMs >= ExpeditionOpeningUI::EndMs)
 			{
 				RemoveFromParent();
 				return;
@@ -386,7 +386,7 @@ void UExpeditionOpeningWidget::NativeTick(const FGeometry& MyGeometry, float InD
 	}
 
 	// 데이터 없음: 대체 화면만, 탐사가 열리면(시안 끝) 걷는다. 정상: 도착 안내 퇴장까지.
-	const float LastMs = Mode == EMode::Empty ? TimelineMs : EndMs;
+	const float LastMs = Mode == EMode::Empty ? ExpeditionOpeningUI::TimelineMs : ExpeditionOpeningUI::EndMs;
 	if (Mode != EMode::Loading && TimeMs >= LastMs && Backend && !bFinishRequested)
 	{
 		bFinishRequested = true;
@@ -424,28 +424,28 @@ void UExpeditionOpeningWidget::BuildArrival()
 {
 	UWidgetTree* T = WidgetTree;
 	// .arrival: left 6.2%, bottom 11%, padding-left 24. 상자 높이 100(위치는 ApplyLayout)
-	Arrival = Group(T, Stage, 0.f, 0.f, 360.f, 100.f);
-	Put(Arrival, Solid(T, Lime()), 0.f, 3.f, 4.f, 92.f);	// .arrival-line top 3 / bottom 5
-	AddText(T, Arrival, LOCTEXT("ArrivalKicker", "탐사 시작"), Malgun(12.f, true), Lime(), 24.f, 17.f);
-	ArrivalName = AddText(T, Arrival, FText::GetEmpty(), Malgun(32.f, true, -.05f), Paper(), 24.f, 64.f);
-	AddText(T, Arrival, LOCTEXT("ArrivalLine", "유물을 회수하고, 함께 돌아오세요."), Malgun(12.f, false), Hex(0xbcc7d7), 24.f, 97.f);
+	Arrival = ExpeditionOpeningUI::Group(T, Stage, 0.f, 0.f, 360.f, 100.f);
+	ExpeditionOpeningUI::Put(Arrival, ExpeditionOpeningUI::Solid(T, Lime()), 0.f, 3.f, 4.f, 92.f);	// .arrival-line top 3 / bottom 5
+	ExpeditionOpeningUI::AddText(T, Arrival, LOCTEXT("ArrivalKicker", "탐사 시작"), ExpeditionOpeningUI::Malgun(12.f, true), Lime(), 24.f, 17.f);
+	ArrivalName = ExpeditionOpeningUI::AddText(T, Arrival, FText::GetEmpty(), ExpeditionOpeningUI::Malgun(32.f, true, -.05f), Paper(), 24.f, 64.f);
+	ExpeditionOpeningUI::AddText(T, Arrival, LOCTEXT("ArrivalLine", "유물을 회수하고, 함께 돌아오세요."), ExpeditionOpeningUI::Malgun(12.f, false), Hex(0xbcc7d7), 24.f, 97.f);
 }
 
 void UExpeditionOpeningWidget::BuildBrief()
 {
 	UWidgetTree* T = WidgetTree;
-	Brief = Group(T, Stage, 0.f, 0.f, 1920.f, 1080.f);
+	Brief = ExpeditionOpeningUI::Group(T, Stage, 0.f, 0.f, 1920.f, 1080.f);
 
 	// .blue-field / .paper-edge: clip-path 사선 면을 기울인 상자로(위치·기울기는 ApplyLayout)
-	BlueField = Solid(T, Blue());
-	Put(Brief, BlueField, 0.f, 0.f, 1.f, 1.f);
-	PaperEdge = Solid(T, Paper());
-	Put(Brief, PaperEdge, 0.f, 0.f, 1.f, 1.f);
+	BlueField = ExpeditionOpeningUI::Solid(T, Blue());
+	ExpeditionOpeningUI::Put(Brief, BlueField, 0.f, 0.f, 1.f, 1.f);
+	PaperEdge = ExpeditionOpeningUI::Solid(T, Paper());
+	ExpeditionOpeningUI::Put(Brief, PaperEdge, 0.f, 0.f, 1.f, 1.f);
 
 	// .halftone: 6px 격자 점 + 130° 마스크(런타임 텍스처)
 	Halftone = T->ConstructWidget<UImage>();
 	Halftone->SetVisibility(ESlateVisibility::HitTestInvisible);
-	Put(Brief, Halftone, 0.f, 0.f, 1.f, 1.f);
+	ExpeditionOpeningUI::Put(Brief, Halftone, 0.f, 0.f, 1.f, 1.f);
 
 	// .outline-word: 29cqw, 글자 칠 투명 + 1px #f0f1de1c 외곽선
 	{
@@ -453,7 +453,7 @@ void UExpeditionOpeningWidget::BuildBrief()
 		OutlineFont.OutlineSettings.OutlineSize = 1;
 		OutlineFont.OutlineSettings.bSeparateFillAlpha = true;
 		FLinearColor Stroke = Paper();
-		Stroke.A = LinearAlpha(0xf0f1de, 0x1c / 255.f, 0x2747d8);
+		Stroke.A = ExpeditionOpeningUI::LinearAlpha(0xf0f1de, 0x1c / 255.f, 0x2747d8);
 		OutlineFont.OutlineSettings.OutlineColor = Stroke;
 		OutlineWord = T->ConstructWidget<UTextBlock>();
 		OutlineWord->SetText(FText::FromString(TEXT("DEEP")));
@@ -461,7 +461,7 @@ void UExpeditionOpeningWidget::BuildBrief()
 		OutlineWord->SetColorAndOpacity(FSlateColor(FLinearColor(Paper().R, Paper().G, Paper().B, 0.f)));
 		OutlineWord->SetVisibility(ESlateVisibility::HitTestInvisible);
 		Brief->AddChildToCanvas(OutlineWord);
-		PlaceText(OutlineWord, 0.f, 0.f, ERef::ArialBlack, 556.8f * .85f);
+		ExpeditionOpeningUI::PlaceText(OutlineWord, 0.f, 0.f, ERef::ArialBlack, 556.8f * .85f);
 	}
 
 	BuildMasthead();
@@ -470,22 +470,22 @@ void UExpeditionOpeningWidget::BuildBrief()
 	{
 		UCanvasPanel* Line = T->ConstructWidget<UCanvasPanel>();
 		Line->SetVisibility(ESlateVisibility::HitTestInvisible);
-		UTextBlock* Text = AddText(T, Line, FText::FromString(TEXT("LEAVE WITH SOMETHING. COME BACK TOGETHER.")), Consolas(9.f, .16f), Paper(), 0.f, 0.f);
+		UTextBlock* Text = ExpeditionOpeningUI::AddText(T, Line, FText::FromString(TEXT("LEAVE WITH SOMETHING. COME BACK TOGETHER.")), ExpeditionOpeningUI::Consolas(9.f, .16f), Paper(), 0.f, 0.f);
 		// 시안 잉크: x 40..45(대문자 위 → 기준선), 상자 왼쪽 38.4 → 회전 전 줄 위에서 기준선 7.6
 		Typeset(Text, ERef::Consolas, 10.f, 7.6f);
 		Cast<UCanvasPanelSlot>(Text->Slot)->SetPosition(FVector2D(0.f, 0.f));
-		Put(Brief, Line, 0.f, 0.f, 262.f, 10.f);
+		ExpeditionOpeningUI::Put(Brief, Line, 0.f, 0.f, 262.f, 10.f);
 		Line->SetRenderTransformAngle(-90.f);
 		VerticalLabel = Line;
 	}
 
 	// .index: right 4.5%, top 22% — grid(ZONE 한 줄 + 번호·화살표). 묶음 상자 301.6×166, cqw라 W/1920 배율(오른쪽 위 기준)
 	{
-		Index = Group(T, Brief, 0.f, 0.f, 301.6f, 166.f);
+		Index = ExpeditionOpeningUI::Group(T, Brief, 0.f, 0.f, 301.6f, 166.f);
 		Index->SetRenderTransformPivot(FVector2D(1.f, 0.f));
-		AddText(T, Index, FText::FromString(TEXT("ZONE")), Consolas(10.f, .25f), Lime(), 301.6f, 9.f, 1.f);
-		IndexNumber = AddText(T, Index, FText::GetEmpty(), ArialBlack(153.6f, -.1f), Paper(), 0.f, 149.f);
-		AddArrow(T, Index, EArrow::ThinSouthEast, 115.2f, Lime(), 192.1f, 156.4f);
+		ExpeditionOpeningUI::AddText(T, Index, FText::FromString(TEXT("ZONE")), ExpeditionOpeningUI::Consolas(10.f, .25f), Lime(), 301.6f, 9.f, 1.f);
+		IndexNumber = ExpeditionOpeningUI::AddText(T, Index, FText::GetEmpty(), ExpeditionOpeningUI::ArialBlack(153.6f, -.1f), Paper(), 0.f, 149.f);
+		ExpeditionOpeningUI::AddArrow(T, Index, ExpeditionOpeningUI::EArrow::ThinSouthEast, 115.2f, Lime(), 192.1f, 156.4f);
 	}
 
 	BuildTitle();
@@ -493,9 +493,9 @@ void UExpeditionOpeningWidget::BuildBrief()
 
 	// .brief-footer: left 8%, bottom 5% — 두 번째 span(GH / EXP—01)은 시안 CSS가 숨김
 	{
-		Footer = Group(T, Brief, 0.f, 0.f, 300.f, 12.f);
-		AddText(T, Footer, FText::FromString(TEXT("GO DEEP.")), Consolas(10.f, .13f), Paper(), 0.f, 9.f);
-		AddText(T, Footer, FText::FromString(TEXT("GO HOME.")), Consolas(10.f, .13f, true), Lime(), 61.2f, 9.f);
+		Footer = ExpeditionOpeningUI::Group(T, Brief, 0.f, 0.f, 300.f, 12.f);
+		ExpeditionOpeningUI::AddText(T, Footer, FText::FromString(TEXT("GO DEEP.")), ExpeditionOpeningUI::Consolas(10.f, .13f), Paper(), 0.f, 9.f);
+		ExpeditionOpeningUI::AddText(T, Footer, FText::FromString(TEXT("GO HOME.")), ExpeditionOpeningUI::Consolas(10.f, .13f, true), Lime(), 61.2f, 9.f);
 	}
 
 	BuildStamp();
@@ -505,37 +505,37 @@ void UExpeditionOpeningWidget::BuildMasthead()
 {
 	UWidgetTree* T = WidgetTree;
 	// .masthead: inset 5% 4.5% auto, 높이 68(워드마크). 묶음 원점 = 워드마크 왼쪽 위.
-	Masthead = Group(T, Brief, 0.f, 0.f, 1747.2f, 68.f);
-	AddText(T, Masthead, FText::FromString(TEXT("GO")), ArialBlack(40.f, -.1f), Paper(), 0.f, 33.f);
-	AddText(T, Masthead, FText::FromString(TEXT("HOME")), ArialBlack(40.f, -.1f), Paper(), 0.f, 67.f);
-	AddArrow(T, Masthead, EArrow::BoldSouthEast, 46.f, Lime(), 105.3f, 37.7f);
+	Masthead = ExpeditionOpeningUI::Group(T, Brief, 0.f, 0.f, 1747.2f, 68.f);
+	ExpeditionOpeningUI::AddText(T, Masthead, FText::FromString(TEXT("GO")), ExpeditionOpeningUI::ArialBlack(40.f, -.1f), Paper(), 0.f, 33.f);
+	ExpeditionOpeningUI::AddText(T, Masthead, FText::FromString(TEXT("HOME")), ExpeditionOpeningUI::ArialBlack(40.f, -.1f), Paper(), 0.f, 67.f);
+	ExpeditionOpeningUI::AddArrow(T, Masthead, ExpeditionOpeningUI::EArrow::BoldSouthEast, 46.f, Lime(), 105.3f, 37.7f);
 
 	// 부서 표기: border-left 1px #f0f1de6b(파란 면 위 결과색), padding-left 20
-	Put(Masthead, Solid(T, MixSRGB(0xf0f1de, 0x6b / 255.f, 0x2747d8)), 174.6f, 17.f, 1.f, 33.f);
-	AddText(T, Masthead, FText::FromString(TEXT("EXPEDITION DEPARTMENT")), Consolas(9.f, .07f), Paper(), 196.3f, 28.3f);
-	AddText(T, Masthead, LOCTEXT("Department", "탐사 구역 진입"), Malgun(11.f, true, .06f), Paper(), 196.3f, 45.5f);
+	ExpeditionOpeningUI::Put(Masthead, ExpeditionOpeningUI::Solid(T, MixSRGB(0xf0f1de, 0x6b / 255.f, 0x2747d8)), 174.6f, 17.f, 1.f, 33.f);
+	ExpeditionOpeningUI::AddText(T, Masthead, FText::FromString(TEXT("EXPEDITION DEPARTMENT")), ExpeditionOpeningUI::Consolas(9.f, .07f), Paper(), 196.3f, 28.3f);
+	ExpeditionOpeningUI::AddText(T, Masthead, LOCTEXT("Department", "탐사 구역 진입"), ExpeditionOpeningUI::Malgun(11.f, true, .06f), Paper(), 196.3f, 45.5f);
 
 	// .edition: 오른쪽 정렬
-	AddText(T, Masthead, FText::FromString(TEXT("FIELD RECORD")), Consolas(9.f, .07f), Paper(), 1747.2f, 28.8f, 1.f);
-	Record = AddText(T, Masthead, FText::GetEmpty(), Consolas(11.f, .06f), Paper(), 1747.2f, 45.f, 1.f);
+	ExpeditionOpeningUI::AddText(T, Masthead, FText::FromString(TEXT("FIELD RECORD")), ExpeditionOpeningUI::Consolas(9.f, .07f), Paper(), 1747.2f, 28.8f, 1.f);
+	Record = ExpeditionOpeningUI::AddText(T, Masthead, FText::GetEmpty(), ExpeditionOpeningUI::Consolas(11.f, .06f), Paper(), 1747.2f, 45.f, 1.f);
 }
 
 void UExpeditionOpeningWidget::BuildTitle()
 {
 	UWidgetTree* T = WidgetTree;
 	// .title-block: top 29%, left 8%, width 79%. 아래 y는 묶음 위에서부터.
-	Title = Group(T, Brief, 0.f, 0.f, 1516.8f, 520.f);
-	Put(Title, Solid(T, Lime()), 0.f, 10.f, 22.f, 4.f);	// .eyebrow>span
-	AddText(T, Title, FText::FromString(TEXT("NOW ENTERING")), Consolas(11.f, .15f), Paper(), 34.f, 15.f);
-	Put(Title, Solid(T, Ink()), 138.4f, 0.f, 67.f, 23.f);	// .eyebrow>b padding 5 9
-	AddText(T, Title, LOCTEXT("EyebrowChip", "탐사 개시"), Malgun(10.f, true, .1f), Lime(), 147.4f, 16.f);
+	Title = ExpeditionOpeningUI::Group(T, Brief, 0.f, 0.f, 1516.8f, 520.f);
+	ExpeditionOpeningUI::Put(Title, ExpeditionOpeningUI::Solid(T, Lime()), 0.f, 10.f, 22.f, 4.f);	// .eyebrow>span
+	ExpeditionOpeningUI::AddText(T, Title, FText::FromString(TEXT("NOW ENTERING")), ExpeditionOpeningUI::Consolas(11.f, .15f), Paper(), 34.f, 15.f);
+	ExpeditionOpeningUI::Put(Title, ExpeditionOpeningUI::Solid(T, Ink()), 138.4f, 0.f, 67.f, 23.f);	// .eyebrow>b padding 5 9
+	ExpeditionOpeningUI::AddText(T, Title, LOCTEXT("EyebrowChip", "탐사 개시"), ExpeditionOpeningUI::Malgun(10.f, true, .1f), Lime(), 147.4f, 16.f);
 
-	TitleText = AddText(T, Title, FText::GetEmpty(), ArialBlack(210.f, -.065f), Paper(), 0.f, 191.f);
+	TitleText = ExpeditionOpeningUI::AddText(T, Title, FText::GetEmpty(), ExpeditionOpeningUI::ArialBlack(210.f, -.065f), Paper(), 0.f, 191.f);
 	TitleText->SetShadowOffset(FVector2D(7.f, 7.f));
 	TitleText->SetShadowColorAndOpacity(Ink());
-	NameText = AddText(T, Title, FText::GetEmpty(), Malgun(44.f, true, -.055f), Paper(), 0.f, 316.3f);
-	NameArrow = AddArrow(T, Title, EArrow::LongRight, 55.f, Lime(), 150.7f, 316.3f);
-	CaptionText = AddText(T, Title, FText::GetEmpty(), Malgun(16.f, false, 0.f, 29.6f), Hex(0xe0e6ff), 0.f, 374.3f);
+	NameText = ExpeditionOpeningUI::AddText(T, Title, FText::GetEmpty(), ExpeditionOpeningUI::Malgun(44.f, true, -.055f), Paper(), 0.f, 316.3f);
+	NameArrow = ExpeditionOpeningUI::AddArrow(T, Title, ExpeditionOpeningUI::EArrow::LongRight, 55.f, Lime(), 150.7f, 316.3f);
+	CaptionText = ExpeditionOpeningUI::AddText(T, Title, FText::GetEmpty(), ExpeditionOpeningUI::Malgun(16.f, false, 0.f, 29.6f), Hex(0xe0e6ff), 0.f, 374.3f);
 }
 
 void UExpeditionOpeningWidget::BuildMission()
@@ -544,33 +544,33 @@ void UExpeditionOpeningWidget::BuildMission()
 	// .mission: right 5.5%, bottom 15%, width min(32%, 520), rotate(-4deg), box-shadow 9px 10px 0 ink — 그림자는 상자와 함께 돈다.
 	constexpr float W = 520.f;
 	constexpr float H = 269.f;
-	Mission = Group(T, Brief, 0.f, 0.f, W, H);
-	Put(Mission, Solid(T, Ink()), 9.f, 10.f, W, H);
-	Put(Mission, Solid(T, Paper()), 0.f, 0.f, W, H);
+	Mission = ExpeditionOpeningUI::Group(T, Brief, 0.f, 0.f, W, H);
+	ExpeditionOpeningUI::Put(Mission, ExpeditionOpeningUI::Solid(T, Ink()), 9.f, 10.f, W, H);
+	ExpeditionOpeningUI::Put(Mission, ExpeditionOpeningUI::Solid(T, Paper()), 0.f, 0.f, W, H);
 
 	const FLinearColor Rule = MixSRGB(0x080f20, 0x50 / 255.f, 0xf0f1de);
 	const FLinearColor Dash = MixSRGB(0x080f20, 0x80 / 255.f, 0xf0f1de);
 	const FLinearColor Bar = MixSRGB(0x080f20, .75f, 0xf0f1de);
 
 	// .ticket-top(높이 57, border-bottom 1px)
-	AddText(T, Mission, FText::FromString(TEXT("YOUR ASSIGNMENT")), Consolas(9.f, .04f, true), Ink(), 20.f, 31.2f);
-	AddText(T, Mission, LOCTEXT("TicketTitle", "회수 지시서"), Malgun(11.f, true), Ink(), 111.6f, 32.7f);
-	AddArrow(T, Mission, EArrow::NorthEast, 26.f, Ink(), 474.f, 37.2f);
-	Put(Mission, Solid(T, Rule), 0.f, 56.f, W, 1.f);
+	ExpeditionOpeningUI::AddText(T, Mission, FText::FromString(TEXT("YOUR ASSIGNMENT")), ExpeditionOpeningUI::Consolas(9.f, .04f, true), Ink(), 20.f, 31.2f);
+	ExpeditionOpeningUI::AddText(T, Mission, LOCTEXT("TicketTitle", "회수 지시서"), ExpeditionOpeningUI::Malgun(11.f, true), Ink(), 111.6f, 32.7f);
+	ExpeditionOpeningUI::AddArrow(T, Mission, ExpeditionOpeningUI::EArrow::NorthEast, 26.f, Ink(), 474.f, 37.2f);
+	ExpeditionOpeningUI::Put(Mission, ExpeditionOpeningUI::Solid(T, Rule), 0.f, 56.f, W, 1.f);
 
 	// .ticket-main: 두 칸(240), 둘째 칸 border-left 1px + padding-left 20
-	AddText(T, Mission, LOCTEXT("QuotaLabel", "회수 할당량"), Malgun(11.f, true), Ink(), 20.f, 91.2f);
-	QuotaText = AddText(T, Mission, FText::GetEmpty(), Consolas(60.f, -.05f), Ink(), 20.f, 153.2f);
-	AddText(T, Mission, LOCTEXT("QuotaUnit", "목표"), Malgun(9.f, false), Hex(0x536072), 20.f, 189.2f);
-	Put(Mission, Solid(T, Rule), 260.f, 79.f, 1.f, 114.f);
-	AddText(T, Mission, LOCTEXT("TimeLabel", "탐사 제한 시간"), Malgun(11.f, true), Ink(), 281.f, 91.2f);
-	TimeText = AddText(T, Mission, FText::GetEmpty(), Consolas(60.f, -.05f), Ink(), 281.f, 153.2f);
-	TimeUnitText = AddText(T, Mission, LOCTEXT("TimeUnit", "분 : 초"), Malgun(9.f, false), Hex(0x536072), 281.f, 189.2f);
+	ExpeditionOpeningUI::AddText(T, Mission, LOCTEXT("QuotaLabel", "회수 할당량"), ExpeditionOpeningUI::Malgun(11.f, true), Ink(), 20.f, 91.2f);
+	QuotaText = ExpeditionOpeningUI::AddText(T, Mission, FText::GetEmpty(), ExpeditionOpeningUI::Consolas(60.f, -.05f), Ink(), 20.f, 153.2f);
+	ExpeditionOpeningUI::AddText(T, Mission, LOCTEXT("QuotaUnit", "목표"), ExpeditionOpeningUI::Malgun(9.f, false), Hex(0x536072), 20.f, 189.2f);
+	ExpeditionOpeningUI::Put(Mission, ExpeditionOpeningUI::Solid(T, Rule), 260.f, 79.f, 1.f, 114.f);
+	ExpeditionOpeningUI::AddText(T, Mission, LOCTEXT("TimeLabel", "탐사 제한 시간"), ExpeditionOpeningUI::Malgun(11.f, true), Ink(), 281.f, 91.2f);
+	TimeText = ExpeditionOpeningUI::AddText(T, Mission, FText::GetEmpty(), ExpeditionOpeningUI::Consolas(60.f, -.05f), Ink(), 281.f, 153.2f);
+	TimeUnitText = ExpeditionOpeningUI::AddText(T, Mission, LOCTEXT("TimeUnit", "분 : 초"), ExpeditionOpeningUI::Malgun(9.f, false), Hex(0x536072), 281.f, 189.2f);
 
 	// .ticket-bottom: border-top 1px dashed(브라우저 렌더: 3px 선 · 2px 틈), 바코드 80×25(14px 반복 무늬, opacity .75)
 	for (float X = 0.f; X < W; X += 5.f)
 	{
-		Put(Mission, Solid(T, Dash), X, 213.f, FMath::Min(3.f, W - X), 1.f);
+		ExpeditionOpeningUI::Put(Mission, ExpeditionOpeningUI::Solid(T, Dash), X, 213.f, FMath::Min(3.f, W - X), 1.f);
 	}
 	static const float BarRuns[][2] = { { 0.f, 2.f }, { 4.f, 1.f }, { 8.f, 4.f } };
 	for (float Repeat = 0.f; Repeat < 80.f; Repeat += 14.f)
@@ -580,12 +580,12 @@ void UExpeditionOpeningWidget::BuildMission()
 			const float X = Repeat + Run[0];
 			if (X < 80.f)
 			{
-				Put(Mission, Solid(T, Bar), 20.f + X, 229.f, FMath::Min(Run[1], 80.f - X), 25.f);
+				ExpeditionOpeningUI::Put(Mission, ExpeditionOpeningUI::Solid(T, Bar), 20.f + X, 229.f, FMath::Min(Run[1], 80.f - X), 25.f);
 			}
 		}
 	}
-	AddText(T, Mission, FText::FromString(TEXT("BRING IT BACK.")), Consolas(8.f, .08f), Ink(), 500.f, 235.2f, 1.f);
-	AddText(T, Mission, LOCTEXT("TicketPromise", "반드시, 돌아올 것."), Malgun(10.f, true, .04f), Ink(), 500.f, 251.6f, 1.f);
+	ExpeditionOpeningUI::AddText(T, Mission, FText::FromString(TEXT("BRING IT BACK.")), ExpeditionOpeningUI::Consolas(8.f, .08f), Ink(), 500.f, 235.2f, 1.f);
+	ExpeditionOpeningUI::AddText(T, Mission, LOCTEXT("TicketPromise", "반드시, 돌아올 것."), ExpeditionOpeningUI::Malgun(10.f, true, .04f), Ink(), 500.f, 251.6f, 1.f);
 }
 
 void UExpeditionOpeningWidget::BuildStamp()
@@ -594,60 +594,60 @@ void UExpeditionOpeningWidget::BuildStamp()
 	// .stamp: right 7%, top 23%, rotate(9deg), border 3px ink, box-shadow 8px 8px 0 ink, padding 15 23 15 19
 	constexpr float W = 412.f;
 	constexpr float H = 162.f;
-	Stamp = Group(T, Brief, 0.f, 0.f, W, H);
-	Put(Stamp, Solid(T, Ink()), 8.f, 8.f, W, H);
-	Put(Stamp, Solid(T, Ink()), 0.f, 0.f, W, H);
-	Put(Stamp, Solid(T, Lime()), 3.f, 3.f, W - 6.f, H - 6.f);
-	AddText(T, Stamp, FText::FromString(TEXT("LET’S")), ArialBlack(20.f), Ink(), 22.2f, 40.4f);
-	AddText(T, Stamp, FText::FromString(TEXT("DIVE!")), ArialBlack(96.f, -.07f), Ink(), 22.2f, 129.4f);
-	AddArrow(T, Stamp, EArrow::SouthEast, 96.f, Ink(), 290.6f, 129.4f);
+	Stamp = ExpeditionOpeningUI::Group(T, Brief, 0.f, 0.f, W, H);
+	ExpeditionOpeningUI::Put(Stamp, ExpeditionOpeningUI::Solid(T, Ink()), 8.f, 8.f, W, H);
+	ExpeditionOpeningUI::Put(Stamp, ExpeditionOpeningUI::Solid(T, Ink()), 0.f, 0.f, W, H);
+	ExpeditionOpeningUI::Put(Stamp, ExpeditionOpeningUI::Solid(T, Lime()), 3.f, 3.f, W - 6.f, H - 6.f);
+	ExpeditionOpeningUI::AddText(T, Stamp, FText::FromString(TEXT("LET’S")), ExpeditionOpeningUI::ArialBlack(20.f), Ink(), 22.2f, 40.4f);
+	ExpeditionOpeningUI::AddText(T, Stamp, FText::FromString(TEXT("DIVE!")), ExpeditionOpeningUI::ArialBlack(96.f, -.07f), Ink(), 22.2f, 129.4f);
+	ExpeditionOpeningUI::AddArrow(T, Stamp, ExpeditionOpeningUI::EArrow::SouthEast, 96.f, Ink(), 290.6f, 129.4f);
 }
 
 void UExpeditionOpeningWidget::BuildCutin()
 {
 	UWidgetTree* T = WidgetTree;
-	Cutin = Group(T, Stage, 0.f, 0.f, 1920.f, 1080.f);
+	Cutin = ExpeditionOpeningUI::Group(T, Stage, 0.f, 0.f, 1920.f, 1080.f);
 	// .cutin-paper / .cutin-blue: inset -25% -20%, skewX(-13deg)
-	CutinPaper = Solid(T, Paper());
-	Put(Cutin, CutinPaper, 0.f, 0.f, 1.f, 1.f);
-	CutinBlue = Solid(T, Blue());
-	Put(Cutin, CutinBlue, 0.f, 0.f, 1.f, 1.f);
+	CutinPaper = ExpeditionOpeningUI::Solid(T, Paper());
+	ExpeditionOpeningUI::Put(Cutin, CutinPaper, 0.f, 0.f, 1.f, 1.f);
+	CutinBlue = ExpeditionOpeningUI::Solid(T, Blue());
+	ExpeditionOpeningUI::Put(Cutin, CutinBlue, 0.f, 0.f, 1.f, 1.f);
 
 	// .cutin-type: left 23%, top 18%, rotate(-6deg). 상자 1179×486(내용 크기), cqw라 W/1920 배율.
-	CutinType = Group(T, Cutin, 0.f, 0.f, 1179.f, 486.f);
-	AddText(T, CutinType, FText::FromString(TEXT("GOHOME / EXPEDITION")), Consolas(11.f, .25f), Paper(), 0.f, 17.f);
+	CutinType = ExpeditionOpeningUI::Group(T, Cutin, 0.f, 0.f, 1179.f, 486.f);
+	ExpeditionOpeningUI::AddText(T, CutinType, FText::FromString(TEXT("GOHOME / EXPEDITION")), ExpeditionOpeningUI::Consolas(11.f, .25f), Paper(), 0.f, 17.f);
 	for (const TPair<const TCHAR*, float>& Line : { TPair<const TCHAR*, float>(TEXT("INTO"), 235.f), TPair<const TCHAR*, float>(TEXT("THE"), 433.1f) })
 	{
-		UTextBlock* Word = AddText(T, CutinType, FText::FromString(Line.Key), ArialBlack(230.4f, -.065f), Paper(), 0.f, Line.Value);
+		UTextBlock* Word = ExpeditionOpeningUI::AddText(T, CutinType, FText::FromString(Line.Key), ExpeditionOpeningUI::ArialBlack(230.4f, -.065f), Paper(), 0.f, Line.Value);
 		Word->SetShadowOffset(FVector2D(8.f, 8.f));
 		Word->SetShadowColorAndOpacity(Ink());
 	}
-	UTextBlock* Deep = AddText(T, CutinType, FText::FromString(TEXT("DEEP.")), ArialBlack(230.4f, -.065f), Lime(), 541.6f, 433.1f);
+	UTextBlock* Deep = ExpeditionOpeningUI::AddText(T, CutinType, FText::FromString(TEXT("DEEP.")), ExpeditionOpeningUI::ArialBlack(230.4f, -.065f), Lime(), 541.6f, 433.1f);
 	Deep->SetShadowOffset(FVector2D(8.f, 8.f));
 	Deep->SetShadowColorAndOpacity(Ink());
-	AddText(T, CutinType, LOCTEXT("CutinLine", "다시, 깊은 곳으로."), Malgun(14.f, true, .2f), Paper(), 0.f, 482.3f);
+	ExpeditionOpeningUI::AddText(T, CutinType, LOCTEXT("CutinLine", "다시, 깊은 곳으로."), ExpeditionOpeningUI::Malgun(14.f, true, .2f), Paper(), 0.f, 482.3f);
 }
 
 void UExpeditionOpeningWidget::BuildFallback()
 {
 	UWidgetTree* T = WidgetTree;
 	// .fallback: 잉크 전체 면, 가운데 세로 흐름(flex column). 열 상자 폭 400, x 기준 = 가운데.
-	Fallback = Group(T, Stage, 0.f, 0.f, 1920.f, 1080.f);
-	UImage* Back = Solid(T, Ink());
+	Fallback = ExpeditionOpeningUI::Group(T, Stage, 0.f, 0.f, 1920.f, 1080.f);
+	UImage* Back = ExpeditionOpeningUI::Solid(T, Ink());
 	if (UCanvasPanelSlot* BackSlot = Fallback->AddChildToCanvas(Back))
 	{
 		BackSlot->SetAnchors(FAnchors(0.f, 0.f, 1.f, 1.f));
 		BackSlot->SetOffsets(FMargin(0.f));
 	}
-	UCanvasPanel* Column = Group(T, Fallback, 0.f, 0.f, 400.f, 200.f);
+	UCanvasPanel* Column = ExpeditionOpeningUI::Group(T, Fallback, 0.f, 0.f, 400.f, 200.f);
 	if (UCanvasPanelSlot* ColumnSlot = Cast<UCanvasPanelSlot>(Column->Slot))
 	{
 		ColumnSlot->SetAnchors(FAnchors(.5f, .5f));
 		ColumnSlot->SetAlignment(FVector2D(.5f, .5f));
 	}
-	FallbackKicker = AddText(T, Column, FText::FromString(TEXT("GOHOME / EXPEDITION")), Consolas(11.f, .2f), Lime(), 200.f, 10.f, .5f);
-	FallbackTitle = AddText(T, Column, FText::GetEmpty(), Malgun(28.f, true, -.055f), Paper(), 200.f, 67.f, .5f);
-	FallbackText = AddText(T, Column, FText::GetEmpty(), Malgun(13.f, false, 0.f, 22.1f), Hex(0x9ca9c3), 200.f, 111.f, .5f);
+	FallbackKicker = ExpeditionOpeningUI::AddText(T, Column, FText::FromString(TEXT("GOHOME / EXPEDITION")), ExpeditionOpeningUI::Consolas(11.f, .2f), Lime(), 200.f, 10.f, .5f);
+	FallbackTitle = ExpeditionOpeningUI::AddText(T, Column, FText::GetEmpty(), ExpeditionOpeningUI::Malgun(28.f, true, -.055f), Paper(), 200.f, 67.f, .5f);
+	FallbackText = ExpeditionOpeningUI::AddText(T, Column, FText::GetEmpty(), ExpeditionOpeningUI::Malgun(13.f, false, 0.f, 22.1f), Hex(0x9ca9c3), 200.f, 111.f, .5f);
 }
 
 // --- 레이아웃 ---
@@ -657,7 +657,7 @@ void UExpeditionOpeningWidget::ApplyLayout(const FVector2D& ViewSize)
 	View = ViewSize;
 	const float W = ViewSize.X;
 	const float H = ViewSize.Y;
-	const float K = W / ReferenceWidth;	// 1cqw = W/100
+	const float K = W / ExpeditionOpeningUI::ReferenceWidth;	// 1cqw = W/100
 	auto Move = [](UWidget* Widget, float X, float Y, float Width = -1.f, float Height = -1.f)
 	{
 		if (UCanvasPanelSlot* WidgetSlot = Widget ? Cast<UCanvasPanelSlot>(Widget->Slot) : nullptr)
@@ -687,7 +687,7 @@ void UExpeditionOpeningWidget::ApplyLayout(const FVector2D& ViewSize)
 	}
 	if (OutlineWord)
 	{
-		PlaceText(OutlineWord, -.02f * W, .02f * H + 457.f * K, ERef::ArialBlack, 556.8f * .85f);
+		ExpeditionOpeningUI::PlaceText(OutlineWord, -.02f * W, .02f * H + 457.f * K, ERef::ArialBlack, 556.8f * .85f);
 		OutlineWord->SetRenderTransformPivot(FVector2D(0.f, 0.f));
 		OutlineWord->SetRenderScale(FVector2D(K, K));
 	}
@@ -730,7 +730,7 @@ void UExpeditionOpeningWidget::LayoutTitle()
 	{
 		return;
 	}
-	const float Cqw = (View.X > 1.f ? View.X : ReferenceWidth) / 100.f;
+	const float Cqw = (View.X > 1.f ? View.X : ExpeditionOpeningUI::ReferenceWidth) / 100.f;
 	const FString English = TitleText->GetText().ToString();
 	// h1(clamp 60..210 12.4cqw) / .medium 9.6cqw / .long 8.2cqw(단어마다 줄)
 	const bool bLong = TitleLines > 1;
@@ -739,21 +739,21 @@ void UExpeditionOpeningWidget::LayoutTitle()
 	const float LineHeight = (bLong ? 1.02f : 1.03f) * TitlePx;
 	TitleText->SetFont(Font(EFace::Display, TitlePx, -.065f, true));
 	constexpr float TitleTop = 41.f;	// .eyebrow 23 + h1 margin-top 18
-	PlaceText(TitleText, 0.f, TitleTop + CssBaseline(TitlePx, ERef::ArialBlack, LineHeight), ERef::ArialBlack, LineHeight);
+	ExpeditionOpeningUI::PlaceText(TitleText, 0.f, TitleTop + CssBaseline(TitlePx, ERef::ArialBlack, LineHeight), ERef::ArialBlack, LineHeight);
 
 	// .name-line: h1 margin-bottom 3, 높이 75(h2 줄 59 + margin 8·8). h2 clamp(22, 2.6cqw, 44)
 	const float NameTop = TitleTop + TitleLines * LineHeight + 3.f;
 	const float NamePx = FMath::Clamp(2.6f * Cqw, 22.f, 44.f);
-	NameText->SetFont(Font(MalgunBold, NamePx, -.055f));
+	NameText->SetFont(Font(ExpeditionOpeningUI::MalgunBold, NamePx, -.055f));
 	const float NameBaseline = NameTop + 8.f + CssBaseline(NamePx, ERef::Malgun);
-	PlaceText(NameText, 0.f, NameBaseline, ERef::Malgun, -1.f);
-	MoveArrow(NameArrow, 55.f, MeasureWidth(NameText) + 26.f, NameBaseline);
+	ExpeditionOpeningUI::PlaceText(NameText, 0.f, NameBaseline, ERef::Malgun, -1.f);
+	ExpeditionOpeningUI::MoveArrow(NameArrow, 55.f, ExpeditionOpeningUI::MeasureWidth(NameText) + 26.f, NameBaseline);
 
 	// .caption: margin-top 18, clamp(11, 1cqw, 16) / 1.85
 	const float CaptionPx = FMath::Clamp(Cqw, 11.f, 16.f);
 	CaptionText->SetFont(Font(EFace::Regular, CaptionPx));
 	const float CaptionTop = NameTop + 75.f + 18.f;
-	PlaceText(CaptionText, 0.f, CaptionTop + CssBaseline(CaptionPx, ERef::Malgun, CaptionPx * 1.85f), ERef::Malgun, CaptionPx * 1.85f);
+	ExpeditionOpeningUI::PlaceText(CaptionText, 0.f, CaptionTop + CssBaseline(CaptionPx, ERef::Malgun, CaptionPx * 1.85f), ERef::Malgun, CaptionPx * 1.85f);
 }
 
 void UExpeditionOpeningWidget::RebuildHalftone(const FVector2D& Size)
@@ -787,7 +787,7 @@ void UExpeditionOpeningWidget::RebuildHalftone(const FVector2D& Size)
 	uint8 AlphaLut[256];
 	for (int32 Level = 0; Level < 256; ++Level)
 	{
-		AlphaLut[Level] = static_cast<uint8>(FMath::RoundToInt(LinearAlpha(0x080f20, Level / 255.f, 0x2747d8) * 255.f));
+		AlphaLut[Level] = static_cast<uint8>(FMath::RoundToInt(ExpeditionOpeningUI::LinearAlpha(0x080f20, Level / 255.f, 0x2747d8) * 255.f));
 	}
 
 	FTexture2DMipMap& Mip = HalftoneTexture->GetPlatformData()->Mips[0];
@@ -826,13 +826,13 @@ void UExpeditionOpeningWidget::ApplyData(const FExpeditionEntryState& State)
 	TitleLines = FMath::Max(1, Words.Num());
 	TitleText->SetText(FText::FromString(FString::Join(Words, TEXT("\n"))));
 	NameText->SetText(State.DisplayName);
-	CaptionText->SetText(SplitSentences(State.Caption));
+	CaptionText->SetText(ExpeditionOpeningUI::SplitSentences(State.Caption));
 	ArrivalName->SetText(State.DisplayName);
 
 	const FString Number = State.ZoneNumber > 0 ? FString::Printf(TEXT("%02d"), State.ZoneNumber) : FString(TEXT("—"));
 	IndexNumber->SetText(FText::FromString(Number));
 	Record->SetText(FText::FromString(FString::Printf(TEXT("%s / %s"), *Number, *English.Replace(TEXT("\n"), TEXT(" ")))));
-	QuotaText->SetText(FText::FromString(GroupThousands(State.MapQuota)));
+	QuotaText->SetText(FText::FromString(ExpeditionOpeningUI::GroupThousands(State.MapQuota)));
 	if (State.TimeLimitSeconds > 0.f)
 	{
 		const int32 Seconds = FMath::RoundToInt(State.TimeLimitSeconds);
@@ -852,14 +852,14 @@ void UExpeditionOpeningWidget::ApplyMode(EMode Mode)
 	CurrentMode = Mode;
 	bModeApplied = true;
 	const bool bTimeline = Mode == EMode::Timeline;
-	SetShown(Fallback, !bTimeline);
+	ExpeditionOpeningUI::SetShown(Fallback, !bTimeline);
 	if (bTimeline)
 	{
 		return;
 	}
-	SetShown(Arrival, false);
-	SetShown(Brief, false);
-	SetShown(Cutin, false);
+	ExpeditionOpeningUI::SetShown(Arrival, false);
+	ExpeditionOpeningUI::SetShown(Brief, false);
+	ExpeditionOpeningUI::SetShown(Cutin, false);
 
 	// 열 상자 높이 130.1(kicker 13 + 24 + 제목 37 + 8 + 13 + 본문 22.1 + 13). 스킵이 없어 시안의 건너뛰기 안내·빈 데이터 버튼은 뺐다.
 	const bool bEmpty = Mode == EMode::Empty;
@@ -875,82 +875,82 @@ void UExpeditionOpeningWidget::ApplyMode(EMode Mode)
 
 void UExpeditionOpeningWidget::ApplyFrame(float T)
 {
-	const float W = View.X > 1.f ? View.X : ReferenceWidth;
-	const float K = W / ReferenceWidth;
+	const float W = View.X > 1.f ? View.X : ExpeditionOpeningUI::ReferenceWidth;
+	const float K = W / ExpeditionOpeningUI::ReferenceWidth;
 
 	// 컷인(0~1345ms): 아이보리 → 65ms 뒤 코발트, 키 −120% / 0(.24) / 0(.66) / 125%(자기 폭 140%W 기준)
 	const bool bCutin = T < 1345.f;
-	SetShown(Cutin, bCutin);
+	ExpeditionOpeningUI::SetShown(Cutin, bCutin);
 	if (bCutin)
 	{
 		static const FSupplyKey PanelKeys[] = { { 0.f, -1.2f }, { .24f, 0.f }, { .66f, 0.f }, { 1.f, 1.25f } };
 		const float Slant = -13.f;
-		CutinPaper->SetRenderTransform(FWidgetTransform(FVector2D(Keys(PanelKeys, Track(T, 0.f, 1280.f)) * 1.4f * W, 0.f), FVector2D(1.f, 1.f), FVector2D(Slant, 0.f), 0.f));
-		CutinBlue->SetRenderTransform(FWidgetTransform(FVector2D(Keys(PanelKeys, Track(T, 65.f, 1280.f)) * 1.4f * W, 0.f), FVector2D(1.f, 1.f), FVector2D(Slant, 0.f), 0.f));
+		CutinPaper->SetRenderTransform(FWidgetTransform(FVector2D(ExpeditionOpeningUI::Keys(PanelKeys, ExpeditionOpeningUI::Track(T, 0.f, 1280.f)) * 1.4f * W, 0.f), FVector2D(1.f, 1.f), FVector2D(Slant, 0.f), 0.f));
+		CutinBlue->SetRenderTransform(FWidgetTransform(FVector2D(ExpeditionOpeningUI::Keys(PanelKeys, ExpeditionOpeningUI::Track(T, 65.f, 1280.f)) * 1.4f * W, 0.f), FVector2D(1.f, 1.f), FVector2D(Slant, 0.f), 0.f));
 		static const FSupplyKey TypeOpacity[] = { { 0.f, 0.f }, { .2f, 1.f }, { .65f, 1.f }, { 1.f, 0.f } };
 		static const FSupplyKey TypeX[] = { { 0.f, -100.f }, { .2f, 0.f }, { .65f, 0.f }, { 1.f, 160.f } };
-		const float TypeT = Track(T, 180.f, 900.f);
-		SetMotion(CutinType, Keys(TypeOpacity, TypeT), FVector2D(Keys(TypeX, TypeT), 0.f), -6.f, K);
+		const float TypeT = ExpeditionOpeningUI::Track(T, 180.f, 900.f);
+		ExpeditionOpeningUI::SetMotion(CutinType, ExpeditionOpeningUI::Keys(TypeOpacity, TypeT), FVector2D(ExpeditionOpeningUI::Keys(TypeX, TypeT), 0.f), -6.f, K);
 	}
 
 	// 브리핑: 740ms에 표시(1ms 트랙), 4600ms 이후엔 모든 조각이 퇴장 완료
 	const bool bBrief = T >= 740.f && T < 4600.f;
-	SetShown(Brief, bBrief);
+	ExpeditionOpeningUI::SetShown(Brief, bBrief);
 	if (bBrief)
 	{
 		const float Slant = FMath::RadiansToDegrees(FMath::Atan(-.15f * W / View.Y));
-		BlueField->SetRenderTransform(FWidgetTransform(FVector2D(-1.1f * W * Track(T, 3920.f, 650.f), 0.f), FVector2D(1.f, 1.f), FVector2D(Slant, 0.f), 0.f));
-		PaperEdge->SetRenderTransform(FWidgetTransform(FVector2D(-1.15f * W * Track(T, 3980.f, 600.f), 0.f), FVector2D(1.f, 1.f), FVector2D(Slant, 0.f), 0.f));
-		Halftone->SetRenderOpacity(1.f - Track(T, 3860.f, 220.f));
-		OutlineWord->SetRenderOpacity(1.f - Track(T, 3860.f, 220.f));
+		BlueField->SetRenderTransform(FWidgetTransform(FVector2D(-1.1f * W * ExpeditionOpeningUI::Track(T, 3920.f, 650.f), 0.f), FVector2D(1.f, 1.f), FVector2D(Slant, 0.f), 0.f));
+		PaperEdge->SetRenderTransform(FWidgetTransform(FVector2D(-1.15f * W * ExpeditionOpeningUI::Track(T, 3980.f, 600.f), 0.f), FVector2D(1.f, 1.f), FVector2D(Slant, 0.f), 0.f));
+		Halftone->SetRenderOpacity(1.f - ExpeditionOpeningUI::Track(T, 3860.f, 220.f));
+		OutlineWord->SetRenderOpacity(1.f - ExpeditionOpeningUI::Track(T, 3860.f, 220.f));
 
 		if (T < 3860.f)
 		{
-			const float E = Track(T, 920.f, 220.f);
-			SetMotion(Masthead, E, FVector2D(0.f, -15.f * (1.f - E)));
+			const float E = ExpeditionOpeningUI::Track(T, 920.f, 220.f);
+			ExpeditionOpeningUI::SetMotion(Masthead, E, FVector2D(0.f, -15.f * (1.f - E)));
 		}
 		else
 		{
-			SetMotion(Masthead, 1.f - Track(T, 3860.f, 160.f), FVector2D::ZeroVector);
+			ExpeditionOpeningUI::SetMotion(Masthead, 1.f - ExpeditionOpeningUI::Track(T, 3860.f, 160.f), FVector2D::ZeroVector);
 		}
 
 		if (T < 3250.f)
 		{
-			const float E = Track(T, 1090.f, 280.f);
-			SetMotion(Index, E, FVector2D(0.f, -30.f * (1.f - E)), 0.f, K);
+			const float E = ExpeditionOpeningUI::Track(T, 1090.f, 280.f);
+			ExpeditionOpeningUI::SetMotion(Index, E, FVector2D(0.f, -30.f * (1.f - E)), 0.f, K);
 		}
 		else
 		{
-			SetMotion(Index, 1.f - Track(T, 3250.f, 150.f), FVector2D::ZeroVector, 0.f, K);
+			ExpeditionOpeningUI::SetMotion(Index, 1.f - ExpeditionOpeningUI::Track(T, 3250.f, 150.f), FVector2D::ZeroVector, 0.f, K);
 		}
 
 		// 세로 라벨·푸터: opacity 트랙이 CSS opacity(.65)를 덮어 1까지 오른다(시안 렌더 그대로)
-		const float EdgeOpacity = T < 3760.f ? Track(T, 1200.f, 200.f) : 1.f - Track(T, 3760.f, 200.f);
-		SetMotion(VerticalLabel, EdgeOpacity, FVector2D::ZeroVector, -90.f);
-		SetMotion(Footer, EdgeOpacity, FVector2D::ZeroVector);
+		const float EdgeOpacity = T < 3760.f ? ExpeditionOpeningUI::Track(T, 1200.f, 200.f) : 1.f - ExpeditionOpeningUI::Track(T, 3760.f, 200.f);
+		ExpeditionOpeningUI::SetMotion(VerticalLabel, EdgeOpacity, FVector2D::ZeroVector, -90.f);
+		ExpeditionOpeningUI::SetMotion(Footer, EdgeOpacity, FVector2D::ZeroVector);
 
 		if (T < 3820.f)
 		{
-			const float E = Track(T, 880.f, 390.f);
-			SetMotion(Title, E, FVector2D(-90.f * (1.f - E), 0.f));
+			const float E = ExpeditionOpeningUI::Track(T, 880.f, 390.f);
+			ExpeditionOpeningUI::SetMotion(Title, E, FVector2D(-90.f * (1.f - E), 0.f));
 		}
 		else
 		{
-			const float E = Track(T, 3820.f, 350.f);
-			SetMotion(Title, 1.f - E, FVector2D(-120.f * E, 0.f));
+			const float E = ExpeditionOpeningUI::Track(T, 3820.f, 350.f);
+			ExpeditionOpeningUI::SetMotion(Title, 1.f - E, FVector2D(-120.f * E, 0.f));
 		}
 
 		// 지시서: 진입은 translate(120,24)·rotate +7°(화면 기준), 퇴장은 rotate(−4°) translateX(160) — 기울어진 축으로 민다
 		if (T < 3910.f)
 		{
-			const float E = Track(T, 1230.f, 440.f);
-			SetMotion(Mission, E, FVector2D(120.f, 24.f) * (1.f - E), -4.f + 7.f * (1.f - E));
+			const float E = ExpeditionOpeningUI::Track(T, 1230.f, 440.f);
+			ExpeditionOpeningUI::SetMotion(Mission, E, FVector2D(120.f, 24.f) * (1.f - E), -4.f + 7.f * (1.f - E));
 		}
 		else
 		{
-			const float E = Track(T, 3910.f, 330.f);
+			const float E = ExpeditionOpeningUI::Track(T, 3910.f, 330.f);
 			const float Radians = FMath::DegreesToRadians(-4.f);
-			SetMotion(Mission, 1.f - E, FVector2D(FMath::Cos(Radians), FMath::Sin(Radians)) * 160.f * E, -4.f);
+			ExpeditionOpeningUI::SetMotion(Mission, 1.f - E, FVector2D(FMath::Cos(Radians), FMath::Sin(Radians)) * 160.f * E, -4.f);
 		}
 
 		// 스탬프: scale 1.65 → .94(.75) → 1, opacity 0 → 1(.75), 퇴장 translate(120,−30)
@@ -958,25 +958,25 @@ void UExpeditionOpeningWidget::ApplyFrame(float T)
 		{
 			static const FSupplyKey StampOpacity[] = { { 0.f, 0.f }, { .75f, 1.f }, { 1.f, 1.f } };
 			static const FSupplyKey StampScale[] = { { 0.f, 1.65f }, { .75f, .94f }, { 1.f, 1.f } };
-			const float E = Track(T, 3370.f, 260.f);
-			SetMotion(Stamp, Keys(StampOpacity, E), FVector2D::ZeroVector, 9.f, Keys(StampScale, E) * K);
+			const float E = ExpeditionOpeningUI::Track(T, 3370.f, 260.f);
+			ExpeditionOpeningUI::SetMotion(Stamp, ExpeditionOpeningUI::Keys(StampOpacity, E), FVector2D::ZeroVector, 9.f, ExpeditionOpeningUI::Keys(StampScale, E) * K);
 		}
 		else
 		{
-			const float E = Track(T, 3970.f, 260.f);
-			SetMotion(Stamp, 1.f - E, FVector2D(120.f, -30.f) * E, 9.f, K);
+			const float E = ExpeditionOpeningUI::Track(T, 3970.f, 260.f);
+			ExpeditionOpeningUI::SetMotion(Stamp, 1.f - E, FVector2D(120.f, -30.f) * E, 9.f, K);
 		}
 	}
 
 	// 도착 안내: 4450ms 진입(시안), 6200ms 퇴장
-	if (T < ArrivalOutMs)
+	if (T < ExpeditionOpeningUI::ArrivalOutMs)
 	{
-		const float E = Track(T, 4450.f, 300.f);
-		SetMotion(Arrival, E, FVector2D(-16.f * (1.f - E), 0.f));
+		const float E = ExpeditionOpeningUI::Track(T, 4450.f, 300.f);
+		ExpeditionOpeningUI::SetMotion(Arrival, E, FVector2D(-16.f * (1.f - E), 0.f));
 	}
 	else
 	{
-		SetMotion(Arrival, 1.f - Track(T, ArrivalOutMs, ArrivalOutLength), FVector2D::ZeroVector);
+		ExpeditionOpeningUI::SetMotion(Arrival, 1.f - ExpeditionOpeningUI::Track(T, ExpeditionOpeningUI::ArrivalOutMs, ExpeditionOpeningUI::ArrivalOutLength), FVector2D::ZeroVector);
 	}
 }
 
@@ -1004,7 +1004,7 @@ static FAutoConsoleCommand GOpeningPreviewCommand(
 		const float TimeMs = Args.Num() > 1 ? FCString::Atof(*Args[1]) : -1.f;
 		int32 Mode = Args.Num() > 2 ? FCString::Atoi(*Args[2]) : 0;
 		FExpeditionEntryState State;
-		State.OpeningDuration = TimelineMs / 1000.f;
+		State.OpeningDuration = ExpeditionOpeningUI::TimelineMs / 1000.f;
 		if (ZoneNumber > 0)
 		{
 			const FString Path = FString::Printf(TEXT("/Game/GoHome/Data/DA_Zone_Lv%d.DA_Zone_Lv%d"), ZoneNumber, ZoneNumber);
