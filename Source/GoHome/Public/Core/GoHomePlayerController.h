@@ -30,6 +30,8 @@ class GOHOME_API AGoHomePlayerController : public APlayerController, public IPau
 
 public:
 	AGoHomePlayerController();
+	UFUNCTION(Client, Reliable)
+	void Client_BeginExpeditionTravel(const FString& Destination, bool bReturning, int32 TravelId);
 
 	// ISpectateBackend — 사망 → 관전 흐름은 USpectateComponent가 소유한다
 	virtual const FSpectateView& GetSpectateView() const override;

@@ -35,6 +35,11 @@ public:
 	const FString& GetLobbyMapPath() const { return LobbyMapPath; }
 
 protected:
+	virtual void BeginPlay() override;
+	void ContinuePendingTravel();
+	FTimerHandle LoadingTravelTimer;
+	bool bLoadingTravelPending = false;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Expedition")
 	FString LoadingMapPath = TEXT("/Game/GoHome/Maps/LV_Loading");
 

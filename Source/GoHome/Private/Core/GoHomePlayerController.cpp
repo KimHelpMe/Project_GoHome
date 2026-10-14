@@ -14,6 +14,7 @@
 #include "Core/SpectateComponent.h"
 #include "Core/AnnouncerComponent.h"
 #include "Core/ExpeditionEntryComponent.h"
+#include "Core/ExpeditionTravelSubsystem.h"
 #include "Core/GoHomeGameUserSettings.h"
 #include "Camera/CameraComponent.h"
 
@@ -49,6 +50,16 @@ AGoHomePlayerController::AGoHomePlayerController()
 	SpectateComponent = CreateDefaultSubobject<USpectateComponent>(TEXT("SpectateComponent"));
 	AnnouncerComponent = CreateDefaultSubobject<UAnnouncerComponent>(TEXT("AnnouncerComponent"));
 	EntryComponent = CreateDefaultSubobject<UExpeditionEntryComponent>(TEXT("ExpeditionEntryComponent"));
+}
+
+void AGoHomePlayerController::Client_BeginExpeditionTravel_Implementation(const FString& Destination, bool bReturning, int32 TravelId)
+{
+	if (!IsLocalController() || !GetGameInstance()) return;
+	CloseSupplyScreen(false);
+	CloseZoneSelect(false);
+	if (PauseMenu) ClosePauseMenu();
+	FlushPressedKeys();
+	GetGameInstance()->GetSubsystem<UExpeditionTravelSubsystem>()->BeginPresentation(Destination,bReturning,TravelId);
 }
 
 bool AGoHomePlayerController::IsExplorationHUDAllowed() const

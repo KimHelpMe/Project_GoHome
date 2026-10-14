@@ -32,7 +32,7 @@
 |---|---|---|
 | HUD | 산소·나침반(`WBP_Compass`)·HP·무게·상호작용 프롬프트(`WBP_InteractionPrompt`)·위험 비네트(`WBP_DangerVignette`)·인벤토리(`WBP_InventorySlots`)·제한시간·할당량 | 상시, 게임플레이 위. 표시 전용 |
 | Modal | 탐사 목적지(`UZoneSelectScreenWidget`, WBP 없음), 강화 상점, 보급 화면(`USupplyScreenWidget` — 상점·팀 보관함·탐사 아이템 박스, WBP 없음), 인게임 시스템 메뉴(`WBP_PauseMenu`) | 게임 위, 입력 잡음. 확정은 Server RPC. **열 때 `bShowMouseCursor`를 켜고 닫을 때 끈다** — 인게임 메뉴는 커서가 켜져 있으면 다른 Modal이 Escape를 소유한 것으로 보고 열리지 않는다(`AGoHomePlayerController::CanOpenPauseMenu`) |
-| Fullscreen / Sequence | 정산·게임오버·엔딩(`WBP_Settlement` 계열), 타이틀(`WBP_Title`), 로딩(`WBP_Loading`), 탐사 진입 오프닝(`UExpeditionOpeningWidget`) | 게임 가림. 자체 enter/exit 연출. 동시에 하나만 |
+| Fullscreen / Sequence | 정산·게임오버·엔딩(`WBP_Settlement` 계열), 타이틀(`WBP_Title`), 로딩(`SGoHomeTravelScreen`), 탐사 진입 오프닝(`UExpeditionOpeningWidget`) | 게임 가림. 자체 enter/exit 연출. 동시에 하나만 |
 | System | 세션 진입(`WBP_SessionEntry`), 연결 끊김/에러 | 최상단 |
 
 ## 화면 카탈로그
@@ -43,6 +43,7 @@
 |---|---|---|---|---|
 | 정산/게임오버/엔딩 (`WBP_Settlement` 라우터) | Sequence | BP PlayerController | 클라 BeginPlay에 숨겨 생성 + `OnSettlementReady` 바인딩 / 로비 트래블 시 파괴 | `FSettlementResult` (이벤트 인자). 사망자명 = `PlayerState->GetPlayerName()` — 스팀 페르소나가 실리는지 세션 배선 확인, 아니면 로그인 시 `IOnlineIdentity::GetPlayerNickname` → `ServerChangeName` 보정 |
 | HUD 묶음 | HUD | BP PlayerController | 탐사 레벨 Possess 후 / 레벨 전환 | GameState 복제 필드 / 컴포넌트 델리게이트 |
+| 맵 이동 로딩 (`SGoHomeTravelScreen` — Slate까지 C++) | Sequence | `UExpeditionTravelSubsystem` (GameInstance 수명) | 방향/목적지 Client RPC → viewport overlay 500 / 최종 맵 로컬 준비 후 0.64s 퇴장·검은 cover paint 확인 뒤 제거. 오류/세션 종료 때 정리 | `FTravelPresentation` — 방향·경과 시간·준비 여부. 중간 맵 후속 이동은 `AGoHomeGameMode`가 전원 도착을 확인. 탐사 EntryReady 보고는 로딩 화면 제거 뒤 |
 | 탐사 목적지 (`UZoneSelectScreenWidget` — 트리까지 C++, WBP 없음) | Modal | `AGoHomePlayerController`(C++, `ZoneSelectClass`) | 로비 `AZoneSelectMonitor` 상호작용 → `Client_OpenSelectZone`(UIOnly·커서 on) / 닫기·Escape·폰 변경·월드 교체 시 파괴. 지정해도 닫히지 않는다 | `ALobbyGameState::GetAvailableZones`(카드 순서) + Zone DataAsset `EnglishName/Caption/PreviewImage/Preview*`. 지정은 `IZoneSelectBackend::RequestTeamDestination` → `Server_SelectZone`, 표시는 복제 `SelectedZoneId`(`OnTeamDestinationChanged` — 내 지정/다른 팀원/시간 초과 실패 구분) |
 | 타이틀 (`UTitleScreenWidget` 부모 WBP) | Fullscreen | `ATitlePlayerController`(C++, `TitleScreenClass`) | 로컬 BeginPlay 생성 / 로비·세션 트래블 시 파괴 | `ITitleBackend`(컨트롤러가 구현 — 검색 스냅샷·세이브 요약·Host/Join 결과) |
 | 보급 화면 (`USupplyScreenWidget`, 페이지 `USupplyPageBase` 파생 — 트리까지 C++, WBP 없음) | Modal | `AGoHomePlayerController`(C++, `SupplyScreenClass`) | 로비 상점 단말·보관함 상자 → `Client_OpenSupplyScreen(LobbyHub)`, 탐사 보관함 상자 → `ExpeditionLocker`(UIOnly·커서 on) / 닫기·Escape·폰 변경·월드 교체·정산 시작 시 파괴 | `AGoHomeGameState::SharedLockerItems`·`RoundShopPurchases`(복제, `OnSharedLockerChanged`) + 카탈로그 `ShopDisplayName/ShopDescription/ShopArt`. 구매·꺼내기·넣기는 `ISupplyScreenBackend` 요청, 결과는 `OnSupplyPurchaseResult`/`OnSupplyLockerResult` |

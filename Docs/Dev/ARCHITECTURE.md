@@ -68,7 +68,7 @@ decisions:
           할당량·제한 시간 같은 존별 런타임 설정은 `AExplorationGameMode::BeginPlay`가 `ActiveZone` 하나에서 읽는다
           (`SetTargetMapQuota` 호출도 여기, DepartureButton 아님 — 존 데이터 단일 출처). `LobbyMapPath`는
           `GoHomeGameMode`의 실재 필드(기본값 `/Game/GoHome/Maps/LV_Lobby`), 목적지는
-          `UExpeditionTravelSubsystem`의 `PendingDestinationMap`(C++ 쓰기 전용, 로딩 맵 BP가 읽음)에 저장 후 `LoadingMapPath`로 먼저 경유.
+          `UExpeditionTravelSubsystem`의 `PendingDestinationMap`(C++ 쓰기 전용, 로딩 맵 GameMode가 읽음)에 저장 후 `LoadingMapPath`로 먼저 경유.
   - name: 도킹 문 밖 생존자 처리
     detail: |
       문이 닫히는 순간(bOpen: true → false) ASubmarine이 InteriorVolume 밖에 있는 플레이어를 즉시 사망
@@ -289,6 +289,12 @@ decisions:
       큐: 한 번에 1줄 + 대기 최대 3, 우선순위(100 임박 위험·80 위협·60 임무·20 획득) 높은 쪽이 즉시 끊고(끊긴 쪽 재생 안 함), 같은 100끼리는 만료가 빠른 쪽이 먼저, 같은 Key/사건은 갱신, TTL 지난 대기는 버림. 사망 시 개인·생존자 범위를 지우고 팀 시간 안내만 남김, 정산/실패 진입·월드 전환 시 전부 비움. 대사·신호색·정책은 `AnnouncerCatalog`(C++ LOCTEXT).
       밑판(패싯 패널 그라데이션·마스크·BUI 탭·신호선·초상 계기창·초상 그림자)은 텍스트 아래에 깔려야 해서 자식 `UAnnouncerPlate`의 NativePaint가 정점 색 메시로 그린다(UUserWidget::NativePaint는 자식 위에 그려짐). 정점 메시는 텍스처 리소스 핸들이 필요해 `T_Announcer_White`를 쓴다(FCoreStyle WhiteBrush는 색 브러시라 핸들 없음). 초상 `T_Announcer_BUI`, 폴더 `/Game/GoHome/UI/Announcer`는 DirectoriesToAlwaysCook. 시안 mono는 JetBrains Mono Bold(FF_JBMono_Bold), 미설치 브라우저가 그린 Consolas 폭에 맞춰 자간 -0.05em 보정.
       입력 없이 확인: 비Shipping 콘솔 `GoHome.Announcer.Debug <Start|Return|Time60|Time30|Time10|O2Low|O2Crit|FirstArtifact|Artifact|Attacked|Damaged|Vent|Mine|Ink|Clear>`, `GoHome.Announcer.DebugBurst`(선점·대기·만료), 로그 `log LogAnnouncer Verbose`. 공격 "사전 예고"(공격 시작 전 경고)는 몬스터 BP마다 공격 준비 지점 연결이 필요해 아직 없다 — 지금은 물기·잡기 시작 또는 피해 시점 안내.
+  - name: 맵 이동 로딩 (Core/UExpeditionTravelSubsystem + UI/Loading/SGoHomeTravelScreen) — Slate까지 C++
+    detail: |
+      DEEP TRANSIT 시안(사용자 승인 2026-10-14)을 1600×900 논리 좌표·16:9 letterbox로 직접 그린다. 잠수정 도형·배경·입자·제목·분절 레일·타임라인은 C++ Slate, 별도 WBP/Sequencer/3D 배치 없음. GameInstanceSubsystem이 viewport overlay(ZOrder 500)를 유지하므로 두 번의 seamless travel 동안 끊어 생성하지 않는다. UI는 UObject/월드가 없는 FTravelPresentation만 소비한다. 기존 WBP_Loading 생성과 Delay 체인은 LV_Loading BP BeginPlay에서 분리했다.
+      서버 ServerTravelViaLoadingScreen이 최종 경로·방향·TravelId를 각 PC Client_BeginExpeditionTravel로 전달하고 enter 0.76s 뒤 중간 맵으로 이동한다. 중간 맵의 GoHomeGameMode가 서버 트래블 종료 + NumTravellingPlayers==0 + 모든 PC.HasClientLoadedCurrentWorld를 확인한 뒤 최종 이동한다(고정 1.5s Delay 대신 실제 참가자 도착 대기). 서버 자신만 검사하면 느린 참가자의 첫 트래블이 취소돼 엔진 임시 월드 GC 누출을 촉발할 수 있다.
+      로컬 최종 패키지·새 월드·GameState·빙의·탐사 준비 데이터까지 확인하면 exit 0.64s → 검은 cover 실제 paint → 제거. UExpeditionEntryComponent의 준비 보고는 이 화면 제거까지 지연해 탐사 오프닝이 뒤에서 소모되지 않게 한다. 오류는 화면/입력 잠금을 즉시 정리하고 엔진/System 복구로 넘긴다. 퍼센트·수심·ETA를 추정하지 않는다. 모션 축소 CVar GoHome.Travel.ReducedMotion=1은 공간 이동을 빼고 100ms fade로 대체한다.
+      제목은 기존 배포 폰트 Noto SemiBold와 원본 Malgun Bold advance(한글 1em, 공백720/2048em)로 run 폭을 맞춘다. 도형 브러시는 기존 T_Announcer_White를 재사용(기존 cook 폴더). 비Shipping 미리보기 GoHome.Travel.Preview down|up [ms] [mode] [reduced], Finish/Close, 실제 이동 Test <map>.
   - name: 탐사 진입 오프닝 (Core/UExpeditionEntryComponent + UI/Entry/UExpeditionOpeningWidget) — 위젯 트리까지 C++
     detail: |
       탐사맵 도착 → 팀 대기 → INTO THE DEEP 오프닝(5.74s, 시안 expedition-opening) → 탐사 개시. 첫 컷(컷인)은 진입·퇴장 속도는 시안 그대로 두고 판·문구가 모두 멈춰 있는 순간(시안 240ms)에 0.54s 시간을 멈춰 정지 컷만 늘리고(문구 완전 노출 0.13s → 0.67s), 이후 트랙은 그만큼 뒤로 민다(사용자 결정 2026-10-14). 반려: 컷인 전체 1.5배 감속 + 키 구간별 이징 — 등장 속도감이 죽는다. 흐름·위젯 수명은 `AGoHomePlayerController`가 생성자에서 붙이는 `UExpeditionEntryComponent`, 위젯은 `IExpeditionEntryBackend` 스냅샷만 본다(ZOrder 90 — 관전·시스템 메뉴 아래).

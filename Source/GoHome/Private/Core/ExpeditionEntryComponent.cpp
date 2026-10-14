@@ -2,6 +2,8 @@
 
 #include "Core/ExplorationGameMode.h"
 #include "Core/ExplorationGameState.h"
+#include "Core/ExpeditionTravelSubsystem.h"
+#include "Engine/GameInstance.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Engine/World.h"
@@ -79,7 +81,8 @@ void UExpeditionEntryComponent::RefreshContext()
 		}
 	}
 	HandleEntryChanged();
-	if (GS && PC->IsLocalController() && PC->GetPawn() && ReadyPawn.Get() != PC->GetPawn())
+	const UExpeditionTravelSubsystem* Travel=PC->GetGameInstance()?PC->GetGameInstance()->GetSubsystem<UExpeditionTravelSubsystem>():nullptr;
+	if (GS && PC->IsLocalController() && PC->GetPawn() && ReadyPawn.Get() != PC->GetPawn() && (!Travel || !Travel->IsPresentationBlockingEntry()))
 	{
 		ReadyPawn = PC->GetPawn();
 		Server_ReportEntryReady(GS);
@@ -287,6 +290,10 @@ void UExpeditionEntryComponent::ApplyMovementGate()
 void UExpeditionEntryComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	if (APlayerController* PC=Cast<APlayerController>(GetOwner()))
+	{
+		if (PC->IsLocalController() && PC->GetPawn() && BoundState.IsValid() && ReadyPawn.Get()!=PC->GetPawn()) RefreshContext();
+	}
 	// 상태 변경은 RepNotify/PC 훅으로 받는다. 여기서는 시간으로 끝나는 오프닝, 지연 생성되는 BP HUD, 폰 이동 잠금만 보완한다.
 	AExplorationGameState* GS = BoundState.Get();
 	if (!GS)

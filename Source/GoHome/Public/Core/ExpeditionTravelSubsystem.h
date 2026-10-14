@@ -4,9 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+#include "Containers/Ticker.h"
+#include "Engine/EngineBaseTypes.h"
 #include "ExpeditionTravelSubsystem.generated.h"
 
 class UExpeditionZoneDataAsset;
+class UTexture2D;
+class SGoHomeTravelScreen;
+struct FTravelPresentation;
 
 /**
  * 로딩 화면(LV_Loading) 경유 트래블 중, 진짜 목적지 맵 경로를 잠깐 들고 있는다.
@@ -18,7 +23,20 @@ class GOHOME_API UExpeditionTravelSubsystem : public UGameInstanceSubsystem
 	GENERATED_BODY()
 
 public:
-	// 최종 목적지 맵 경로. 로딩 맵(LV_Loading) BP가 읽어 다음 트래블 대상을 안다.
+	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+	virtual void Deinitialize() override;
+
+	// 서버가 각 로컬 클라에 방향/목적지를 명시 전달한다. GameInstanceSubsystem 자체는 복제되지 않는다.
+	void BeginPresentation(const FString& Destination, bool bReturning, int32 TravelId);
+	void CancelPresentation();
+	bool IsPresentationBlockingEntry() const { return Screen.IsValid() && !bDebugPreview; }
+
+#if !UE_BUILD_SHIPPING
+	void Preview(bool bReturning, float TimeMs, int32 Mode, bool bReduced);
+	void FinishPreview();
+#endif
+
+	// 최종 목적지 맵 경로. 로딩 맵의 GameMode가 전원 도착 확인 뒤 읽는다.
 	void SetPendingDestinationMap(const FString& MapPath) { PendingDestinationMap = MapPath; }
 
 	UFUNCTION(BlueprintPure, Category = "Expedition")
@@ -32,6 +50,24 @@ public:
 	int32 GetActiveZoneNumber() const { return ActiveZoneNumber; }
 
 private:
+	bool TickPresentation(float DeltaSeconds);
+	void EnsureScreen();
+	void HandleTravelFailure(UWorld* World, ETravelFailure::Type Type, const FString& Error);
+	void HandleNetworkFailure(UWorld* World, UNetDriver* Driver, ENetworkFailure::Type Type, const FString& Error);
+
+	FTSTicker::FDelegateHandle PresentationTicker;
+	TSharedPtr<FTravelPresentation> Presentation;
+	TSharedPtr<SGoHomeTravelScreen> Screen;
+	FString PresentationDestination;
+	TWeakObjectPtr<UWorld> SourceWorld;
+	TWeakObjectPtr<class UGameViewportClient> ScreenViewport;
+	int32 PresentationId = 0;
+	bool bDebugPreview = false;
+	bool bDebugPaused = false;
+	bool bDestinationSeen = false;
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> WhiteTexture;
+
 	UPROPERTY()
 	FString PendingDestinationMap;
 
