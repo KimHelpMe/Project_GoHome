@@ -9,6 +9,7 @@ class UStaticMeshComponent;
 class ANavLinkProxy;
 class UNiagaraSystem;
 class USoundBase;
+class USoundAttenuation;
 
 // 해머류 아이템으로 부술 수 있는 벽.
 // 상호작용(E) 대상이 아니라 아이템 트레이스가 Cast로 찾는다.
@@ -68,11 +69,18 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "BreakableWall|FX")
 	TObjectPtr<USoundBase> HitSound;
 
+	// 비워두면 사운드 에셋 자체 감쇠를 씀 - 감쇠 없는 에셋이면 맵 전체에 들리니 반드시 지정.
+	UPROPERTY(EditAnywhere, Category = "BreakableWall|FX")
+	TObjectPtr<USoundAttenuation> HitSoundAttenuation;
+
 	UPROPERTY(EditAnywhere, Category = "BreakableWall|FX")
 	TObjectPtr<UNiagaraSystem> BreakEffect;
 
 	UPROPERTY(EditAnywhere, Category = "BreakableWall|FX")
 	TObjectPtr<USoundBase> BreakSound;
+
+	UPROPERTY(EditAnywhere, Category = "BreakableWall|FX")
+	TObjectPtr<USoundAttenuation> BreakSoundAttenuation;
 
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_HitCount)

@@ -4,6 +4,7 @@
 #include "Navigation/NavLinkProxy.h"
 #include "NiagaraFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundAttenuation.h"
 #include "AI/NoiseType.h"
 
 ABreakableWallActor::ABreakableWallActor()
@@ -91,7 +92,7 @@ void ABreakableWallActor::ApplyDamageState(bool bPlayEffects)
 		}
 		if (BreakSound)
 		{
-			UGameplayStatics::PlaySoundAtLocation(this, BreakSound, GetActorLocation());
+			UGameplayStatics::PlaySoundAtLocation(this, BreakSound, GetActorLocation(), 1.f, 1.f, 0.f, BreakSoundAttenuation);
 		}
 	}
 	else
@@ -102,7 +103,7 @@ void ABreakableWallActor::ApplyDamageState(bool bPlayEffects)
 		}
 		if (HitSound)
 		{
-			UGameplayStatics::PlaySoundAtLocation(this, HitSound, GetActorLocation());
+			UGameplayStatics::PlaySoundAtLocation(this, HitSound, GetActorLocation(), 1.f, FMath::FRandRange(0.9f, 1.1f), 0.f, HitSoundAttenuation);
 		}
 	}
 }
