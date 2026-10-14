@@ -139,7 +139,7 @@ void AExplorationGameState::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// 문 개방은 GameMode의 실제 탐사 개시가 소유한다.
+	// 문 개방은 AExplorationGameMode::InitGameState가 소유한다(BeginPlay 전에 열린 상태).
 }
 
 void AExplorationGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

@@ -25,6 +25,7 @@ public:
 	AExplorationGameMode();
 	
 	virtual void RestartPlayer(AController* NewPlayer) override;
+	virtual void InitGameState() override;
 	
 	void HandleFail(EFailReason Reason);
 	void HandleReturn();

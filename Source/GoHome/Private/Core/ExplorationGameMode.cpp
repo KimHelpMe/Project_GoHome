@@ -27,6 +27,20 @@ AExplorationGameMode::AExplorationGameMode()
 	GameStateClass = AExplorationGameState::StaticClass();
 }
 
+void AExplorationGameMode::InitGameState()
+{
+	Super::InitGameState();
+	// 도킹 문은 탐사맵 시작부터 완전히 열린 상태 — 어떤 액터의 BeginPlay보다 먼저 연다(BP_Submarine이 BeginPlay에서 열린 각도로 바로 놓는다).
+	// 이동·귀환은 탐사 개시 전까지 진입 게이트가 막는다.
+	if (AExplorationGameState* DoorState = GetGameState<AExplorationGameState>())
+	{
+		if (UDockingDoorComponent* Door = DoorState->GetDockingDoorComponent())
+		{
+			Door->SetOpen(true);
+		}
+	}
+}
+
 void AExplorationGameMode::BeginPlay()
 {
 	Super::BeginPlay();
@@ -93,6 +107,7 @@ void AExplorationGameMode::BeginPlay()
 
 	// 참조 방지, 이미 읽었으니 null 초기화
 	if (TravelSubsystem) TravelSubsystem->SetActiveZone(nullptr);
+
 	if (OpeningDurationSeconds <= 0.f)
 	{
 		StartExploration();
@@ -149,7 +164,6 @@ void AExplorationGameMode::StartExploration()
 	Entry.GameplayStartServerTime = GS->GetServerWorldTimeSeconds();
 	GS->SetExpeditionDeadline(RoundTimeLimitSeconds > 0.f ? Entry.GameplayStartServerTime + RoundTimeLimitSeconds : 0.f, RoundTimeLimitSeconds);
 	GS->SetEntryState(Entry);
-	if (UDockingDoorComponent* Door = GS->GetDockingDoorComponent()) Door->SetOpen(true);
 	if (RoundTimeLimitSeconds > 0.f)
 	{
 		GetWorldTimerManager().SetTimer(TimeLimitTimer, this, &AExplorationGameMode::HandleTimeExpired, RoundTimeLimitSeconds, false);
