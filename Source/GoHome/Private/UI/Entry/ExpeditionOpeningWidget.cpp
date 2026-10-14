@@ -42,10 +42,11 @@ namespace ExpeditionOpeningUI
 	}
 
 	constexpr float ReferenceWidth = 1920.f;
-	// 첫 컷(컷인)은 시안보다 1.5배 느리게, 이징은 키 구간마다(motion.md의 24%/66% 의도 — 시안 WAAPI는 트랙 전체에 걸어 문구가 0.19s만 보였다).
-	// 사용자 결정 2026-10-14. 그 뒤 브리핑·스탬프·도착 안내는 늘어난 만큼 통째로 뒤로 민다(아래 수치는 시안 기준, ApplyFrame이 CutinShift만큼 늦춘다).
-	constexpr float CutinScale = 1.5f;
-	constexpr float CutinShift = 1280.f * (CutinScale - 1.f);	// 640
+	// 첫 컷(컷인)은 진입·퇴장 속도는 시안 그대로 두고, 판과 문구가 모두 멈춰 있는 순간에 시간을 멈춰 정지 컷만 늘린다(사용자 결정 2026-10-14).
+	// 시안에서 아이보리 판 정지 83~254ms, 코발트 148~319ms, 문구 완전 노출 228~355ms → 공통 구간 안 240ms에서 640ms 멈춘다(문구 노출 0.13s → 0.77s).
+	// 그 뒤 트랙(판 퇴장·브리핑·스탬프·도착 안내)은 멈춘 만큼 통째로 늦는다 — 아래 수치는 시안 기준, ApplyFrame이 시각을 되돌려 쓴다.
+	constexpr float CutinHoldAtMs = 240.f;
+	constexpr float CutinShift = 640.f;
 	constexpr float TimelineMs = 5200.f + CutinShift;	// 이 시각에 서버가 탐사를 연다(AExplorationGameMode::OpeningDurationSeconds 5.84와 같아야 한다)
 	constexpr float ArrivalOutMs = 6200.f;		// 도착 안내 유지 뒤 퇴장(시안 기준 시각, 사용자 결정: 시안 끝 화면 대신 짧게 보이고 사라짐)
 	constexpr float ArrivalOutLength = 300.f;
@@ -864,25 +865,24 @@ void UExpeditionOpeningWidget::ApplyFrame(float T)
 	const float W = View.X > 1.f ? View.X : ExpeditionOpeningUI::ReferenceWidth;
 	const float K = W / ExpeditionOpeningUI::ReferenceWidth;
 
-	// 컷인: 아이보리 → 65ms 뒤 코발트, 키 −120% / 0(.24) / 0(.66) / 125%(자기 폭 140%W 기준). 시안 시각 × CutinScale, 이징은 키 구간마다.
-	const float S = ExpeditionOpeningUI::CutinScale;
-	auto Linear = [T](float Start, float Length) { return FMath::Clamp((T - Start) / Length, 0.f, 1.f); };
-	const bool bCutin = T < (65.f + 1280.f) * S;
+	// 컷인(시안 0~1345ms): 아이보리 → 65ms 뒤 코발트, 키 −120% / 0(.24) / 0(.66) / 125%(자기 폭 140%W 기준). 정지 컷만 CutinShift만큼 늘어난다.
+	const float HoldAt = ExpeditionOpeningUI::CutinHoldAtMs;
+	const float CutinT = T < HoldAt ? T : (T < HoldAt + ExpeditionOpeningUI::CutinShift ? HoldAt : T - ExpeditionOpeningUI::CutinShift);
+	const bool bCutin = CutinT < 1345.f;
 	ExpeditionOpeningUI::SetShown(Cutin, bCutin);
 	if (bCutin)
 	{
 		static const FSupplyKey PanelKeys[] = { { 0.f, -1.2f }, { .24f, 0.f }, { .66f, 0.f }, { 1.f, 1.25f } };
-		const FSupplyEase& Ease = ExpeditionOpeningUI::OpeningEase();
 		const float Slant = -13.f;
-		CutinPaper->SetRenderTransform(FWidgetTransform(FVector2D(SampleSupplyKeys(PanelKeys, Linear(0.f, 1280.f * S), Ease) * 1.4f * W, 0.f), FVector2D(1.f, 1.f), FVector2D(Slant, 0.f), 0.f));
-		CutinBlue->SetRenderTransform(FWidgetTransform(FVector2D(SampleSupplyKeys(PanelKeys, Linear(65.f * S, 1280.f * S), Ease) * 1.4f * W, 0.f), FVector2D(1.f, 1.f), FVector2D(Slant, 0.f), 0.f));
+		CutinPaper->SetRenderTransform(FWidgetTransform(FVector2D(ExpeditionOpeningUI::Keys(PanelKeys, ExpeditionOpeningUI::Track(CutinT, 0.f, 1280.f)) * 1.4f * W, 0.f), FVector2D(1.f, 1.f), FVector2D(Slant, 0.f), 0.f));
+		CutinBlue->SetRenderTransform(FWidgetTransform(FVector2D(ExpeditionOpeningUI::Keys(PanelKeys, ExpeditionOpeningUI::Track(CutinT, 65.f, 1280.f)) * 1.4f * W, 0.f), FVector2D(1.f, 1.f), FVector2D(Slant, 0.f), 0.f));
 		static const FSupplyKey TypeOpacity[] = { { 0.f, 0.f }, { .2f, 1.f }, { .65f, 1.f }, { 1.f, 0.f } };
 		static const FSupplyKey TypeX[] = { { 0.f, -100.f }, { .2f, 0.f }, { .65f, 0.f }, { 1.f, 160.f } };
-		const float TypeT = Linear(180.f * S, 900.f * S);
-		ExpeditionOpeningUI::SetMotion(CutinType, SampleSupplyKeys(TypeOpacity, TypeT, Ease), FVector2D(SampleSupplyKeys(TypeX, TypeT, Ease), 0.f), -6.f, K);
+		const float TypeT = ExpeditionOpeningUI::Track(CutinT, 180.f, 900.f);
+		ExpeditionOpeningUI::SetMotion(CutinType, ExpeditionOpeningUI::Keys(TypeOpacity, TypeT), FVector2D(ExpeditionOpeningUI::Keys(TypeX, TypeT), 0.f), -6.f, K);
 	}
 
-	// 이후 트랙은 시안 시각 그대로 쓰고, 늘어난 컷인만큼 늦춘다
+	// 이후 트랙(브리핑·스탬프·도착 안내)은 시안 시각 그대로 쓰고, 정지 컷이 늘어난 만큼 늦춘다
 	T -= ExpeditionOpeningUI::CutinShift;
 
 	// 브리핑: 740ms에 표시(1ms 트랙), 4600ms 이후엔 모든 조각이 퇴장 완료

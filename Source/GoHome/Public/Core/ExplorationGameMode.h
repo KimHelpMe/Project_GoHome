@@ -37,7 +37,7 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
-	// 진입 오프닝(UExpeditionOpeningWidget) 길이 = 시안 5.2s + 첫 컷 1.5배로 늘린 0.64s. 이 시간이 지나야 탐사(타이머·이동)가 시작된다.
+	// 진입 오프닝(UExpeditionOpeningWidget) 길이 = 시안 5.2s + 첫 컷 정지 구간을 늘린 0.64s. 이 시간이 지나야 탐사(타이머·이동)가 시작된다.
 	// 위젯 타임라인(ExpeditionOpeningUI::TimelineMs)과 같아야 한다. 0이면 오프닝 없이 즉시 시작.
 	UPROPERTY(EditDefaultsOnly, Category = "Expedition|Entry", meta = (ClampMin = "0.0", ClampMax = "30.0"))
 	float OpeningDurationSeconds = 5.84f;
