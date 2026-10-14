@@ -80,20 +80,35 @@ void UInteractionComponent::PerformTrace()
 		FCollisionQueryParams Params;
 		Params.AddIgnoredActor(GetOwner()); // 자기 자신은 무시.
 
+		float BlockDistance = TraceDistance; // 시선이 처음 막힌 거리(안 막혔으면 최대 거리).
+
 		// 1) 선 트레이스 - 정확히 조준했으면 그대로 선택(기존 조작감 유지).
-		if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params)
-			&& Hit.GetActor() && Hit.GetActor()->Implements<UInteractable>())
+		if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
 		{
-			NewTarget = Hit.GetActor();
+			BlockDistance = Hit.Distance;
+			if (Hit.GetActor() && Hit.GetActor()->Implements<UInteractable>())
+			{
+				NewTarget = Hit.GetActor();
+			}
 		}
+
 		// 2) 빗나갔으면 구체 스윕으로 한 번 더 - 살짝 빗나간 조준 보정.
 		// 스윕도 처음 막히는 것에서 멈추므로 벽 너머 대상은 잡히지 않음.
-		else if (AimAssistRadius > 0.f
+		if (!NewTarget && AimAssistRadius > 0.f
 			&& GetWorld()->SweepSingleByChannel(Hit, Start, End, FQuat::Identity, ECC_Visibility,
-				FCollisionShape::MakeSphere(AimAssistRadius), Params)
-			&& Hit.GetActor() && Hit.GetActor()->Implements<UInteractable>())
+				FCollisionShape::MakeSphere(AimAssistRadius), Params))
 		{
-			NewTarget = Hit.GetActor();
+			BlockDistance = FMath::Min(BlockDistance, Hit.Distance);
+			if (Hit.GetActor() && Hit.GetActor()->Implements<UInteractable>())
+			{
+				NewTarget = Hit.GetActor();
+			}
+		}
+
+		// 3) 그래도 없으면 - 시선이 레벨 콜리전에 먼저 막혔더라도 겹쳐 놓인 아이템이 있으면 구제.
+		if (!NewTarget && OverlapAimTolerance > 0.f)
+		{
+			NewTarget = FindItemBehindBlocker(Start, End, BlockDistance);
 		}
 	}
 
@@ -219,6 +234,41 @@ namespace
 		return Preparation && Preparation->IsExpeditionPreparing();
 	}
 }
+
+
+AActor* UInteractionComponent::FindItemBehindBlocker(const FVector& Start, const FVector& End, float BlockDistance) const
+{
+	APawn* OwnerPawn = Cast<APawn>(GetOwner());
+
+	TArray<AActor*> AllItems;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AItemActorBase::StaticClass(), AllItems);
+
+	const float MaxDist = FMath::Min(TraceDistance, BlockDistance + OverlapAimTolerance);
+	const FCollisionShape Shape = FCollisionShape::MakeSphere(FMath::Max(AimAssistRadius, 1.f));
+
+	AActor* Best = nullptr;
+	float BestDist = MaxDist;
+
+	for (AActor* Actor : AllItems)
+	{
+		AItemActorBase* Item = Cast<AItemActorBase>(Actor);
+		if (!Item || !Item->CanInteract(OwnerPawn) || !Item->MeshComponent) continue;
+
+		// 시선 쪽에 있는 아이템만 검사 - 비용 절감.
+		if (FMath::PointDistToSegmentSquared(Item->GetActorLocation(), Start, End) > FMath::Square(150.f)) continue;
+
+		// 이 아이템의 콜리전만 따로 추적 -> 다른 액터가 가로막고 있어도 무관.
+		FHitResult ItemHit;
+		if (Item->MeshComponent->SweepComponent(ItemHit, Start, End, FQuat::Identity, Shape, false)
+			&& ItemHit.Distance <= BestDist)
+		{
+			BestDist = ItemHit.Distance;
+			Best = Item;
+		}
+	}
+	return Best;
+}
+
 
 void UInteractionComponent::TryInteract()
 {
