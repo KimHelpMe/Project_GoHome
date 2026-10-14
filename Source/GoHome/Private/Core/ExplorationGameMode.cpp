@@ -51,9 +51,15 @@ void AExplorationGameMode::BeginPlay()
 	UExpeditionZoneDataAsset* Zone = TravelSubsystem ? TravelSubsystem->GetActiveZone() : nullptr;
 #if !UE_BUILD_SHIPPING
 	// 탐사맵을 직접 연 PIE에서 존 데이터(오프닝·할당량·제한시간)를 확인할 때: GoHome.Entry.PIEZone <1~3>
-	if (!Zone && TravelSubsystem && CVarEntryPIEZone.GetValueOnGameThread() > 0)
+	// 스탠드얼론(-game)은 게임 모듈 CVar를 실행 인자로 못 넣어서 -PIEZone=<n> 도 받는다.
+	int32 DebugZoneNumber = CVarEntryPIEZone.GetValueOnGameThread();
+	if (DebugZoneNumber <= 0)
 	{
-		const int32 Number = CVarEntryPIEZone.GetValueOnGameThread();
+		FParse::Value(FCommandLine::Get(), TEXT("PIEZone="), DebugZoneNumber);
+	}
+	if (!Zone && TravelSubsystem && DebugZoneNumber > 0)
+	{
+		const int32 Number = DebugZoneNumber;
 		const FString Path = FString::Printf(TEXT("/Game/GoHome/Data/DA_Zone_Lv%d.DA_Zone_Lv%d"), Number, Number);
 		if (UExpeditionZoneDataAsset* DebugZone = LoadObject<UExpeditionZoneDataAsset>(nullptr, *Path))
 		{
@@ -147,10 +153,11 @@ void AExplorationGameMode::TryScheduleEntry()
 	GetWorldTimerManager().ClearTimer(EntryTimer);
 	FExpeditionEntryState Entry = GS->GetEntryState();
 	Entry.Phase = EExpeditionEntryPhase::Opening;
-	Entry.OpeningStartServerTime = GS->GetServerWorldTimeSeconds() + .25;
+	const float StartDelay = FMath::Max(.25f, OpeningStartDelaySeconds);
+	Entry.OpeningStartServerTime = GS->GetServerWorldTimeSeconds() + StartDelay;
 	Entry.GameplayStartServerTime = Entry.OpeningStartServerTime + Entry.OpeningDuration;
 	GS->SetEntryState(Entry);
-	GetWorldTimerManager().SetTimer(EntryTimer, this, &AExplorationGameMode::StartExploration, Entry.OpeningDuration + .25f, false);
+	GetWorldTimerManager().SetTimer(EntryTimer, this, &AExplorationGameMode::StartExploration, Entry.OpeningDuration + StartDelay, false);
 	UE_LOG(LogTemp, Log, TEXT("ExpeditionEntry: opening scheduled, players=%d allReady=%d duration=%.2f"), Participants, bAllReady, Entry.OpeningDuration);
 }
 

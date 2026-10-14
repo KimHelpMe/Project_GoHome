@@ -37,13 +37,18 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
-	// 진입 오프닝(UExpeditionOpeningWidget) 길이 = 시안 5.2s + 첫 컷 정지 구간을 늘린 0.64s. 이 시간이 지나야 탐사(타이머·이동)가 시작된다.
+	// 진입 오프닝(UExpeditionOpeningWidget) 길이 = 시안 5.2s + 첫 컷 정지 구간을 늘린 0.54s. 이 시간이 지나야 탐사(타이머·이동)가 시작된다.
 	// 위젯 타임라인(ExpeditionOpeningUI::TimelineMs)과 같아야 한다. 0이면 오프닝 없이 즉시 시작.
 	UPROPERTY(EditDefaultsOnly, Category = "Expedition|Entry", meta = (ClampMin = "0.0", ClampMax = "30.0"))
-	float OpeningDurationSeconds = 5.84f;
+	float OpeningDurationSeconds = 5.74f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Expedition|Entry", meta = (ClampMin = "1.0"))
 	float EntryReadyTimeoutSeconds = 20.f;
+
+	// 전원 준비 뒤 오프닝 시작까지(검은 화면 유지). 맵 로드 직후 1.4~1.9s에 스트리밍·셰이더 준비로 프레임이 40~80ms씩 끊겨
+	// 첫 컷이 렉처럼 보였다(오프닝 없는 실행에서도 같은 시점 — 스탠드얼론 CSV 측정, 2026-10-14). 그 구간을 검은 화면 뒤로 보낸다.
+	UPROPERTY(EditDefaultsOnly, Category = "Expedition|Entry", meta = (ClampMin = "0.25"))
+	float OpeningStartDelaySeconds = 2.f;
 
 	// 탐사 시작 위치: PlayerStart(잠수정 안) 대신 잠수정 문 앞에서 바깥 해저를 내려다보게 — 오프닝 배경이 잠수정 내부면 어색해서.
 	// 기준은 ASubmarine 로컬(문 = 액터 뒤쪽 −X)이라 같은 BP_Submarine을 쓰는 모든 탐사맵에 적용된다.

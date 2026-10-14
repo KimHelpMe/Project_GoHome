@@ -43,11 +43,11 @@ namespace ExpeditionOpeningUI
 
 	constexpr float ReferenceWidth = 1920.f;
 	// 첫 컷(컷인)은 진입·퇴장 속도는 시안 그대로 두고, 판과 문구가 모두 멈춰 있는 순간에 시간을 멈춰 정지 컷만 늘린다(사용자 결정 2026-10-14).
-	// 시안에서 아이보리 판 정지 83~254ms, 코발트 148~319ms, 문구 완전 노출 228~355ms → 공통 구간 안 240ms에서 640ms 멈춘다(문구 노출 0.13s → 0.77s).
+	// 시안에서 아이보리 판 정지 83~254ms, 코발트 148~319ms, 문구 완전 노출 228~355ms → 공통 구간 안 240ms에서 540ms 멈춘다(문구 노출 0.13s → 0.67s).
 	// 그 뒤 트랙(판 퇴장·브리핑·스탬프·도착 안내)은 멈춘 만큼 통째로 늦는다 — 아래 수치는 시안 기준, ApplyFrame이 시각을 되돌려 쓴다.
 	constexpr float CutinHoldAtMs = 240.f;
-	constexpr float CutinShift = 640.f;
-	constexpr float TimelineMs = 5200.f + CutinShift;	// 이 시각에 서버가 탐사를 연다(AExplorationGameMode::OpeningDurationSeconds 5.84와 같아야 한다)
+	constexpr float CutinShift = 540.f;
+	constexpr float TimelineMs = 5200.f + CutinShift;	// 이 시각에 서버가 탐사를 연다(AExplorationGameMode::OpeningDurationSeconds 5.74와 같아야 한다)
 	constexpr float ArrivalOutMs = 6200.f;		// 도착 안내 유지 뒤 퇴장(시안 기준 시각, 사용자 결정: 시안 끝 화면 대신 짧게 보이고 사라짐)
 	constexpr float ArrivalOutLength = 300.f;
 	constexpr float EndMs = ArrivalOutMs + ArrivalOutLength + CutinShift;	// = TimelineMs + UExpeditionEntryComponent::OpeningTailSeconds
