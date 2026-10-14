@@ -4,6 +4,7 @@
 #include "Core/ExplorationGameMode.h"
 #include "Core/ExplorationGameState.h"
 #include "Player/DeathNotifier.h"
+#include "Player/OxygenComponent.h"
 #include "GameFramework/PlayerState.h"
 #include "Save/GoHomeSaveSubsystem.h"
 #include "Core/DockingDoorComponent.h"
@@ -162,6 +163,17 @@ void AExplorationGameMode::StartExploration()
 	FExpeditionEntryState Entry = GS->GetEntryState();
 	Entry.Phase = EExpeditionEntryPhase::Active;
 	Entry.GameplayStartServerTime = GS->GetServerWorldTimeSeconds();
+
+	// 탐사는 산소 최대치로 시작한다 — 대기·오프닝 동안 잠수정 밖(문 앞)에서 줄어든 양, 그리고 BeginPlay 뒤에 붙는 강화 보너스(최대치만 올라감)까지 채운다.
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		const APawn* Pawn = It->IsValid() ? It->Get()->GetPawn() : nullptr;
+		if (UOxygenComponent* Oxygen = Pawn ? Pawn->FindComponentByClass<UOxygenComponent>() : nullptr)
+		{
+			Oxygen->RestoreOxygen(Oxygen->GetMaxOxygen());
+		}
+	}
+
 	GS->SetExpeditionDeadline(RoundTimeLimitSeconds > 0.f ? Entry.GameplayStartServerTime + RoundTimeLimitSeconds : 0.f, RoundTimeLimitSeconds);
 	GS->SetEntryState(Entry);
 	if (RoundTimeLimitSeconds > 0.f)
