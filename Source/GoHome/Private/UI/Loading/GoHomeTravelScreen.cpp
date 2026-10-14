@@ -189,7 +189,7 @@ int32 SGoHomeTravelScreen::OnPaint(const FPaintArgs&, const FGeometry& G, const 
 {
 	using namespace TravelCanvas;
 	if (!Presentation) return Layer;
-	TravelCanvas::FCanvas Back(G,Out,Layer,WhiteBrush); Back.Rect(0,0,G.GetLocalSize().X,G.GetLocalSize().Y,Ink); Back.Flush();
+	TravelCanvas::FCanvas Back(G,Out,Layer,WhiteBrush); Back.Rect(0,0,G.GetLocalSize().X,G.GetLocalSize().Y,TravelCanvas::Ink); Back.Flush();
 	const float ScaleFactor = FMath::Min(G.GetLocalSize().X/1600.f,G.GetLocalSize().Y/900.f);
 	const FVector2D Offset = (G.GetLocalSize()-FVector2D(1600,900)*ScaleFactor)*.5;
 	const FGeometry Stage = G.MakeChild(FVector2D(1600,900),FSlateLayoutTransform(ScaleFactor,Offset));
@@ -197,44 +197,44 @@ int32 SGoHomeTravelScreen::OnPaint(const FPaintArgs&, const FGeometry& G, const 
 	TravelCanvas::FCanvas C(Stage,Out,Back.Layer,WhiteBrush);
 	const FTravelPresentation& F=*Presentation;
 	const float T=F.Elapsed, M=F.MotionTime; const int32 D=F.Direction;
-	C.Rect(0,0,1600,900,Ink);
+	C.Rect(0,0,1600,900,TravelCanvas::Ink);
 	if (F.Phase == ETravelPresentationPhase::Covered) { C.Flush(); Presentation->bCoverPainted=true; Out.PopClip(); return C.Layer; }
-	C.Poly({{905,0},{1480,0},{1250,900},{675,900}},Navy);
-	C.Poly({{1068,0},{1410,0},{1168,900},{826,900}},Blue);
+	C.Poly({{905,0},{1480,0},{1250,900},{675,900}},TravelCanvas::Navy);
+	C.Poly({{1068,0},{1410,0},{1168,900},{826,900}},TravelCanvas::Blue);
 	C.Poly({{1376,0},{1440,0},{1200,900},{1170,900}},0x3859e3);
-	C.State.Alpha=.09f; for(int32 I=0; I<22; ++I) C.Line(688+I*38,0,453+I*38,900,Paper); C.State.Alpha=1;
+	C.State.Alpha=.09f; for(int32 I=0; I<22; ++I) C.Line(688+I*38,0,453+I*38,900,TravelCanvas::Paper); C.State.Alpha=1;
 	const float Drift=M*D;
 	for(int32 I=0; I<19; ++I) { const float Y=Mod(I*62-Drift*67,1150)-120; C.Line(1347,Y,1373+(I%4==0?26:0),Y,0x6980bb,I%4==0?2:1); }
-	for(int32 I=0; I<39; ++I) { const float X=735+Mod(I*137,703),Y=Mod(I*191-Drift*(39+(I%4)*18),1080)-90; C.State.Alpha=.2f+(I%3)*.12f; C.Rect(X,Y,I%3==0?3:2,I%5==0?32:5,Paper); } C.State.Alpha=1;
+	for(int32 I=0; I<39; ++I) { const float X=735+Mod(I*137,703),Y=Mod(I*191-Drift*(39+(I%4)*18),1080)-90; C.State.Alpha=.2f+(I%3)*.12f; C.Rect(X,Y,I%3==0?3:2,I%5==0?32:5,TravelCanvas::Paper); } C.State.Alpha=1;
 	const float BeamY=438+FMath::Sin(M*1.2f)*5;
-	C.State.Alpha=.09f; C.Poly({{1195,BeamY},{1570,BeamY-45},{1570,BeamY+110}},Lime); C.State.Alpha=1;
+	C.State.Alpha=.09f; C.Poly({{1195,BeamY},{1570,BeamY-45},{1570,BeamY+110}},TravelCanvas::Lime); C.State.Alpha=1;
 	C.Save(); C.State.Alpha=F.bReducedMotion?1:Ease((T-.13f)/.54f); C.Translate(-42*(1-C.State.Alpha),0);
-	for(int32 I=0;I<3;++I) C.Poly({{72.f+I*19,307},{84.f+I*19,307},{76.f+I*19,323},{64.f+I*19,323}},I==2?Lime:Blue);
+	for(int32 I=0;I<3;++I) C.Poly({{72.f+I*19,307},{84.f+I*19,307},{76.f+I*19,323},{64.f+I*19,323}},I==2?TravelCanvas::Lime:TravelCanvas::Blue);
 	C.Line(137,315,540,315,0x344867);
 	C.Save(); C.Translate(73,397); C.Shear(-.12f);
 	const FText Lead=D==1?LOCTEXT("DownLead","미지의 "):LOCTEXT("UpLead","탐사를 마치고 ");
 	const FText Verb=D==1?LOCTEXT("DownVerb","심해로"):LOCTEXT("UpVerb","귀환");
 	const FText Full=D==1?LOCTEXT("DownTitle","미지의 심해로"):LOCTEXT("UpTitle","탐사를 마치고 귀환");
 	const FSlateFontInfo& Font=D==1?TitleDownFont:TitleUpFont;
-	C.Text(Full,3,5,Font,Blue);
-	const float LeadWidth=C.Text(Lead,0,0,Font,Paper),TitleWidth=LeadWidth+C.Text(Verb,LeadWidth,0,Font,Lime);
+	C.Text(Full,3,5,Font,TravelCanvas::Blue);
+	const float LeadWidth=C.Text(Lead,0,0,Font,TravelCanvas::Paper),TitleWidth=LeadWidth+C.Text(Verb,LeadWidth,0,Font,TravelCanvas::Lime);
 	C.Line(0,19,TitleWidth,19,0x526687);
-	C.Poly({{LeadWidth,16},{TitleWidth+4,16},{TitleWidth+1,22},{LeadWidth-3,22}},Lime); C.Restore();
-	C.Poly({{72,440},{124,440},{111,502},{59,502}},Blue); C.Arrow(92,471,.58f,D,Paper); C.Restore();
+	C.Poly({{LeadWidth,16},{TitleWidth+4,16},{TitleWidth+1,22},{LeadWidth-3,22}},TravelCanvas::Lime); C.Restore();
+	C.Poly({{72,440},{124,440},{111,502},{59,502}},TravelCanvas::Blue); C.Arrow(92,471,.58f,D,TravelCanvas::Paper); C.Restore();
 	float SubY=450;
 	if(!F.bReducedMotion) { SubY+=D*(-460*(1-Ease(T/.94f))+FMath::Sin(M*1.35f)*8); if(F.Phase==ETravelPresentationPhase::Exit) SubY+=D*760*FMath::Square(FMath::Clamp((T-F.ExitStartedAt)/FTravelPresentation::ExitSeconds,0.f,1.f)); }
 	Sub(C,1002,SubY,F.bReducedMotion?0:D*.055f+FMath::Sin(M*.9f)*.008f);
-	if(!F.bReducedMotion && F.Phase!=ETravelPresentationPhase::Error) { for(int32 I=0;I<3;++I) { C.State.Alpha=.25f+I*.23f; C.Arrow(1045,611+I*48+D*Mod(M*24,48),.62f,D,Lime); } C.State.Alpha=1; } else C.Arrow(1045,660,.7f,D,Lime);
-	const bool bError=F.Phase==ETravelPresentationPhase::Error; const uint32 Accent=bError?0xffb89c:Lime;
-	C.Poly({{69,763},{569,763},{549,862},{49,862}},Navy); C.Poly({{69,763},{76,763},{56,862},{49,862}},Blue);
+	if(!F.bReducedMotion && F.Phase!=ETravelPresentationPhase::Error) { for(int32 I=0;I<3;++I) { C.State.Alpha=.25f+I*.23f; C.Arrow(1045,611+I*48+D*Mod(M*24,48),.62f,D,TravelCanvas::Lime); } C.State.Alpha=1; } else C.Arrow(1045,660,.7f,D,TravelCanvas::Lime);
+	const bool bError=F.Phase==ETravelPresentationPhase::Error; const uint32 Accent=bError?0xffb89c:TravelCanvas::Lime;
+	C.Poly({{69,763},{569,763},{549,862},{49,862}},TravelCanvas::Navy); C.Poly({{69,763},{76,763},{56,862},{49,862}},TravelCanvas::Blue);
 	C.Poly({{93,786},{101,786},{97,796},{89,796}},Accent);
-	C.Text(bError?LOCTEXT("Error","연결 오류"):F.bReady?LOCTEXT("Ready","도착 준비 중"):LOCTEXT("Loading","이동 중"),113,800,StatusFont,bError?Accent:Paper);
+	C.Text(bError?LOCTEXT("Error","연결 오류"):F.bReady?LOCTEXT("Ready","도착 준비 중"):LOCTEXT("Loading","이동 중"),113,800,StatusFont,bError?Accent:TravelCanvas::Paper);
 	C.Line(90,814,521,814,0x42577c);
 	const int32 Head=F.bReducedMotion?7:static_cast<int32>(Mod(FMath::FloorToFloat(M*8)*D,16));
-	for(int32 I=0;I<16;++I) { const float X=94+I*27,Trail=Mod((Head-I)*D,16); const uint32 Color=bError?(I==0?Accent:0x443b3d):Trail==0?Paper:Trail<3?Accent:Trail<5?Blue:0x293d60; C.Poly({{X,824},{X+20,824},{X+16,840},{X-4,840}},Color); }
+	for(int32 I=0;I<16;++I) { const float X=94+I*27,Trail=Mod((Head-I)*D,16); const uint32 Color=bError?(I==0?Accent:0x443b3d):Trail==0?TravelCanvas::Paper:Trail<3?Accent:Trail<5?TravelCanvas::Blue:0x293d60; C.Poly({{X,824},{X+20,824},{X+16,840},{X-4,840}},Color); }
 	C.Line(532,822,528,842,Accent,2);
-	if(F.Phase==ETravelPresentationPhase::Enter) { const float K=FMath::Clamp(T/(F.bReducedMotion?.1f:FTravelPresentation::EnterSeconds),0.f,1.f); if(F.bReducedMotion) { C.State.Alpha=1-K; C.Rect(0,0,1600,900,Ink); C.State.Alpha=1; } else if(K<1) { const float O=D*Ease(K)*1950; C.Poly({{-140,O-260},{1740,O-660},{1740,O+1050},{-140,O+1450}},Blue); C.Poly({{-140,O-300},{1740,O-700},{1740,O+1000},{-140,O+1400}},Ink); } }
-	if(F.Phase==ETravelPresentationPhase::Exit) { const float P=FMath::Clamp((T-F.ExitStartedAt)/(F.bReducedMotion?.1f:FTravelPresentation::ExitSeconds),0.f,1.f); C.State.Alpha=F.bReducedMotion?P:FMath::Clamp((P-.65f)/.35f,0.f,1.f); C.Rect(0,0,1600,900,Ink); C.State.Alpha=1; }
+	if(F.Phase==ETravelPresentationPhase::Enter) { const float K=FMath::Clamp(T/(F.bReducedMotion?.1f:FTravelPresentation::EnterSeconds),0.f,1.f); if(F.bReducedMotion) { C.State.Alpha=1-K; C.Rect(0,0,1600,900,TravelCanvas::Ink); C.State.Alpha=1; } else if(K<1) { const float O=D*Ease(K)*1950; C.Poly({{-140,O-260},{1740,O-660},{1740,O+1050},{-140,O+1450}},TravelCanvas::Blue); C.Poly({{-140,O-300},{1740,O-700},{1740,O+1000},{-140,O+1400}},TravelCanvas::Ink); } }
+	if(F.Phase==ETravelPresentationPhase::Exit) { const float P=FMath::Clamp((T-F.ExitStartedAt)/(F.bReducedMotion?.1f:FTravelPresentation::ExitSeconds),0.f,1.f); C.State.Alpha=F.bReducedMotion?P:FMath::Clamp((P-.65f)/.35f,0.f,1.f); C.Rect(0,0,1600,900,TravelCanvas::Ink); C.State.Alpha=1; }
 	C.Flush(); Out.PopClip(); return C.Layer;
 }
 
