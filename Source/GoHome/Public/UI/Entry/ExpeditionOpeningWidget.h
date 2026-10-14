@@ -14,7 +14,8 @@ class UWidget;
 
 /**
  * 탐사 진입 오프닝 INTO THE DEEP(시안 Docs/Dev/UI/expedition-opening). 화면 크기 전체를 덮는 Sequence 화면.
- * 생성·제거·스킵 입력은 UExpeditionEntryComponent, 이 위젯은 IExpeditionEntryBackend 스냅샷만 본다.
+ * 생성·제거는 UExpeditionEntryComponent, 이 위젯은 IExpeditionEntryBackend 스냅샷만 본다. 스킵 없음(시안의 스킵 버튼·빈 데이터 버튼 제외 —
+ * 사용자 결정 2026-10-14: 모든 클라가 같은 서버 시각으로 끝까지 본다).
  * 타임라인 시각 = 서버 시각 − OpeningStartServerTime — 모든 클라가 같은 프레임을 보고, 서버는 OpeningDuration 뒤 탐사를 연다.
  * 위젯 트리·모션은 C++(보급·목적지 화면과 같은 이유 — 시안 수치·cubic-bezier를 그대로). 시안의 정적 맵 사진·상단 표기·조준점은
  * 실제 게임 화면의 대용이라 그리지 않는다(사용자 결정 2026-10-14) — 브리핑 오른쪽은 실제 월드, 끝의 도착 안내만 그린 뒤 퇴장.
@@ -49,7 +50,6 @@ private:
 	void BuildStamp();
 	void BuildArrival();
 	void BuildFallback();
-	void BuildSkip();
 
 	void ApplyLayout(const FVector2D& ViewSize);
 	void ApplyData(const FExpeditionEntryState& State);
@@ -117,9 +117,4 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> FallbackKicker;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> FallbackTitle;
 	UPROPERTY(Transient) TObjectPtr<UTextBlock> FallbackText;
-	UPROPERTY(Transient) TObjectPtr<UWidget> FallbackButton;
-	UPROPERTY(Transient) TObjectPtr<UTextBlock> FallbackButtonText;
-
-	// 스킵 안내(.skip)
-	UPROPERTY(Transient) TObjectPtr<UCanvasPanel> Skip;
 };

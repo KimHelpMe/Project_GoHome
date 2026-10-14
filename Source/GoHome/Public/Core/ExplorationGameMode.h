@@ -42,8 +42,31 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Expedition|Entry", meta = (ClampMin = "1.0"))
 	float EntryReadyTimeoutSeconds = 20.f;
+
+	// 탐사 시작 위치: PlayerStart(잠수정 안) 대신 잠수정 문 앞에서 바깥 해저를 내려다보게 — 오프닝 배경이 잠수정 내부면 어색해서.
+	// 기준은 ASubmarine 로컬(문 = 액터 뒤쪽 −X)이라 같은 BP_Submarine을 쓰는 모든 탐사맵에 적용된다.
+	UPROPERTY(EditDefaultsOnly, Category = "Expedition|Entry")
+	bool bSpawnInFrontOfSubmarine = true;
+
+	// 잠수정 원점에서 문 방향 거리(문은 약 10m, 기본값 = 문 밖 약 4m)
+	UPROPERTY(EditDefaultsOnly, Category = "Expedition|Entry", meta = (EditCondition = "bSpawnInFrontOfSubmarine"))
+	float SpawnDistanceFromSubmarine = 1400.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Expedition|Entry", meta = (EditCondition = "bSpawnInFrontOfSubmarine"))
+	float SpawnHeightOffset = 0.f;
+
+	// 플레이어끼리 겹치지 않게 옆으로 벌리는 간격(슬롯 0 가운데 → 오른쪽 → 왼쪽 …)
+	UPROPERTY(EditDefaultsOnly, Category = "Expedition|Entry", meta = (EditCondition = "bSpawnInFrontOfSubmarine"))
+	float SpawnSpacing = 150.f;
+
+	// 시작 시점 피치(음수 = 내려다봄). 오프닝 동안은 시점 입력이 잠겨 이 각도가 유지된다.
+	UPROPERTY(EditDefaultsOnly, Category = "Expedition|Entry", meta = (EditCondition = "bSpawnInFrontOfSubmarine"))
+	float SpawnViewPitch = -15.f;
 	
 private:
+	bool FindSubmarineSpawn(AController* Player, FTransform& OutTransform);
+	TMap<TWeakObjectPtr<AController>, int32> SpawnSlots;
+
 	void TryScheduleEntry();
 	void StartExploration();
 	FTimerHandle EntryTimer;

@@ -9,13 +9,12 @@
 #include "ExpeditionEntryComponent.generated.h"
 
 class AExplorationGameState;
-class UInputComponent;
 class UUserWidget;
 
 /**
  * 탐사 진입 조정자(PlayerController 수명, AGoHomePlayerController 생성자가 부착).
  * 서버: 준비 보고를 GameMode에 넘기고, 탐사 개시 전까지 폰 이동을 잠근다.
- * 로컬: 오프닝 위젯(UExpeditionOpeningWidget — 이 컴포넌트는 소프트 클래스로만 안다) 생성·제거, 스킵 입력, 입력 잠금,
+ * 로컬: 오프닝 위젯(UExpeditionOpeningWidget — 이 컴포넌트는 소프트 클래스로만 안다) 생성·제거, 입력 잠금,
  * BP가 따로 만드는 개인 HUD 숨김. PC가 만드는 HUD는 View.bHUDVisible이 켜질 때까지 생성 자체를 미룬다(AGoHomePlayerController).
  */
 UCLASS(ClassGroup = (Core))
@@ -71,9 +70,6 @@ private:
 	void RestoreHUD();
 	void ApplyMovementGate();
 	void RestoreMovement();
-	void BindSkipInput();
-	void UnbindSkipInput();
-	void HandleSkip();
 
 	TWeakObjectPtr<AExplorationGameState> BoundState;
 	TWeakObjectPtr<APawn> ReadyPawn;
@@ -89,7 +85,4 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UUserWidget> OpeningWidget;
-
-	UPROPERTY(Transient)
-	TObjectPtr<UInputComponent> SkipInput;
 };

@@ -291,11 +291,12 @@ decisions:
       입력 없이 확인: 비Shipping 콘솔 `GoHome.Announcer.Debug <Start|Return|Time60|Time30|Time10|O2Low|O2Crit|FirstArtifact|Artifact|Attacked|Damaged|Vent|Mine|Ink|Clear>`, `GoHome.Announcer.DebugBurst`(선점·대기·만료), 로그 `log LogAnnouncer Verbose`. 공격 "사전 예고"(공격 시작 전 경고)는 몬스터 BP마다 공격 준비 지점 연결이 필요해 아직 없다 — 지금은 물기·잡기 시작 또는 피해 시점 안내.
   - name: 탐사 진입 오프닝 (Core/UExpeditionEntryComponent + UI/Entry/UExpeditionOpeningWidget) — 위젯 트리까지 C++
     detail: |
-      탐사맵 도착 → 팀 대기 → INTO THE DEEP 오프닝(5.2s, 시안 expedition-opening) → 탐사 개시. 흐름·위젯 수명·스킵 입력(Space/Esc/패드 A·B, 바인딩이 키를 소비해 시스템 메뉴로 안 샘)은 `AGoHomePlayerController`가 생성자에서 붙이는 `UExpeditionEntryComponent`, 위젯은 `IExpeditionEntryBackend` 스냅샷만 본다(ZOrder 90 — 관전·시스템 메뉴 아래).
-      타임라인 시각 = 서버 시각 − `OpeningStartServerTime`이라 모든 클라가 같은 프레임을 보고, 서버는 같은 시각에 탐사를 연다. 늦은 접속·지연 복제는 지난 구간을 재생하지 않는다(서버 시각으로 만료 판정). 스킵은 로컬 화면만 걷는다 — 이동·타이머는 서버 개시 그대로. 개시 뒤 1.3s(`OpeningTailSeconds`)는 도착 안내만 남았다 퇴장.
+      탐사맵 도착 → 팀 대기 → INTO THE DEEP 오프닝(5.2s, 시안 expedition-opening) → 탐사 개시. 흐름·위젯 수명은 `AGoHomePlayerController`가 생성자에서 붙이는 `UExpeditionEntryComponent`, 위젯은 `IExpeditionEntryBackend` 스냅샷만 본다(ZOrder 90 — 관전·시스템 메뉴 아래).
+      타임라인 시각 = 서버 시각 − `OpeningStartServerTime`이라 모든 클라가 같은 프레임을 보고, 서버는 같은 시각에 탐사를 연다. 늦은 접속·지연 복제는 지난 구간을 재생하지 않는다(서버 시각으로 만료 판정). 개시 뒤 1.3s(`OpeningTailSeconds`)는 도착 안내만 남았다 퇴장.
+      시작 위치: `AExplorationGameMode::RestartPlayer`가 PlayerStart(잠수정 안) 대신 `ASubmarine` 로컬 기준 문 앞(원점에서 문 방향 14m, 플레이어마다 옆 1.5m 슬롯)에 세우고 시점을 −15° 내려다보게 한다 — 오프닝 배경이 잠수정 내부면 어색해서(사용자 결정 2026-10-14). 같은 BP_Submarine이라 탐사맵 3개 공통, 끄려면 `bSpawnInFrontOfSubmarine`.
       HUD 지연: PC가 만드는 HUD(진행도·피드·조준 정보·바이탈·아나운서, BP의 `OnExplorationHUDReady`=WBP_HUD)는 `View.bHUDVisible`(오프닝 종료) 전엔 생성 자체를 미룬다. 캐릭터·컨트롤러 BP가 직접 만드는 개인 HUD(인벤토리·상호작용·비네트·나침반·LOAD)는 `LegacyHUDClasses`로 숨겼다 복원 — 개인 HUD를 BP에서 새로 만들면 이 목록에도 추가. 아나운서는 HUD가 보인 뒤부터 판정(시작 안내 = 그 뒤 `StartDelaySeconds`).
       잠금: 로컬은 입력 무시(엔진 `ClientRestart`가 `ResetIgnoreInputFlags`로 지우므로 실제 플래그를 보고 다시 건다), 서버는 폰 `DisableMovement`(BP가 수영 모드로 덮으면 다시 잠금). 상호작용은 Interaction이 GameState 구체 클래스 대신 `IExpeditionPreparation`만 보고 거른다.
-      반려: 시안의 정적 맵 사진·상단 표기·조준점 — 실제 게임 화면의 대용이라 그리지 않고 브리핑 오른쪽은 실제 월드를 보여준다(사용자 결정 2026-10-14). 화살표(↘ ↗ ⟶)는 시안 글꼴에 없어 브라우저 대체 글꼴로 그려진 모양이라 `UStrokeGlyphWidget` 선으로 옮겼다. Consolas Bold는 Inconsolata wdth 112·wght 700 인스턴스(`FF_Inconsolata_SemiExpanded_Bold`, `SupplyUI::EFace::MonoBold`).
+      반려: 스킵(시안의 Space/Esc 건너뛰기·빈 데이터 버튼) — 클라마다 화면이 다른 시점에 끝나 동기화가 번거로워 뺐다(사용자 결정 2026-10-14). 반려: 시안의 정적 맵 사진·상단 표기·조준점 — 실제 게임 화면의 대용이라 그리지 않고 브리핑 오른쪽은 실제 월드를 보여준다(사용자 결정 2026-10-14). 화살표(↘ ↗ ⟶)는 시안 글꼴에 없어 브라우저 대체 글꼴로 그려진 모양이라 `UStrokeGlyphWidget` 선으로 옮겼다. Consolas Bold는 Inconsolata wdth 112·wght 700 인스턴스(`FF_Inconsolata_SemiExpanded_Bold`, `SupplyUI::EFace::MonoBold`).
       입력 없이 확인: 비Shipping 콘솔 `GoHome.Opening.Preview <존 1~3|0> [ms] [mode]`(그 시각 정지 또는 재생), 탐사맵 직접 PIE에서 존 데이터 쓰기 `GoHome.Entry.PIEZone <1~3>`.
   - name: 정산 진행도 레일 데이터
     detail: |

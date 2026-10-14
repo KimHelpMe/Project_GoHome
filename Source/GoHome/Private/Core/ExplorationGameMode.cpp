@@ -9,6 +9,8 @@
 #include "Core/DockingDoorComponent.h"
 #include "Core/ExpeditionTravelSubsystem.h"
 #include "Core/ExpeditionZoneDataAsset.h"
+#include "Core/Actors/Submarine.h"
+#include "EngineUtils.h"
 #include "HAL/IConsoleManager.h"
 
 
@@ -164,7 +166,21 @@ void AExplorationGameMode::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void AExplorationGameMode::RestartPlayer(AController* NewPlayer)
 {
-	Super::RestartPlayer(NewPlayer);
+	FTransform SpawnTransform;
+	if (NewPlayer && !NewPlayer->GetPawn() && FindSubmarineSpawn(NewPlayer, SpawnTransform))
+	{
+		RestartPlayerAtTransform(NewPlayer, SpawnTransform);
+		if (APlayerController* PC = Cast<APlayerController>(NewPlayer))
+		{
+			const FRotator View(SpawnViewPitch, SpawnTransform.Rotator().Yaw, 0.f);
+			PC->SetControlRotation(View);
+			PC->ClientSetRotation(View, true);
+		}
+	}
+	else
+	{
+		Super::RestartPlayer(NewPlayer);
+	}
 
 	if (NewPlayer)
 	{
@@ -173,6 +189,55 @@ void AExplorationGameMode::RestartPlayer(AController* NewPlayer)
 			TrackPawnDeath(Pawn);
 		}
 	}
+}
+
+bool AExplorationGameMode::FindSubmarineSpawn(AController* Player, FTransform& OutTransform)
+{
+	if (!bSpawnInFrontOfSubmarine || !Player)
+	{
+		return false;
+	}
+	TActorIterator<ASubmarine> It(GetWorld());
+	if (!It)
+	{
+		return false;
+	}
+
+	// 슬롯: 이미 받은 컨트롤러는 그대로, 새로 오면 비어 있는 가장 작은 번호
+	int32 Slot = INDEX_NONE;
+	TSet<int32> Taken;
+	for (auto Iter = SpawnSlots.CreateIterator(); Iter; ++Iter)
+	{
+		if (!Iter.Key().IsValid())
+		{
+			Iter.RemoveCurrent();
+		}
+		else if (Iter.Key().Get() == Player)
+		{
+			Slot = Iter.Value();
+		}
+		else
+		{
+			Taken.Add(Iter.Value());
+		}
+	}
+	if (Slot == INDEX_NONE)
+	{
+		Slot = 0;
+		while (Taken.Contains(Slot))
+		{
+			++Slot;
+		}
+		SpawnSlots.Add(Player, Slot);
+	}
+
+	const ASubmarine* Submarine = *It;
+	const FVector Out = (-Submarine->GetActorForwardVector()).GetSafeNormal2D();	// 문 쪽
+	const FVector Right(-Out.Y, Out.X, 0.f);
+	const float Lateral = Slot == 0 ? 0.f : SpawnSpacing * ((Slot + 1) / 2) * (Slot % 2 == 1 ? 1.f : -1.f);
+	const FVector Location = Submarine->GetActorLocation() + Out * SpawnDistanceFromSubmarine + Right * Lateral + FVector(0.f, 0.f, SpawnHeightOffset);
+	OutTransform = FTransform(FRotator(0.f, Out.Rotation().Yaw, 0.f), Location);
+	return true;
 }
 
 void AExplorationGameMode::HandleFail(EFailReason Reason)

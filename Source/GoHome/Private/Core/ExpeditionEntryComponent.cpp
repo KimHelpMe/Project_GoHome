@@ -4,7 +4,6 @@
 #include "Core/ExplorationGameState.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
-#include "EnhancedInputComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/PlayerController.h"
@@ -150,7 +149,7 @@ void UExpeditionEntryComponent::FinishOpening(UObject* Context)
 {
 	APlayerController* PC = Cast<APlayerController>(GetOwner());
 	if (!PC || !PC->IsLocalController() || !Context || Context != BoundState.Get() || !View.bOpeningVisible) return;
-	// 화면만 걷는다 — 탐사 개시(이동·타이머)는 서버 시각 그대로
+	// 위젯이 자기 타임라인 끝(도착 안내 퇴장)에 부른다. 스킵은 없다 — 모든 클라가 같은 서버 시각으로 끝까지 본다.
 	bOpeningFinished = true;
 	HandleEntryChanged();
 }
@@ -172,7 +171,6 @@ void UExpeditionEntryComponent::UpdateOpeningWidget()
 			if (OpeningWidget)
 			{
 				OpeningWidget->AddToViewport(OpeningZOrder);
-				BindSkipInput();
 			}
 		}
 	}
@@ -180,44 +178,7 @@ void UExpeditionEntryComponent::UpdateOpeningWidget()
 	{
 		OpeningWidget->RemoveFromParent();
 		OpeningWidget = nullptr;
-		UnbindSkipInput();
 	}
-}
-
-void UExpeditionEntryComponent::BindSkipInput()
-{
-	APlayerController* PC = Cast<APlayerController>(GetOwner());
-	if (!PC || SkipInput)
-	{
-		return;
-	}
-	SkipInput = NewObject<UEnhancedInputComponent>(PC, TEXT("ExpeditionEntrySkipInput"));
-	SkipInput->RegisterComponent();
-	// 시안: Space / Esc. 게임패드는 A/B. 바인딩이 키를 소비해 컨트롤러의 Escape(시스템 메뉴)로 새지 않는다.
-	for (const FKey& Key : { EKeys::SpaceBar, EKeys::Escape, EKeys::Gamepad_FaceButton_Bottom, EKeys::Gamepad_FaceButton_Right })
-	{
-		SkipInput->BindKey(Key, IE_Pressed, this, &ThisClass::HandleSkip);
-	}
-	PC->PushInputComponent(SkipInput);
-}
-
-void UExpeditionEntryComponent::UnbindSkipInput()
-{
-	if (!SkipInput)
-	{
-		return;
-	}
-	if (APlayerController* PC = Cast<APlayerController>(GetOwner()))
-	{
-		PC->PopInputComponent(SkipInput);
-	}
-	SkipInput->DestroyComponent();
-	SkipInput = nullptr;
-}
-
-void UExpeditionEntryComponent::HandleSkip()
-{
-	FinishOpening(BoundState.Get());
 }
 
 void UExpeditionEntryComponent::RegisterHUD(UUserWidget* Widget)

@@ -198,7 +198,7 @@ namespace
 		TArray<FGlyphPart> Parts;
 	};
 
-	enum class EArrow : uint8 { BoldSouthEast, ThinSouthEast, LongRight, NorthEast, ThinNorthEast, SouthEast };
+	enum class EArrow : uint8 { BoldSouthEast, ThinSouthEast, LongRight, NorthEast, SouthEast };
 
 	const FGlyphDef& GlyphDef(EArrow Arrow)
 	{
@@ -211,8 +211,6 @@ namespace
 			{ 800.f, 277.f, { { { { 817.5f, 190.5f }, { 1120, 190.5f } }, 19.f }, { { { 1076, 134 }, { 1127, 190.5f }, { 1076, 247 } }, 15.f } } },
 			// .ticket-top>i — Arial ↗
 			{ 1200.f, 348.f, { { { { 1253, 331 }, { 1428, 156 } }, 19.5f }, { { { 1341, 150.5f }, { 1400, 146 }, { 1444, 139 } }, 19.f }, { { { 1442, 141 }, { 1434, 200 }, { 1432, 242.5f } }, 20.f } } },
-			// .skip>span — 맑은 고딕 ↗
-			{ 1600.f, 327.f, { { { { 1657, 323 }, { 1822, 158 } }, 15.5f }, { { { 1747.5f, 164.5f }, { 1772.5f, 169.5f }, { 1792.5f, 168.5f }, { 1813, 158 }, { 1828, 153 } }, 14.f }, { { { 1814.5f, 232 }, { 1809, 206.5f }, { 1812, 183 }, { 1828, 153 } }, 14.f } } },
 			// .stamp i — Arial ↘
 			{ 2000.f, 348.f, { { { { 2053, 137 }, { 2228, 312 } }, 19.5f }, { { { 2141, 317.5f }, { 2200, 322 }, { 2244, 329 } }, 19.f }, { { { 2242, 327 }, { 2234, 268 }, { 2232, 225.5f } }, 20.f } } },
 		};
@@ -400,7 +398,6 @@ void UExpeditionOpeningWidget::NativeTick(const FGeometry& MyGeometry, float InD
 	{
 		ApplyFrame(TimeMs);
 	}
-	SetShown(Skip, TimeMs < TimelineMs);
 }
 
 // --- 트리 ---
@@ -415,12 +412,11 @@ void UExpeditionOpeningWidget::BuildTree()
 	Stage->SetVisibility(ESlateVisibility::HitTestInvisible);
 	WidgetTree->RootWidget = Stage;
 
-	// DOM 순서: .world(도착 안내) → .brief → .cutin → .fallback → .skip
+	// DOM 순서: .world(도착 안내) → .brief → .cutin → .fallback (.skip은 없음)
 	BuildArrival();
 	BuildBrief();
 	BuildCutin();
 	BuildFallback();
-	BuildSkip();
 	ApplyLayout(FVector2D(1920.f, 1080.f));
 }
 
@@ -652,28 +648,6 @@ void UExpeditionOpeningWidget::BuildFallback()
 	FallbackKicker = AddText(T, Column, FText::FromString(TEXT("GOHOME / EXPEDITION")), Consolas(11.f, .2f), Lime(), 200.f, 10.f, .5f);
 	FallbackTitle = AddText(T, Column, FText::GetEmpty(), Malgun(28.f, true, -.055f), Paper(), 200.f, 67.f, .5f);
 	FallbackText = AddText(T, Column, FText::GetEmpty(), Malgun(13.f, false, 0.f, 22.1f), Hex(0x9ca9c3), 200.f, 111.f, .5f);
-	// button: padding 12 22, margin-top 18, 종이색 면 + 잉크 굵은 16px. 커서가 없는 게임 화면이라 Space/Esc(스킵)와 같은 동작.
-	UCanvasPanel* Button = Group(T, Column, 127.2f, 148.f, 145.6f, 45.f);
-	Put(Button, Solid(T, Paper()), 0.f, 0.f, 145.6f, 45.f);
-	FallbackButtonText = AddText(T, Button, LOCTEXT("EmptyAction", "탐사 화면으로"), Malgun(16.f, true), Ink(), 72.8f, 29.f, .5f);
-	FallbackButton = Button;
-}
-
-void UExpeditionOpeningWidget::BuildSkip()
-{
-	UWidgetTree* T = WidgetTree;
-	// .skip: right 4.5%, bottom 4%, padding 10 12, 배경 #080f20c9, gap 10
-	Skip = Group(T, Stage, 0.f, 0.f, 172.f, 44.f);
-	Put(Skip, Solid(T, Hex(0x080f20, 0xc9 / 255.f)), 0.f, 0.f, 172.f, 44.f);
-	// kbd: border 1px #f0f1de80, padding 3 6
-	const FLinearColor KeyEdge = Hex(0xf0f1de, .5f);
-	Put(Skip, Solid(T, KeyEdge), 12.f, 12.f, 42.f, 1.f);
-	Put(Skip, Solid(T, KeyEdge), 12.f, 31.f, 42.f, 1.f);
-	Put(Skip, Solid(T, KeyEdge), 12.f, 13.f, 1.f, 18.f);
-	Put(Skip, Solid(T, KeyEdge), 53.f, 13.f, 1.f, 18.f);
-	AddText(T, Skip, FText::FromString(TEXT("Space")), Consolas(10.f), Paper(), 18.9f, 24.6f);
-	AddText(T, Skip, LOCTEXT("SkipLabel", "연출 건너뛰기"), Malgun(11.f, false), Paper(), 63.4f, 26.1f);
-	AddArrow(T, Skip, EArrow::ThinNorthEast, 18.f, Lime(), 143.3f, 29.6f);
 }
 
 // --- 레이아웃 ---
@@ -700,7 +674,6 @@ void UExpeditionOpeningWidget::ApplyLayout(const FVector2D& ViewSize)
 	Move(Brief, 0.f, 0.f, W, H);
 	Move(Cutin, 0.f, 0.f, W, H);
 	Move(Fallback, 0.f, 0.f, W, H);
-	Move(Skip, W - .045f * W - 172.f, H - .04f * H - 44.f);
 
 	// 사선 면: 꼭짓점 (0,0)(64%,0)(49%,100%)(0,100%) — 가운데 높이에서 오른쪽 변 56.5%, 기울기 −15%W/H
 	const float Slant = FMath::RadiansToDegrees(FMath::Atan(-.15f * W / H));
@@ -888,14 +861,13 @@ void UExpeditionOpeningWidget::ApplyMode(EMode Mode)
 	SetShown(Brief, false);
 	SetShown(Cutin, false);
 
-	// 열 상자 높이: 대기 130.1(kicker 13 + 24 + 제목 37 + 8 + 13 + 본문 22.1 + 13), 빈 데이터 + 버튼(18 + 45)
+	// 열 상자 높이 130.1(kicker 13 + 24 + 제목 37 + 8 + 13 + 본문 22.1 + 13). 스킵이 없어 시안의 건너뛰기 안내·빈 데이터 버튼은 뺐다.
 	const bool bEmpty = Mode == EMode::Empty;
 	FallbackTitle->SetText(bEmpty ? LOCTEXT("EmptyTitle", "탐사지 정보가 없습니다") : LOCTEXT("LoadingTitle", "탐사지 정보를 불러오는 중"));
-	FallbackText->SetText(bEmpty ? LOCTEXT("EmptyText", "정보 없이 탐사 화면으로 이동할 수 있습니다.") : LOCTEXT("LoadingText", "준비되면 오프닝을 시작합니다. 연출을 건너뛰어도 됩니다."));
-	SetShown(FallbackButton, bEmpty);
+	FallbackText->SetText(bEmpty ? LOCTEXT("EmptyText", "잠시 후 탐사 화면으로 이동합니다.") : LOCTEXT("LoadingText", "준비되면 오프닝을 시작합니다."));
 	if (UCanvasPanelSlot* ColumnSlot = FallbackKicker ? Cast<UCanvasPanelSlot>(FallbackKicker->GetParent()->Slot) : nullptr)
 	{
-		ColumnSlot->SetSize(FVector2D(400.f, bEmpty ? 193.1f : 130.1f));
+		ColumnSlot->SetSize(FVector2D(400.f, 130.1f));
 	}
 }
 
