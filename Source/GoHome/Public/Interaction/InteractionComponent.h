@@ -49,6 +49,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Interaction")
 	float AimAssistRadius = 20.f;
 
+	// 시선이 다른 콜리전(바닥/벽 등)에 먼저 막혀도, 그 막힌 지점보다 이만큼 이내로 아이템이 닿으면 아이템을 대상으로 인정.
+	// 레벨 콜리전과 겹쳐 놓인 아이템 구제용. 0이면 끔. 너무 키우면 얇은 벽 너머 아이템이 잡힘.
+	UPROPERTY(EditAnywhere, Category = "Interaction")
+	float OverlapAimTolerance = 50.f;
 
 	// 서버 측 거리 재검증용 최대 상호작용 거리.
 	// TraceDistance보다 살짝 여유를 둠.
@@ -119,4 +123,6 @@ private:
 
 	float TimeSinceLastTrace = 0.f;
 	
+	AActor* FindItemBehindBlocker(const FVector& Start, const FVector& End, float BlockDistance) const;
+
 };
