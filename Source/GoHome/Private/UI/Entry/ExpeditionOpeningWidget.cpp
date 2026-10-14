@@ -364,7 +364,7 @@ void UExpeditionOpeningWidget::NativeTick(const FGeometry& MyGeometry, float InD
 		TimeMs = static_cast<float>(Elapsed * 1000.0);
 		if (State.Phase == EExpeditionEntryPhase::Preparing || (State.Phase == EExpeditionEntryPhase::Opening && TimeMs < 0.f))
 		{
-			Mode = EMode::Loading;	// 팀원 준비 대기 / 시작 예약 직전 — 무한 가짜 진행률 없이 대기 문구만
+			Mode = EMode::Loading;	// 팀원 준비 대기 / 시작 예약 직전 — 검은 화면
 			TimeMs = 0.f;
 		}
 		else if (State.DisplayName.IsEmpty())
@@ -631,23 +631,14 @@ void UExpeditionOpeningWidget::BuildCutin()
 void UExpeditionOpeningWidget::BuildFallback()
 {
 	UWidgetTree* T = WidgetTree;
-	// .fallback: 잉크 전체 면, 가운데 세로 흐름(flex column). 열 상자 폭 400, x 기준 = 가운데.
+	// 팀 대기·존 정보 없음: 문구 없이 검은 화면만(사용자 결정 2026-10-14 — 시안의 .fallback 대기/오류 문구는 쓰지 않는다)
 	Fallback = ExpeditionOpeningUI::Group(T, Stage, 0.f, 0.f, 1920.f, 1080.f);
-	UImage* Back = ExpeditionOpeningUI::Solid(T, Ink());
+	UImage* Back = ExpeditionOpeningUI::Solid(T, FLinearColor::Black);
 	if (UCanvasPanelSlot* BackSlot = Fallback->AddChildToCanvas(Back))
 	{
 		BackSlot->SetAnchors(FAnchors(0.f, 0.f, 1.f, 1.f));
 		BackSlot->SetOffsets(FMargin(0.f));
 	}
-	UCanvasPanel* Column = ExpeditionOpeningUI::Group(T, Fallback, 0.f, 0.f, 400.f, 200.f);
-	if (UCanvasPanelSlot* ColumnSlot = Cast<UCanvasPanelSlot>(Column->Slot))
-	{
-		ColumnSlot->SetAnchors(FAnchors(.5f, .5f));
-		ColumnSlot->SetAlignment(FVector2D(.5f, .5f));
-	}
-	FallbackKicker = ExpeditionOpeningUI::AddText(T, Column, FText::FromString(TEXT("GOHOME / EXPEDITION")), ExpeditionOpeningUI::Consolas(11.f, .2f), Lime(), 200.f, 10.f, .5f);
-	FallbackTitle = ExpeditionOpeningUI::AddText(T, Column, FText::GetEmpty(), ExpeditionOpeningUI::Malgun(28.f, true, -.055f), Paper(), 200.f, 67.f, .5f);
-	FallbackText = ExpeditionOpeningUI::AddText(T, Column, FText::GetEmpty(), ExpeditionOpeningUI::Malgun(13.f, false, 0.f, 22.1f), Hex(0x9ca9c3), 200.f, 111.f, .5f);
 }
 
 // --- 레이아웃 ---
@@ -860,15 +851,6 @@ void UExpeditionOpeningWidget::ApplyMode(EMode Mode)
 	ExpeditionOpeningUI::SetShown(Arrival, false);
 	ExpeditionOpeningUI::SetShown(Brief, false);
 	ExpeditionOpeningUI::SetShown(Cutin, false);
-
-	// 열 상자 높이 130.1(kicker 13 + 24 + 제목 37 + 8 + 13 + 본문 22.1 + 13). 스킵이 없어 시안의 건너뛰기 안내·빈 데이터 버튼은 뺐다.
-	const bool bEmpty = Mode == EMode::Empty;
-	FallbackTitle->SetText(bEmpty ? LOCTEXT("EmptyTitle", "탐사지 정보가 없습니다") : LOCTEXT("LoadingTitle", "탐사지 정보를 불러오는 중"));
-	FallbackText->SetText(bEmpty ? LOCTEXT("EmptyText", "잠시 후 탐사 화면으로 이동합니다.") : LOCTEXT("LoadingText", "준비되면 오프닝을 시작합니다."));
-	if (UCanvasPanelSlot* ColumnSlot = FallbackKicker ? Cast<UCanvasPanelSlot>(FallbackKicker->GetParent()->Slot) : nullptr)
-	{
-		ColumnSlot->SetSize(FVector2D(400.f, 130.1f));
-	}
 }
 
 // --- 타임라인 ---

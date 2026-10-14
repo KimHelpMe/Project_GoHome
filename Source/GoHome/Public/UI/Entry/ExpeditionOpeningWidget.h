@@ -112,9 +112,6 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UImage> CutinBlue;
 	UPROPERTY(Transient) TObjectPtr<UCanvasPanel> CutinType;
 
-	// 대기·빈 데이터(.fallback)
+	// 팀 대기·존 정보 없음: 검은 화면
 	UPROPERTY(Transient) TObjectPtr<UCanvasPanel> Fallback;
-	UPROPERTY(Transient) TObjectPtr<UTextBlock> FallbackKicker;
-	UPROPERTY(Transient) TObjectPtr<UTextBlock> FallbackTitle;
-	UPROPERTY(Transient) TObjectPtr<UTextBlock> FallbackText;
 };
